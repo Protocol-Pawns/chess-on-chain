@@ -40,4 +40,8 @@ impl Account {
     pub fn is_playing(&self) -> bool {
         !self.game_ids.is_empty()
     }
+
+    pub fn get_game_ids(&self) -> Vec<GameId> {
+        self.game_ids.into_iter().cloned().collect()
+    }
 }

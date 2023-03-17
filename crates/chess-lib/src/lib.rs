@@ -97,6 +97,12 @@ impl Chess {
 
     #[handle_result]
     pub fn resign(&mut self, game_id: GameId) -> Result<(), ContractError> {
+        let account_id = env::signer_account_id();
+        let account = self
+            .accounts
+            .get_mut(&account_id)
+            .ok_or_else(|| ContractError::AccountNotRegistered(account_id.clone()))?;
+
         let game = self
             .games
             .get_mut(&game_id)
@@ -106,6 +112,7 @@ impl Chess {
             return Err(ContractError::NotPlaying);
         }
         self.games.remove(&game_id);
+        account.remove_game_id(&game_id);
         Ok(())
     }
 
@@ -130,6 +137,15 @@ impl Chess {
             black: game.black.clone(),
             turn_color: game.board.get_turn_color(),
         })
+    }
+
+    #[handle_result]
+    pub fn get_game_ids(&self, account_id: AccountId) -> Result<Vec<GameId>, ContractError> {
+        let account = self
+            .accounts
+            .get(&account_id)
+            .ok_or_else(|| ContractError::AccountNotRegistered(account_id.clone()))?;
+        Ok(account.get_game_ids())
     }
 }
 

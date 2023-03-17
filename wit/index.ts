@@ -12,32 +12,45 @@ import {
   f64,
   CallOptions,
   Difficulty,
-  Gas,
-  Duration,
-  PublicKey,
-  Base64VecU8,
-  Balance,
-  Timestamp,
   GameOutcome,
-  AccountId,
+  GameInfo,
+  Balance,
+  Base64VecU8,
+  Timestamp,
+  NftContractMetadata,
+  ContractError,
+  GameId,
   FungibleTokenMetadata,
   StorageBalanceBounds,
+  U128,
   TokenMetadata,
+  Color,
   Player,
-  NftContractMetadata,
+  PublicKey,
+  StorageUsage,
+  Duration,
+  Token,
+  TokenId,
+  AccountId,
   WrappedDuration,
   StorageBalance,
-  GameInfo,
-  GameId,
-  Token,
-  Color,
-  ContractError,
-  TokenId,
   Result,
-  U128,
-  StorageUsage,
+  Gas,
 } from "./types";
 
+/**
+* 
+* @contractMethod change
+*/
+export interface StorageDeposit {
+  args: {
+    account_id?: AccountId;
+    registration_only?: boolean;
+  };
+  options: CallOptions
+  
+}
+export type StorageDeposit__Result = StorageBalance;
 /**
 * 
 * @contractMethod change
@@ -151,3 +164,14 @@ export interface GameInfo {
   
 }
 export type GameInfo__Result = Result<GameInfo, ContractError>;
+/**
+* 
+* @contractMethod view
+*/
+export interface GetGameIds {
+  args: {
+    account_id: AccountId;
+  };
+  
+}
+export type GetGameIds__Result = Result<GameId[], ContractError>;

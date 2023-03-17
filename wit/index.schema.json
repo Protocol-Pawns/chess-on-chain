@@ -343,6 +343,31 @@
       ],
       "type": "object"
     },
+    "GetGameIds": {
+      "additionalProperties": false,
+      "contractMethod": "view",
+      "properties": {
+        "args": {
+          "additionalProperties": false,
+          "properties": {
+            "account_id": {
+              "$ref": "#/definitions/AccountId"
+            }
+          },
+          "required": [
+            "account_id"
+          ],
+          "type": "object"
+        }
+      },
+      "required": [
+        "args"
+      ],
+      "type": "object"
+    },
+    "GetGameIds__Result": {
+      "$ref": "#/definitions/Result%3Cdef-alias-1808117282-2380-2437-1808117282-0-5885%5B%5D%2CContractError%3E"
+    },
     "New": {
       "additionalProperties": false,
       "contractMethod": "change",
@@ -666,6 +691,47 @@
         }
       ]
     },
+    "Result<def-alias-1808117282-2380-2437-1808117282-0-5885[],ContractError>": {
+      "anyOf": [
+        {
+          "additionalProperties": false,
+          "properties": {
+            "tag": {
+              "const": "ok",
+              "type": "string"
+            },
+            "val": {
+              "items": {
+                "$ref": "#/definitions/GameId"
+              },
+              "type": "array"
+            }
+          },
+          "required": [
+            "tag",
+            "val"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "tag": {
+              "const": "err",
+              "type": "string"
+            },
+            "val": {
+              "$ref": "#/definitions/ContractError"
+            }
+          },
+          "required": [
+            "tag",
+            "val"
+          ],
+          "type": "object"
+        }
+      ]
+    },
     "Result<string,ContractError>": {
       "anyOf": [
         {
@@ -768,6 +834,35 @@
           "type": "null"
         }
       ]
+    },
+    "StorageDeposit": {
+      "additionalProperties": false,
+      "contractMethod": "change",
+      "properties": {
+        "args": {
+          "additionalProperties": false,
+          "properties": {
+            "account_id": {
+              "$ref": "#/definitions/AccountId"
+            },
+            "registration_only": {
+              "type": "boolean"
+            }
+          },
+          "type": "object"
+        },
+        "options": {
+          "$ref": "#/definitions/CallOptions"
+        }
+      },
+      "required": [
+        "args",
+        "options"
+      ],
+      "type": "object"
+    },
+    "StorageDeposit__Result": {
+      "$ref": "#/definitions/StorageBalance"
     },
     "StorageUnregister": {
       "additionalProperties": false,

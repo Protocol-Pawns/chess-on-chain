@@ -14,7 +14,7 @@ impl StorageManagement for Chess {
     #[payable]
     fn storage_deposit(
         &mut self,
-        account_id: Option<near_sdk::AccountId>,
+        account_id: Option<AccountId>,
         registration_only: Option<bool>,
     ) -> StorageBalance {
         match self.internal_storage_deposit(account_id, registration_only) {
@@ -26,7 +26,7 @@ impl StorageManagement for Chess {
     }
 
     #[payable]
-    fn storage_withdraw(&mut self, amount: Option<near_sdk::json_types::U128>) -> StorageBalance {
+    fn storage_withdraw(&mut self, amount: Option<U128>) -> StorageBalance {
         assert_one_yocto();
         match self.internal_storage_withdraw(amount) {
             Ok(res) => res,
