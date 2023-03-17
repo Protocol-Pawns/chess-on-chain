@@ -16,4 +16,8 @@ pub enum ContractError {
     MoveParse(String),
     #[error("Illegal move")]
     IllegalMove,
+    #[error("It is not your turn")]
+    NotYourTurn,
+    #[error("You are not a player from this game")]
+    NotPlaying,
 }

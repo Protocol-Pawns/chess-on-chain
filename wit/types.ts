@@ -80,7 +80,7 @@ export type CallOptions = {
 }
 
 
-export type ContractError = ContractErrorAlreadyInitilized | ContractErrorGameNotExists | ContractErrorMoveParse | ContractErrorIllegalMove;
+export type ContractError = ContractErrorAlreadyInitilized | ContractErrorGameNotExists | ContractErrorMoveParse | ContractErrorIllegalMove | ContractErrorNotYourTurn | ContractErrorNotPlaying;
 export interface ContractErrorAlreadyInitilized {
   tag: "already-initilized",
 }
@@ -94,12 +94,32 @@ export interface ContractErrorMoveParse {
 export interface ContractErrorIllegalMove {
   tag: "illegal-move",
 }
+export interface ContractErrorNotYourTurn {
+  tag: "not-your-turn",
+}
+export interface ContractErrorNotPlaying {
+  tag: "not-playing",
+}
 export type GameId = [u64, AccountId, AccountId | null];
+export type Player = PlayerHuman | PlayerAi;
+export interface PlayerHuman {
+  tag: "human",
+  val: AccountId,
+}
+export interface PlayerAi {
+  tag: "ai",
+  val: Difficulty,
+}
 export enum Difficulty {
   Easy = "Easy",
   Medium = "Medium",
   Hard = "Hard",
   VeryHard = "VeryHard",
+}
+export interface GameInfo {
+  white: Player;
+  black: Player;
+  turn_color: Color;
 }
 export type GameOutcome = GameOutcomeVictory | GameOutcomeStalemate;
 export interface GameOutcomeVictory {

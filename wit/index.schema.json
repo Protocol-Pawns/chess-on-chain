@@ -49,6 +49,12 @@
         },
         {
           "$ref": "#/definitions/ContractErrorIllegalMove"
+        },
+        {
+          "$ref": "#/definitions/ContractErrorNotYourTurn"
+        },
+        {
+          "$ref": "#/definitions/ContractErrorNotPlaying"
         }
       ]
     },
@@ -108,6 +114,32 @@
       ],
       "type": "object"
     },
+    "ContractErrorNotPlaying": {
+      "additionalProperties": false,
+      "properties": {
+        "tag": {
+          "const": "not-playing",
+          "type": "string"
+        }
+      },
+      "required": [
+        "tag"
+      ],
+      "type": "object"
+    },
+    "ContractErrorNotYourTurn": {
+      "additionalProperties": false,
+      "properties": {
+        "tag": {
+          "const": "not-your-turn",
+          "type": "string"
+        }
+      },
+      "required": [
+        "tag"
+      ],
+      "type": "object"
+    },
     "CreateAiGame": {
       "additionalProperties": false,
       "contractMethod": "change",
@@ -135,7 +167,7 @@
       "type": "object"
     },
     "CreateAiGame__Result": {
-      "type": "null"
+      "$ref": "#/definitions/GameId"
     },
     "Difficulty": {
       "enum": [
@@ -168,6 +200,31 @@
       "maxItems": 3,
       "minItems": 3,
       "type": "array"
+    },
+    "GameInfo": {
+      "additionalProperties": false,
+      "contractMethod": "view",
+      "properties": {
+        "args": {
+          "additionalProperties": false,
+          "properties": {
+            "game_id": {
+              "$ref": "#/definitions/GameId"
+            }
+          },
+          "required": [
+            "game_id"
+          ],
+          "type": "object"
+        }
+      },
+      "required": [
+        "args"
+      ],
+      "type": "object"
+    },
+    "GameInfo__Result": {
+      "$ref": "#/definitions/Result%3CGameInfo%2CContractError%3E"
     },
     "GameOutcome": {
       "anyOf": [
@@ -261,9 +318,107 @@
       "type": "object"
     },
     "PlayMove__Result": {
-      "$ref": "#/definitions/Result%3C(GameOutcome%7Cnull)%2CContractError%3E"
+      "$ref": "#/definitions/Result%3C%5B(def-alias-1808117282-2283-2352-1808117282-0-5365%7Cnull)%2Cstring%5D%2CContractError%3E"
     },
-    "Result<(GameOutcome|null),ContractError>": {
+    "Player": {
+      "anyOf": [
+        {
+          "$ref": "#/definitions/PlayerHuman"
+        },
+        {
+          "$ref": "#/definitions/PlayerAi"
+        }
+      ]
+    },
+    "PlayerAi": {
+      "additionalProperties": false,
+      "properties": {
+        "tag": {
+          "const": "ai",
+          "type": "string"
+        },
+        "val": {
+          "$ref": "#/definitions/Difficulty"
+        }
+      },
+      "required": [
+        "tag",
+        "val"
+      ],
+      "type": "object"
+    },
+    "PlayerHuman": {
+      "additionalProperties": false,
+      "properties": {
+        "tag": {
+          "const": "human",
+          "type": "string"
+        },
+        "val": {
+          "$ref": "#/definitions/AccountId"
+        }
+      },
+      "required": [
+        "tag",
+        "val"
+      ],
+      "type": "object"
+    },
+    "RenderBoard": {
+      "additionalProperties": false,
+      "contractMethod": "view",
+      "properties": {
+        "args": {
+          "additionalProperties": false,
+          "properties": {
+            "game_id": {
+              "$ref": "#/definitions/GameId"
+            }
+          },
+          "required": [
+            "game_id"
+          ],
+          "type": "object"
+        }
+      },
+      "required": [
+        "args"
+      ],
+      "type": "object"
+    },
+    "RenderBoard__Result": {
+      "$ref": "#/definitions/Result%3Cstring%2CContractError%3E"
+    },
+    "Resign": {
+      "additionalProperties": false,
+      "contractMethod": "change",
+      "properties": {
+        "args": {
+          "additionalProperties": false,
+          "properties": {
+            "game_id": {
+              "$ref": "#/definitions/GameId"
+            }
+          },
+          "required": [
+            "game_id"
+          ],
+          "type": "object"
+        },
+        "options": {
+          "$ref": "#/definitions/CallOptions"
+        }
+      },
+      "required": [
+        "args",
+        "options"
+      ],
+      "type": "object"
+    },
+    "Resign__Result": {
+      "$ref": "#/definitions/Result%3C%5B%5D%2CContractError%3E"
+    },
+    "Result<GameInfo,ContractError>": {
       "anyOf": [
         {
           "additionalProperties": false,
@@ -273,14 +428,140 @@
               "type": "string"
             },
             "val": {
-              "anyOf": [
+              "$ref": "#/definitions/GameInfo"
+            }
+          },
+          "required": [
+            "tag",
+            "val"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "tag": {
+              "const": "err",
+              "type": "string"
+            },
+            "val": {
+              "$ref": "#/definitions/ContractError"
+            }
+          },
+          "required": [
+            "tag",
+            "val"
+          ],
+          "type": "object"
+        }
+      ]
+    },
+    "Result<[(def-alias-1808117282-2283-2352-1808117282-0-5365|null),string],ContractError>": {
+      "anyOf": [
+        {
+          "additionalProperties": false,
+          "properties": {
+            "tag": {
+              "const": "ok",
+              "type": "string"
+            },
+            "val": {
+              "items": [
                 {
-                  "$ref": "#/definitions/GameOutcome"
+                  "anyOf": [
+                    {
+                      "$ref": "#/definitions/GameOutcome"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
                 },
                 {
-                  "type": "null"
+                  "type": "string"
                 }
-              ]
+              ],
+              "maxItems": 2,
+              "minItems": 2,
+              "type": "array"
+            }
+          },
+          "required": [
+            "tag",
+            "val"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "tag": {
+              "const": "err",
+              "type": "string"
+            },
+            "val": {
+              "$ref": "#/definitions/ContractError"
+            }
+          },
+          "required": [
+            "tag",
+            "val"
+          ],
+          "type": "object"
+        }
+      ]
+    },
+    "Result<[],ContractError>": {
+      "anyOf": [
+        {
+          "additionalProperties": false,
+          "properties": {
+            "tag": {
+              "const": "ok",
+              "type": "string"
+            },
+            "val": {
+              "maxItems": 0,
+              "minItems": 0,
+              "type": "array"
+            }
+          },
+          "required": [
+            "tag",
+            "val"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "tag": {
+              "const": "err",
+              "type": "string"
+            },
+            "val": {
+              "$ref": "#/definitions/ContractError"
+            }
+          },
+          "required": [
+            "tag",
+            "val"
+          ],
+          "type": "object"
+        }
+      ]
+    },
+    "Result<string,ContractError>": {
+      "anyOf": [
+        {
+          "additionalProperties": false,
+          "properties": {
+            "tag": {
+              "const": "ok",
+              "type": "string"
+            },
+            "val": {
+              "type": "string"
             }
           },
           "required": [

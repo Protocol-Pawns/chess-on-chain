@@ -1,8 +1,8 @@
 use crate::ContractError;
-use chess_engine::{Board, Color, Evaluate, GameResult, Move};
+use chess_engine::{Board, Color, Evaluate, GameResult, Move, Piece, Position};
 use near_sdk::{
     borsh::{self, BorshDeserialize, BorshSerialize},
-    near_bindgen,
+    log, near_bindgen,
     serde::{Deserialize, Serialize},
     AccountId,
 };
@@ -24,13 +24,15 @@ use witgen::witgen;
 #[witgen]
 pub struct GameId(pub u64, pub AccountId, pub Option<AccountId>);
 
-#[derive(BorshDeserialize, BorshSerialize)]
+#[derive(BorshDeserialize, BorshSerialize, Clone, Serialize)]
+#[serde(crate = "near_sdk::serde")]
+#[witgen]
 pub enum Player {
     Human(AccountId),
     Ai(Difficulty),
 }
 
-#[derive(BorshDeserialize, BorshSerialize, Deserialize, Serialize)]
+#[derive(BorshDeserialize, BorshSerialize, Clone, Deserialize, Serialize)]
 #[serde(crate = "near_sdk::serde")]
 #[witgen]
 
@@ -44,9 +46,18 @@ pub enum Difficulty {
 #[near_bindgen]
 #[derive(BorshDeserialize, BorshSerialize)]
 pub struct Game {
-    white: Player,
-    black: Player,
-    board: Board,
+    pub white: Player,
+    pub black: Player,
+    pub board: Board,
+}
+
+#[derive(Serialize)]
+#[serde(crate = "near_sdk::serde")]
+#[witgen]
+pub struct GameInfo {
+    pub white: Player,
+    pub black: Player,
+    pub turn_color: Color,
 }
 
 #[derive(BorshDeserialize, BorshSerialize, Deserialize, Serialize)]
@@ -67,7 +78,35 @@ impl Game {
         }
     }
 
+    pub fn is_turn(&self, account_id: AccountId) -> bool {
+        let player = match self.board.get_turn_color() {
+            Color::White => &self.white,
+            Color::Black => &self.black,
+        };
+        if let Player::Human(id) = player {
+            id == &account_id
+        } else {
+            false
+        }
+    }
+
+    pub fn is_player(&self, account_id: AccountId) -> bool {
+        if let Player::Human(id) = &self.white {
+            if id == &account_id {
+                return true;
+            }
+        }
+        if let Player::Human(id) = &self.black {
+            if id == &account_id {
+                return true;
+            }
+        }
+        false
+    }
+
     pub fn play_move(&mut self, mv: Move) -> Result<Option<GameOutcome>, ContractError> {
+        let turn_color = self.board.get_turn_color();
+        log!("{}: {}", turn_color, mv);
         let outcome = match self.board.play_move(mv) {
             GameResult::Continuing(board) => {
                 let (board, outcome) = if let Player::Ai(difficulty) = &self.black {
@@ -77,11 +116,18 @@ impl Game {
                         Difficulty::Hard => 3,
                         Difficulty::VeryHard => 4,
                     };
-                    let (ai_mv, _, _) = self.board.get_best_next_move(depth);
-                    match self.board.play_move(ai_mv) {
+                    let (ai_mv, _, _) = board.get_best_next_move(depth);
+                    log!("Black: {}", ai_mv);
+                    match board.play_move(ai_mv) {
                         GameResult::Continuing(board) => (board, None),
-                        GameResult::Victory(color) => (board, Some(GameOutcome::Victory(color))),
-                        GameResult::Stalemate => (board, Some(GameOutcome::Stalemate)),
+                        GameResult::Victory(color) => {
+                            log!("{} won the match", color);
+                            (board, Some(GameOutcome::Victory(color)))
+                        }
+                        GameResult::Stalemate => {
+                            log!("Draw due to stalement");
+                            (board, Some(GameOutcome::Stalemate))
+                        }
                         GameResult::IllegalMove(_) => return Err(ContractError::IllegalMove),
                     }
                 } else {
@@ -90,10 +136,54 @@ impl Game {
                 self.board = board;
                 outcome
             }
-            GameResult::Victory(color) => Some(GameOutcome::Victory(color)),
-            GameResult::Stalemate => Some(GameOutcome::Stalemate),
+            GameResult::Victory(color) => {
+                log!("{} won the match", color);
+                Some(GameOutcome::Victory(color))
+            }
+            GameResult::Stalemate => {
+                log!("Draw due to stalement");
+                Some(GameOutcome::Stalemate)
+            }
             GameResult::IllegalMove(_) => return Err(ContractError::IllegalMove),
         };
         Ok(outcome)
+    }
+
+    pub fn render_board(&self) -> String {
+        (-1..8)
+            .rev()
+            .flat_map(|row| {
+                (-1..9).map(move |col| -> char {
+                    if col == -1 && row == -1 {
+                        ' '
+                    } else if col == -1 {
+                        (b'1' + row as u8) as char
+                    } else if row == -1 {
+                        (b'A' + col as u8) as char
+                    } else if col == 8 {
+                        '\n'
+                    } else if let Some(piece) = self.board.get_piece(Position::new(row, col)) {
+                        match piece {
+                            Piece::King(Color::Black, _) => '♚',
+                            Piece::King(Color::White, _) => '♔',
+                            Piece::Queen(Color::Black, _) => '♛',
+                            Piece::Queen(Color::White, _) => '♕',
+                            Piece::Rook(Color::Black, _) => '♜',
+                            Piece::Rook(Color::White, _) => '♖',
+                            Piece::Bishop(Color::Black, _) => '♝',
+                            Piece::Bishop(Color::White, _) => '♗',
+                            Piece::Knight(Color::Black, _) => '♞',
+                            Piece::Knight(Color::White, _) => '♘',
+                            Piece::Pawn(Color::Black, _) => '♟',
+                            Piece::Pawn(Color::White, _) => '♙',
+                        }
+                    } else if (row + col) % 2 == 0 {
+                        '□'
+                    } else {
+                        '■'
+                    }
+                })
+            })
+            .collect()
     }
 }

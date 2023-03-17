@@ -11,29 +11,31 @@ import {
   f32,
   f64,
   CallOptions,
-  StorageBalanceBounds,
   Difficulty,
-  Base64VecU8,
-  StorageBalance,
-  Gas,
+  GameId,
+  GameInfo,
   U128,
+  Player,
+  FungibleTokenMetadata,
+  TokenId,
+  StorageBalance,
   Color,
   WrappedDuration,
-  Token,
-  Duration,
-  TokenMetadata,
-  Balance,
-  AccountId,
-  FungibleTokenMetadata,
-  ContractError,
-  GameId,
-  PublicKey,
-  NftContractMetadata,
-  StorageUsage,
-  GameOutcome,
-  TokenId,
   Result,
+  NftContractMetadata,
   Timestamp,
+  AccountId,
+  Gas,
+  Balance,
+  Token,
+  StorageUsage,
+  TokenMetadata,
+  PublicKey,
+  GameOutcome,
+  Base64VecU8,
+  StorageBalanceBounds,
+  Duration,
+  ContractError,
 } from "./types";
 
 /**
@@ -57,7 +59,7 @@ export interface CreateAiGame {
   options: CallOptions
   
 }
-export type CreateAiGame__Result = void;
+export type CreateAiGame__Result = GameId;
 /**
 * 
 * @contractMethod change
@@ -70,4 +72,38 @@ export interface PlayMove {
   options: CallOptions
   
 }
-export type PlayMove__Result = Result<GameOutcome | null, ContractError>;
+export type PlayMove__Result = Result<[GameOutcome | null, string], ContractError>;
+/**
+* 
+* @contractMethod change
+*/
+export interface Resign {
+  args: {
+    game_id: GameId;
+  };
+  options: CallOptions
+  
+}
+export type Resign__Result = Result<[], ContractError>;
+/**
+* 
+* @contractMethod view
+*/
+export interface RenderBoard {
+  args: {
+    game_id: GameId;
+  };
+  
+}
+export type RenderBoard__Result = Result<string, ContractError>;
+/**
+* 
+* @contractMethod view
+*/
+export interface GameInfo {
+  args: {
+    game_id: GameId;
+  };
+  
+}
+export type GameInfo__Result = Result<GameInfo, ContractError>;
