@@ -1,0 +1,152 @@
+// This is a generated file by witgen (https://github.com/bnjjj/witgen), please do not edit yourself, you can generate a new one thanks to cargo witgen generate command. (cargo-witgen v0.13.0) 
+
+
+// This is a generated file by witgen (https://github.com/bnjjj/witgen), please do not edit yourself, you can generate a new one thanks to cargo witgen generate command. (cargo-witgen v0.13.0) 
+
+
+variant contract-error {
+    already-initilized,
+    game-not-exists,
+    move-parse(string),
+    illegal-move,
+}
+
+
+type game-id = tuple<u64, account-id, option<account-id>>
+
+enum difficulty {
+    easy,
+    medium,
+    hard,
+    very-hard,
+}
+
+
+variant game-outcome {
+    victory(color),
+    stalemate,
+}
+
+
+///  @change
+new: function()
+///  @change
+create-ai-game: function(difficulty: difficulty)
+///  @change
+play-move: function(game-id: game-id, mv: string) -> expected<option<game-outcome>, contract-error>
+
+
+// This is a generated file by witgen (https://github.com/bnjjj/witgen), please do not edit yourself, you can generate a new one thanks to cargo witgen generate command. (cargo-witgen v0.13.0) 
+
+
+
+
+
+
+
+
+///  The color of a piece.
+enum color {
+    white,
+    black,
+}
+
+
+
+// This is a generated file by witgen (https://github.com/bnjjj/witgen), please do not edit yourself, you can generate a new one thanks to cargo witgen generate command. (witme v0.2.0) 
+
+///  StorageUsage is used to count the amount of storage used by a contract.
+type storage-usage = u64
+
+///  Balance is a type for storing amounts of tokens, specified in yoctoNEAR.
+type balance = u128
+
+///  Represents the amount of NEAR tokens in "gas units" which are used to fund transactions.
+type gas = u64
+
+///  base64 string.
+type base64-vec-u8 = string
+
+///  Raw type for duration in nanoseconds
+type duration = u64
+
+///  @minLength 2
+///  @maxLength 64
+///  @pattern ^(([a-z\d]+[-_])*[a-z\d]+\.)*([a-z\d]+[-_])*[a-z\d]+$
+type account-id = string
+
+///  String representation of a u128-bit integer
+///  @pattern ^[0-9]+$
+type u128 = string
+
+///  Public key in a binary format with base58 string serialization with human-readable curve.
+///  The key types currently supported are `secp256k1` and `ed25519`.
+/// 
+///  Ed25519 public keys accepted are 32 bytes and secp256k1 keys are the uncompressed 64 format.
+type public-key = string
+
+///  Raw type for timestamp in nanoseconds
+type timestamp = u64
+
+// This is a generated file by witgen (https://github.com/bnjjj/witgen), please do not edit yourself, you can generate a new one thanks to cargo witgen generate command. (witme v0.1.0) 
+
+///  In this implementation, the Token struct takes two extensions standards (metadata and approval) as optional fields, as they are frequently used in modern NFTs.
+record token {
+    token-id: token-id,
+    owner-id: account-id,
+    metadata: option<token-metadata>,
+    approved-account-ids: option<list<tuple<account-id,u64>>>
+}
+
+record fungible-token-metadata {
+    spec: string,
+    name: string,
+    symbol: string,
+    icon: option<string>,
+    reference: option<string>,
+    reference-hash: option<base64-vec-u8>,
+    decimals: u8
+}
+
+///  Note that token IDs for NFTs are strings on NEAR. It's still fine to use autoincrementing numbers as unique IDs if desired, but they should be stringified. This is to make IDs more future-proof as chain-agnostic conventions and standards arise, and allows for more flexibility with considerations like bridging NFTs across chains, etc.
+type token-id = string
+
+///  Metadata for the NFT contract itself.
+record nft-contract-metadata {
+    spec: string,
+    name: string,
+    symbol: string,
+    icon: option<string>,
+    base-uri: option<string>,
+    reference: option<string>,
+    reference-hash: option<base64-vec-u8>
+}
+
+record storage-balance-bounds {
+    min: u128,
+    max: option<u128>
+}
+
+///  Metadata on the individual token level.
+record token-metadata {
+    title: option<string>,
+    description: option<string>,
+    media: option<string>,
+    media-hash: option<base64-vec-u8>,
+    copies: option<u64>,
+    issued-at: option<string>,
+    expires-at: option<string>,
+    starts-at: option<string>,
+    updated-at: option<string>,
+    extra: option<string>,
+    reference: option<string>,
+    reference-hash: option<base64-vec-u8>
+}
+
+record storage-balance {
+    total: u128,
+    available: u128
+}
+
+type wrapped-duration = string
+

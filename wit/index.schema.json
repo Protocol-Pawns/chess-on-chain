@@ -1,0 +1,322 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "definitions": {
+    "AccountId": {
+      "maxLength": 64,
+      "minLength": 2,
+      "pattern": "^(([a-z\\d]+[-_])*[a-z\\d]+\\.)*([a-z\\d]+[-_])*[a-z\\d]+$",
+      "type": "string"
+    },
+    "Balance": {
+      "$ref": "#/definitions/U128",
+      "description": "Balance is a type for storing amounts of tokens, specified in yoctoNEAR."
+    },
+    "CallOptions": {
+      "additionalProperties": false,
+      "properties": {
+        "attachedDeposit": {
+          "$ref": "#/definitions/Balance",
+          "default": "0",
+          "description": "Units in yoctoNear"
+        },
+        "gas": {
+          "default": "30000000000000",
+          "description": "Units in gas",
+          "pattern": "[0-9]+",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "Color": {
+      "description": "The color of a piece.",
+      "enum": [
+        "White",
+        "Black"
+      ],
+      "type": "string"
+    },
+    "ContractError": {
+      "anyOf": [
+        {
+          "$ref": "#/definitions/ContractErrorAlreadyInitilized"
+        },
+        {
+          "$ref": "#/definitions/ContractErrorGameNotExists"
+        },
+        {
+          "$ref": "#/definitions/ContractErrorMoveParse"
+        },
+        {
+          "$ref": "#/definitions/ContractErrorIllegalMove"
+        }
+      ]
+    },
+    "ContractErrorAlreadyInitilized": {
+      "additionalProperties": false,
+      "properties": {
+        "tag": {
+          "const": "already-initilized",
+          "type": "string"
+        }
+      },
+      "required": [
+        "tag"
+      ],
+      "type": "object"
+    },
+    "ContractErrorGameNotExists": {
+      "additionalProperties": false,
+      "properties": {
+        "tag": {
+          "const": "game-not-exists",
+          "type": "string"
+        }
+      },
+      "required": [
+        "tag"
+      ],
+      "type": "object"
+    },
+    "ContractErrorIllegalMove": {
+      "additionalProperties": false,
+      "properties": {
+        "tag": {
+          "const": "illegal-move",
+          "type": "string"
+        }
+      },
+      "required": [
+        "tag"
+      ],
+      "type": "object"
+    },
+    "ContractErrorMoveParse": {
+      "additionalProperties": false,
+      "properties": {
+        "tag": {
+          "const": "move-parse",
+          "type": "string"
+        },
+        "val": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "tag",
+        "val"
+      ],
+      "type": "object"
+    },
+    "CreateAiGame": {
+      "additionalProperties": false,
+      "contractMethod": "change",
+      "properties": {
+        "args": {
+          "additionalProperties": false,
+          "properties": {
+            "difficulty": {
+              "$ref": "#/definitions/Difficulty"
+            }
+          },
+          "required": [
+            "difficulty"
+          ],
+          "type": "object"
+        },
+        "options": {
+          "$ref": "#/definitions/CallOptions"
+        }
+      },
+      "required": [
+        "args",
+        "options"
+      ],
+      "type": "object"
+    },
+    "CreateAiGame__Result": {
+      "type": "null"
+    },
+    "Difficulty": {
+      "enum": [
+        "Easy",
+        "Medium",
+        "Hard",
+        "VeryHard"
+      ],
+      "type": "string"
+    },
+    "GameId": {
+      "items": [
+        {
+          "$ref": "#/definitions/u64"
+        },
+        {
+          "$ref": "#/definitions/AccountId"
+        },
+        {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/AccountId"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      ],
+      "maxItems": 3,
+      "minItems": 3,
+      "type": "array"
+    },
+    "GameOutcome": {
+      "anyOf": [
+        {
+          "$ref": "#/definitions/GameOutcomeVictory"
+        },
+        {
+          "$ref": "#/definitions/GameOutcomeStalemate"
+        }
+      ]
+    },
+    "GameOutcomeStalemate": {
+      "additionalProperties": false,
+      "properties": {
+        "tag": {
+          "const": "stalemate",
+          "type": "string"
+        }
+      },
+      "required": [
+        "tag"
+      ],
+      "type": "object"
+    },
+    "GameOutcomeVictory": {
+      "additionalProperties": false,
+      "properties": {
+        "tag": {
+          "const": "victory",
+          "type": "string"
+        },
+        "val": {
+          "$ref": "#/definitions/Color"
+        }
+      },
+      "required": [
+        "tag",
+        "val"
+      ],
+      "type": "object"
+    },
+    "New": {
+      "additionalProperties": false,
+      "contractMethod": "change",
+      "properties": {
+        "args": {
+          "additionalProperties": false,
+          "type": "object"
+        },
+        "options": {
+          "$ref": "#/definitions/CallOptions"
+        }
+      },
+      "required": [
+        "args",
+        "options"
+      ],
+      "type": "object"
+    },
+    "New__Result": {
+      "type": "null"
+    },
+    "PlayMove": {
+      "additionalProperties": false,
+      "contractMethod": "change",
+      "properties": {
+        "args": {
+          "additionalProperties": false,
+          "properties": {
+            "game_id": {
+              "$ref": "#/definitions/GameId"
+            },
+            "mv": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "game_id",
+            "mv"
+          ],
+          "type": "object"
+        },
+        "options": {
+          "$ref": "#/definitions/CallOptions"
+        }
+      },
+      "required": [
+        "args",
+        "options"
+      ],
+      "type": "object"
+    },
+    "PlayMove__Result": {
+      "$ref": "#/definitions/Result%3C(GameOutcome%7Cnull)%2CContractError%3E"
+    },
+    "Result<(GameOutcome|null),ContractError>": {
+      "anyOf": [
+        {
+          "additionalProperties": false,
+          "properties": {
+            "tag": {
+              "const": "ok",
+              "type": "string"
+            },
+            "val": {
+              "anyOf": [
+                {
+                  "$ref": "#/definitions/GameOutcome"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "required": [
+            "tag",
+            "val"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "tag": {
+              "const": "err",
+              "type": "string"
+            },
+            "val": {
+              "$ref": "#/definitions/ContractError"
+            }
+          },
+          "required": [
+            "tag",
+            "val"
+          ],
+          "type": "object"
+        }
+      ]
+    },
+    "U128": {
+      "description": "String representation of a u128-bit integer",
+      "pattern": "^[0-9]+$",
+      "type": "string"
+    },
+    "u64": {
+      "maximum": 18446744073709552000,
+      "minimum": 0,
+      "type": "integer"
+    }
+  }
+}

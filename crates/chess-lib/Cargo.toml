@@ -8,10 +8,13 @@ edition = "2021"
 crate-type = ["rlib"]
 
 [dependencies]
-chess-engine = "0.1"
 near-sdk = "4"
 thiserror = "1"
 witgen = "0.15"
+
+[dependencies.chess-engine]
+version = "0.1"
+path = "../../../chess-engine"
 
 [package.metadata.witgen]
 export = true

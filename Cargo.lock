@@ -252,8 +252,10 @@ dependencies = [
 [[package]]
 name = "chess-engine"
 version = "0.1.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2c3d84df714f106134fef89235d87bd91c3af2848f2bf3c399d8500a3df186b6"
+dependencies = [
+ "near-sdk",
+ "witgen",
+]
 
 [[package]]
 name = "chess-lib"
