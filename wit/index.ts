@@ -12,32 +12,76 @@ import {
   f64,
   CallOptions,
   Difficulty,
-  GameId,
-  GameInfo,
-  U128,
-  Player,
-  FungibleTokenMetadata,
-  TokenId,
-  StorageBalance,
-  Color,
-  WrappedDuration,
-  Result,
-  NftContractMetadata,
-  Timestamp,
-  AccountId,
   Gas,
-  Balance,
-  Token,
-  StorageUsage,
-  TokenMetadata,
-  PublicKey,
-  GameOutcome,
-  Base64VecU8,
-  StorageBalanceBounds,
   Duration,
+  PublicKey,
+  Base64VecU8,
+  Balance,
+  Timestamp,
+  GameOutcome,
+  AccountId,
+  FungibleTokenMetadata,
+  StorageBalanceBounds,
+  TokenMetadata,
+  Player,
+  NftContractMetadata,
+  WrappedDuration,
+  StorageBalance,
+  GameInfo,
+  GameId,
+  Token,
+  Color,
   ContractError,
+  TokenId,
+  Result,
+  U128,
+  StorageUsage,
 } from "./types";
 
+/**
+* 
+* @contractMethod change
+*/
+export interface StorageWithdraw {
+  args: {
+    amount?: U128;
+  };
+  options: CallOptions
+  
+}
+export type StorageWithdraw__Result = StorageBalance;
+/**
+* 
+* @contractMethod change
+*/
+export interface StorageUnregister {
+  args: {
+    force?: boolean;
+  };
+  options: CallOptions
+  
+}
+export type StorageUnregister__Result = boolean;
+/**
+* 
+* @contractMethod view
+*/
+export interface StorageBalanceBounds {
+  args: {};
+  
+}
+export type StorageBalanceBounds__Result = StorageBalanceBounds;
+/**
+* 
+* @contractMethod view
+*/
+export interface StorageBalanceOf {
+  args: {
+    account_id: AccountId;
+  };
+  
+}
+export type StorageBalanceOf__Result = StorageBalance | null;
 /**
 * 
 * @contractMethod change
@@ -59,7 +103,7 @@ export interface CreateAiGame {
   options: CallOptions
   
 }
-export type CreateAiGame__Result = GameId;
+export type CreateAiGame__Result = Result<GameId, ContractError>;
 /**
 * 
 * @contractMethod change

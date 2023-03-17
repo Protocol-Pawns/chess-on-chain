@@ -42,6 +42,12 @@
           "$ref": "#/definitions/ContractErrorAlreadyInitilized"
         },
         {
+          "$ref": "#/definitions/ContractErrorAccountNotRegistered"
+        },
+        {
+          "$ref": "#/definitions/ContractErrorAccountIsPlaying"
+        },
+        {
           "$ref": "#/definitions/ContractErrorGameNotExists"
         },
         {
@@ -55,8 +61,44 @@
         },
         {
           "$ref": "#/definitions/ContractErrorNotPlaying"
+        },
+        {
+          "$ref": "#/definitions/ContractErrorNotEnoughDeposit"
+        },
+        {
+          "$ref": "#/definitions/ContractErrorOperationNotSupported"
         }
       ]
+    },
+    "ContractErrorAccountIsPlaying": {
+      "additionalProperties": false,
+      "properties": {
+        "tag": {
+          "const": "account-is-playing",
+          "type": "string"
+        }
+      },
+      "required": [
+        "tag"
+      ],
+      "type": "object"
+    },
+    "ContractErrorAccountNotRegistered": {
+      "additionalProperties": false,
+      "properties": {
+        "tag": {
+          "const": "account-not-registered",
+          "type": "string"
+        },
+        "val": {
+          "$ref": "#/definitions/AccountId"
+        }
+      },
+      "required": [
+        "tag",
+        "val"
+      ],
+      "type": "object"
     },
     "ContractErrorAlreadyInitilized": {
       "additionalProperties": false,
@@ -114,6 +156,28 @@
       ],
       "type": "object"
     },
+    "ContractErrorNotEnoughDeposit": {
+      "additionalProperties": false,
+      "properties": {
+        "tag": {
+          "const": "not-enough-deposit",
+          "type": "string"
+        },
+        "val": {
+          "items": {
+            "$ref": "#/definitions/Balance"
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "type": "array"
+        }
+      },
+      "required": [
+        "tag",
+        "val"
+      ],
+      "type": "object"
+    },
     "ContractErrorNotPlaying": {
       "additionalProperties": false,
       "properties": {
@@ -132,6 +196,19 @@
       "properties": {
         "tag": {
           "const": "not-your-turn",
+          "type": "string"
+        }
+      },
+      "required": [
+        "tag"
+      ],
+      "type": "object"
+    },
+    "ContractErrorOperationNotSupported": {
+      "additionalProperties": false,
+      "properties": {
+        "tag": {
+          "const": "operation-not-supported",
           "type": "string"
         }
       },
@@ -167,7 +244,7 @@
       "type": "object"
     },
     "CreateAiGame__Result": {
-      "$ref": "#/definitions/GameId"
+      "$ref": "#/definitions/Result%3CGameId%2CContractError%3E"
     },
     "Difficulty": {
       "enum": [
@@ -318,7 +395,7 @@
       "type": "object"
     },
     "PlayMove__Result": {
-      "$ref": "#/definitions/Result%3C%5B(def-alias-1808117282-2283-2352-1808117282-0-5365%7Cnull)%2Cstring%5D%2CContractError%3E"
+      "$ref": "#/definitions/Result%3C%5B(def-alias-1808117282-2803-2872-1808117282-0-5885%7Cnull)%2Cstring%5D%2CContractError%3E"
     },
     "Player": {
       "anyOf": [
@@ -418,6 +495,44 @@
     "Resign__Result": {
       "$ref": "#/definitions/Result%3C%5B%5D%2CContractError%3E"
     },
+    "Result<GameId,ContractError>": {
+      "anyOf": [
+        {
+          "additionalProperties": false,
+          "properties": {
+            "tag": {
+              "const": "ok",
+              "type": "string"
+            },
+            "val": {
+              "$ref": "#/definitions/GameId"
+            }
+          },
+          "required": [
+            "tag",
+            "val"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "tag": {
+              "const": "err",
+              "type": "string"
+            },
+            "val": {
+              "$ref": "#/definitions/ContractError"
+            }
+          },
+          "required": [
+            "tag",
+            "val"
+          ],
+          "type": "object"
+        }
+      ]
+    },
     "Result<GameInfo,ContractError>": {
       "anyOf": [
         {
@@ -456,7 +571,7 @@
         }
       ]
     },
-    "Result<[(def-alias-1808117282-2283-2352-1808117282-0-5365|null),string],ContractError>": {
+    "Result<[(def-alias-1808117282-2803-2872-1808117282-0-5885|null),string],ContractError>": {
       "anyOf": [
         {
           "additionalProperties": false,
@@ -588,6 +703,123 @@
           "type": "object"
         }
       ]
+    },
+    "StorageBalance": {
+      "additionalProperties": false,
+      "properties": {
+        "available": {
+          "$ref": "#/definitions/U128"
+        },
+        "total": {
+          "$ref": "#/definitions/U128"
+        }
+      },
+      "required": [
+        "total",
+        "available"
+      ],
+      "type": "object"
+    },
+    "StorageBalanceBounds": {
+      "additionalProperties": false,
+      "contractMethod": "view",
+      "properties": {
+        "args": {
+          "additionalProperties": false,
+          "type": "object"
+        }
+      },
+      "required": [
+        "args"
+      ],
+      "type": "object"
+    },
+    "StorageBalanceBounds__Result": {
+      "$ref": "#/definitions/StorageBalanceBounds"
+    },
+    "StorageBalanceOf": {
+      "additionalProperties": false,
+      "contractMethod": "view",
+      "properties": {
+        "args": {
+          "additionalProperties": false,
+          "properties": {
+            "account_id": {
+              "$ref": "#/definitions/AccountId"
+            }
+          },
+          "required": [
+            "account_id"
+          ],
+          "type": "object"
+        }
+      },
+      "required": [
+        "args"
+      ],
+      "type": "object"
+    },
+    "StorageBalanceOf__Result": {
+      "anyOf": [
+        {
+          "$ref": "#/definitions/StorageBalance"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "StorageUnregister": {
+      "additionalProperties": false,
+      "contractMethod": "change",
+      "properties": {
+        "args": {
+          "additionalProperties": false,
+          "properties": {
+            "force": {
+              "type": "boolean"
+            }
+          },
+          "type": "object"
+        },
+        "options": {
+          "$ref": "#/definitions/CallOptions"
+        }
+      },
+      "required": [
+        "args",
+        "options"
+      ],
+      "type": "object"
+    },
+    "StorageUnregister__Result": {
+      "type": "boolean"
+    },
+    "StorageWithdraw": {
+      "additionalProperties": false,
+      "contractMethod": "change",
+      "properties": {
+        "args": {
+          "additionalProperties": false,
+          "properties": {
+            "amount": {
+              "$ref": "#/definitions/U128"
+            }
+          },
+          "type": "object"
+        },
+        "options": {
+          "$ref": "#/definitions/CallOptions"
+        }
+      },
+      "required": [
+        "args",
+        "options"
+      ],
+      "type": "object"
+    },
+    "StorageWithdraw__Result": {
+      "$ref": "#/definitions/StorageBalance"
     },
     "U128": {
       "description": "String representation of a u128-bit integer",

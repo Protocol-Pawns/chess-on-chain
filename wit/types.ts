@@ -80,9 +80,16 @@ export type CallOptions = {
 }
 
 
-export type ContractError = ContractErrorAlreadyInitilized | ContractErrorGameNotExists | ContractErrorMoveParse | ContractErrorIllegalMove | ContractErrorNotYourTurn | ContractErrorNotPlaying;
+export type ContractError = ContractErrorAlreadyInitilized | ContractErrorAccountNotRegistered | ContractErrorAccountIsPlaying | ContractErrorGameNotExists | ContractErrorMoveParse | ContractErrorIllegalMove | ContractErrorNotYourTurn | ContractErrorNotPlaying | ContractErrorNotEnoughDeposit | ContractErrorOperationNotSupported;
 export interface ContractErrorAlreadyInitilized {
   tag: "already-initilized",
+}
+export interface ContractErrorAccountNotRegistered {
+  tag: "account-not-registered",
+  val: AccountId,
+}
+export interface ContractErrorAccountIsPlaying {
+  tag: "account-is-playing",
 }
 export interface ContractErrorGameNotExists {
   tag: "game-not-exists",
@@ -99,6 +106,13 @@ export interface ContractErrorNotYourTurn {
 }
 export interface ContractErrorNotPlaying {
   tag: "not-playing",
+}
+export interface ContractErrorNotEnoughDeposit {
+  tag: "not-enough-deposit",
+  val: [Balance, Balance],
+}
+export interface ContractErrorOperationNotSupported {
+  tag: "operation-not-supported",
 }
 export type GameId = [u64, AccountId, AccountId | null];
 export type Player = PlayerHuman | PlayerAi;

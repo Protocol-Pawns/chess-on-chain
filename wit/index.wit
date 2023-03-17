@@ -4,13 +4,18 @@
 // This is a generated file by witgen (https://github.com/bnjjj/witgen), please do not edit yourself, you can generate a new one thanks to cargo witgen generate command. (cargo-witgen v0.13.0) 
 
 
+
 variant contract-error {
     already-initilized,
+    account-not-registered(account-id),
+    account-is-playing,
     game-not-exists,
     move-parse(string),
     illegal-move,
     not-your-turn,
     not-playing,
+    not-enough-deposit(tuple<balance, balance>),
+    operation-not-supported,
 }
 
 
@@ -42,10 +47,23 @@ variant game-outcome {
 }
 
 
+
+///  @change
+
+///  @change
+storage-withdraw: function(amount: option<u128>) -> storage-balance
+
+///  @change
+storage-unregister: function(force: option<bool>) -> bool
+
+storage-balance-bounds: function() -> storage-balance-bounds
+
+storage-balance-of: function(account-id: account-id) -> option<storage-balance>
+
 ///  @change
 new: function()
 ///  @change
-create-ai-game: function(difficulty: difficulty) -> game-id
+create-ai-game: function(difficulty: difficulty) -> expected<game-id, contract-error>
 
 ///  @change
 play-move: function(game-id: game-id, mv: string) -> expected<tuple<option<game-outcome>, string>, contract-error>
