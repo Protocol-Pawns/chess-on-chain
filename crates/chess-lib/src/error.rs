@@ -1,6 +1,6 @@
 use near_sdk::{
     borsh::{self, BorshSerialize},
-    FunctionError,
+    AccountId, Balance, FunctionError,
 };
 use thiserror::Error;
 use witgen::witgen;
@@ -10,6 +10,10 @@ use witgen::witgen;
 pub enum ContractError {
     #[error("Contract already initialized")]
     AlreadyInitilized,
+    #[error("Account {} not registered", _0)]
+    AccountNotRegistered(AccountId),
+    #[error("Account is playing and cannot be unregistered")]
+    AccountIsPlaying,
     #[error("Game does not exist")]
     GameNotExists,
     #[error("Cannot parse move {}", _0)]
@@ -20,4 +24,8 @@ pub enum ContractError {
     NotYourTurn,
     #[error("You are not a player from this game")]
     NotPlaying,
+    #[error("Not enough NEAR deposit. Required: {}, actual: {}", _0, _1)]
+    NotEnoughDeposit(Balance, Balance),
+    #[error("Operation not supported")]
+    OperationNotSupported,
 }

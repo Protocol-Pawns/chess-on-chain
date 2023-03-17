@@ -8,6 +8,7 @@ edition = "2021"
 crate-type = ["rlib"]
 
 [dependencies]
+near-contract-standards = "4"
 near-sdk = "4"
 thiserror = "1"
 witgen = "0.15"
