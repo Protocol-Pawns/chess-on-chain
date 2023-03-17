@@ -1,0 +1,19 @@
+[workspace]
+members = [
+    "crates/*"
+]
+resolver = "2"
+
+[profile]
+[profile.release]
+codegen-units = 1
+opt-level = 3
+lto = true
+debug = false
+panic = "abort"
+overflow-checks = true
+strip = "symbols"
+
+[profile.test.package.'*']
+codegen-units = 1
+opt-level = 1

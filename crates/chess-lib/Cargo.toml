@@ -1,0 +1,17 @@
+[package]
+name = "chess-lib"
+version = "1.0.0"
+authors = ["Mario Reder <mario.reder@pm.me>"]
+edition = "2021"
+
+[lib]
+crate-type = ["rlib"]
+
+[dependencies]
+chess-engine = "0.1"
+near-sdk = "4"
+thiserror = "1"
+witgen = "0.15"
+
+[package.metadata.witgen]
+export = true
