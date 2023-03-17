@@ -9,6 +9,7 @@ variant contract-error {
     already-initilized,
     account-not-registered(account-id),
     account-is-playing,
+    max-games-reached,
     game-not-exists,
     move-parse(string),
     illegal-move,

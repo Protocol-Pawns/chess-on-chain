@@ -80,7 +80,7 @@ export type CallOptions = {
 }
 
 
-export type ContractError = ContractErrorAlreadyInitilized | ContractErrorAccountNotRegistered | ContractErrorAccountIsPlaying | ContractErrorGameNotExists | ContractErrorMoveParse | ContractErrorIllegalMove | ContractErrorNotYourTurn | ContractErrorNotPlaying | ContractErrorNotEnoughDeposit | ContractErrorOperationNotSupported;
+export type ContractError = ContractErrorAlreadyInitilized | ContractErrorAccountNotRegistered | ContractErrorAccountIsPlaying | ContractErrorMaxGamesReached | ContractErrorGameNotExists | ContractErrorMoveParse | ContractErrorIllegalMove | ContractErrorNotYourTurn | ContractErrorNotPlaying | ContractErrorNotEnoughDeposit | ContractErrorOperationNotSupported;
 export interface ContractErrorAlreadyInitilized {
   tag: "already-initilized",
 }
@@ -90,6 +90,9 @@ export interface ContractErrorAccountNotRegistered {
 }
 export interface ContractErrorAccountIsPlaying {
   tag: "account-is-playing",
+}
+export interface ContractErrorMaxGamesReached {
+  tag: "max-games-reached",
 }
 export interface ContractErrorGameNotExists {
   tag: "game-not-exists",

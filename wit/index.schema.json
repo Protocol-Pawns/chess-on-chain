@@ -48,6 +48,9 @@
           "$ref": "#/definitions/ContractErrorAccountIsPlaying"
         },
         {
+          "$ref": "#/definitions/ContractErrorMaxGamesReached"
+        },
+        {
           "$ref": "#/definitions/ContractErrorGameNotExists"
         },
         {
@@ -131,6 +134,19 @@
       "properties": {
         "tag": {
           "const": "illegal-move",
+          "type": "string"
+        }
+      },
+      "required": [
+        "tag"
+      ],
+      "type": "object"
+    },
+    "ContractErrorMaxGamesReached": {
+      "additionalProperties": false,
+      "properties": {
+        "tag": {
+          "const": "max-games-reached",
           "type": "string"
         }
       },
@@ -364,7 +380,7 @@
       "type": "object"
     },
     "GetGameIds__Result": {
-      "$ref": "#/definitions/Result%3Cdef-alias-1808117282-2380-2437-1808117282-0-5843%5B%5D%2CContractError%3E"
+      "$ref": "#/definitions/Result%3Cdef-alias-1808117282-2489-2546-1808117282-0-5952%5B%5D%2CContractError%3E"
     },
     "New": {
       "additionalProperties": false,
@@ -418,7 +434,7 @@
       "type": "object"
     },
     "PlayMove__Result": {
-      "$ref": "#/definitions/Result%3C%5B(def-alias-1808117282-2761-2830-1808117282-0-5843%7Cnull)%2Cstring%5D%2CContractError%3E"
+      "$ref": "#/definitions/Result%3C%5B(def-alias-1808117282-2870-2939-1808117282-0-5952%7Cnull)%2Cstring%5D%2CContractError%3E"
     },
     "Player": {
       "anyOf": [
@@ -594,7 +610,7 @@
         }
       ]
     },
-    "Result<[(def-alias-1808117282-2761-2830-1808117282-0-5843|null),string],ContractError>": {
+    "Result<[(def-alias-1808117282-2870-2939-1808117282-0-5952|null),string],ContractError>": {
       "anyOf": [
         {
           "additionalProperties": false,
@@ -689,7 +705,7 @@
         }
       ]
     },
-    "Result<def-alias-1808117282-2380-2437-1808117282-0-5843[],ContractError>": {
+    "Result<def-alias-1808117282-2489-2546-1808117282-0-5952[],ContractError>": {
       "anyOf": [
         {
           "additionalProperties": false,

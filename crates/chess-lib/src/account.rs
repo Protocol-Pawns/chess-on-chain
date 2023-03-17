@@ -1,4 +1,4 @@
-use crate::{GameId, StorageKey};
+use crate::{ContractError, GameId, StorageKey};
 use near_sdk::{
     borsh::{self, BorshDeserialize, BorshSerialize},
     env,
@@ -29,8 +29,13 @@ impl Account {
         }
     }
 
-    pub fn add_game_id(&mut self, game_id: GameId) {
-        self.game_ids.insert(game_id);
+    pub fn add_game_id(&mut self, game_id: GameId) -> Result<(), ContractError> {
+        if self.game_ids.len() >= 5 {
+            Err(ContractError::MaxGamesReached)
+        } else {
+            self.game_ids.insert(game_id);
+            Ok(())
+        }
     }
 
     pub fn remove_game_id(&mut self, game_id: &GameId) -> bool {

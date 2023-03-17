@@ -14,6 +14,8 @@ pub enum ContractError {
     AccountNotRegistered(AccountId),
     #[error("Account is playing and cannot be unregistered")]
     AccountIsPlaying,
+    #[error("Maximum amount of open games reached")]
+    MaxGamesReached,
     #[error("Game does not exist")]
     GameNotExists,
     #[error("Cannot parse move {}", _0)]

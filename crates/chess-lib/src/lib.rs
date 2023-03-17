@@ -53,10 +53,11 @@ impl Chess {
             .ok_or_else(|| ContractError::AccountNotRegistered(account_id.clone()))?;
 
         let block_height = env::block_height();
-        let game = Game::new(Player::Human(account_id.clone()), Player::Ai(difficulty));
-        let game_id = GameId(block_height, account_id, None);
+        let game_id = GameId(block_height, account_id.clone(), None);
+        account.add_game_id(game_id.clone())?;
+
+        let game = Game::new(Player::Human(account_id), Player::Ai(difficulty));
         self.games.insert(game_id.clone(), game);
-        account.add_game_id(game_id.clone());
 
         Ok(game_id)
     }
