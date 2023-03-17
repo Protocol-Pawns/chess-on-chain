@@ -39,8 +39,8 @@ pub enum Player {
 pub enum Difficulty {
     Easy,
     Medium,
-    Hard,
-    VeryHard,
+    // Hard,
+    // VeryHard,
 }
 
 #[near_bindgen]
@@ -111,10 +111,10 @@ impl Game {
             GameResult::Continuing(board) => {
                 let (board, outcome) = if let Player::Ai(difficulty) = &self.black {
                     let depth = match difficulty {
-                        Difficulty::Easy => 1,
-                        Difficulty::Medium => 2,
-                        Difficulty::Hard => 3,
-                        Difficulty::VeryHard => 4,
+                        Difficulty::Easy => 0,
+                        Difficulty::Medium => 1,
+                        // Difficulty::Hard => 2,
+                        // Difficulty::VeryHard => 3,
                     };
                     let (ai_mv, _, _) = board.get_best_next_move(depth);
                     log!("Black: {}", ai_mv);

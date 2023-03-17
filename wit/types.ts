@@ -80,13 +80,6 @@ export type CallOptions = {
 }
 
 
-/**
-* The color of a piece.
-*/
-export enum Color {
-  White = "White",
-  Black = "Black",
-}
 export type ContractError = ContractErrorAlreadyInitilized | ContractErrorAccountNotRegistered | ContractErrorAccountIsPlaying | ContractErrorGameNotExists | ContractErrorMoveParse | ContractErrorIllegalMove | ContractErrorNotYourTurn | ContractErrorNotPlaying | ContractErrorNotEnoughDeposit | ContractErrorOperationNotSupported;
 export interface ContractErrorAlreadyInitilized {
   tag: "already-initilized",
@@ -134,8 +127,6 @@ export interface PlayerAi {
 export enum Difficulty {
   Easy = "Easy",
   Medium = "Medium",
-  Hard = "Hard",
-  VeryHard = "VeryHard",
 }
 export interface GameInfo {
   white: Player;
@@ -149,6 +140,13 @@ export interface GameOutcomeVictory {
 }
 export interface GameOutcomeStalemate {
   tag: "stalemate",
+}
+/**
+* The color of a piece.
+*/
+export enum Color {
+  White = "White",
+  Black = "Black",
 }
 /**
 * StorageUsage is used to count the amount of storage used by a contract.
