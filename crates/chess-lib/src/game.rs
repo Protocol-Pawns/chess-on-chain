@@ -153,14 +153,16 @@ impl Game {
         (-1..8)
             .rev()
             .flat_map(|row| {
-                (-1..9).map(move |col| -> char {
-                    if col == -1 && row == -1 {
+                (-1..10).map(move |col| -> char {
+                    if (col == -1 || col == 8 || col == 9) && row == -1 {
                         ' '
                     } else if col == -1 {
                         (b'1' + row as u8) as char
                     } else if row == -1 {
                         (b'A' + col as u8) as char
                     } else if col == 8 {
+                        ' '
+                    } else if col == 9 {
                         '\n'
                     } else if let Some(piece) = self.board.get_piece(Position::new(row, col)) {
                         match piece {
