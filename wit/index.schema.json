@@ -381,7 +381,7 @@
       "type": "object"
     },
     "GetGameIds__Result": {
-      "$ref": "#/definitions/Result%3Cdef-alias-1808117282-2580-2637-1808117282-0-5969%5B%5D%2CContractError%3E"
+      "$ref": "#/definitions/Result%3Cdef-alias-1808117282-2489-2546-1808117282-0-5969%5B%5D%2CContractError%3E"
     },
     "New": {
       "additionalProperties": false,
@@ -435,7 +435,7 @@
       "type": "object"
     },
     "PlayMove__Result": {
-      "$ref": "#/definitions/Result%3C%5B(def-alias-1808117282-2978-3047-1808117282-0-5969%7Cnull)%2Cstring%5D%2CContractError%3E"
+      "$ref": "#/definitions/Result%3C%5B(def-alias-1808117282-2887-2956-1808117282-0-5969%7Cnull)%2Cstring%5D%2CContractError%3E"
     },
     "Player": {
       "anyOf": [
@@ -611,7 +611,7 @@
         }
       ]
     },
-    "Result<[(def-alias-1808117282-2978-3047-1808117282-0-5969|null),string],ContractError>": {
+    "Result<[(def-alias-1808117282-2887-2956-1808117282-0-5969|null),string],ContractError>": {
       "anyOf": [
         {
           "additionalProperties": false,
@@ -706,7 +706,7 @@
         }
       ]
     },
-    "Result<def-alias-1808117282-2580-2637-1808117282-0-5969[],ContractError>": {
+    "Result<def-alias-1808117282-2489-2546-1808117282-0-5969[],ContractError>": {
       "anyOf": [
         {
           "additionalProperties": false,

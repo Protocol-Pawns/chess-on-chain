@@ -84,14 +84,13 @@ impl Chess {
             return Err(ContractError::NotYourTurn);
         }
 
-        let outcome = if let Some(outcome) = game.play_move(mv)? {
-            self.games.remove(&game_id);
+        let (outcome, board) = if let Some(outcome) = game.play_move(mv)? {
+            let game = self.games.remove(&game_id);
             account.remove_game_id(&game_id);
-            Some(outcome)
+            (Some(outcome), game.unwrap().render_board())
         } else {
-            None
+            (None, self.games.get(&game_id).unwrap().render_board())
         };
-        let board = self.games.get(&game_id).unwrap().render_board();
 
         Ok((outcome, board))
     }
