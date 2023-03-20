@@ -5,6 +5,23 @@
 
 
 
+
+
+
+
+
+///  The color of a piece.
+enum color {
+    white,
+    black,
+}
+
+
+
+// This is a generated file by witgen (https://github.com/bnjjj/witgen), please do not edit yourself, you can generate a new one thanks to cargo witgen generate command. (cargo-witgen v0.13.0) 
+
+
+
 variant contract-error {
     already-initilized,
     account-not-registered(account-id),
@@ -31,6 +48,7 @@ variant player {
 enum difficulty {
     easy,
     medium,
+    hard,
 }
 
 
@@ -76,23 +94,6 @@ render-board: function(game-id: game-id) -> expected<string, contract-error>
 game-info: function(game-id: game-id) -> expected<game-info, contract-error>
 
 get-game-ids: function(account-id: account-id) -> expected<list<game-id>, contract-error>
-
-
-// This is a generated file by witgen (https://github.com/bnjjj/witgen), please do not edit yourself, you can generate a new one thanks to cargo witgen generate command. (cargo-witgen v0.13.0) 
-
-
-
-
-
-
-
-
-///  The color of a piece.
-enum color {
-    white,
-    black,
-}
-
 
 
 // This is a generated file by witgen (https://github.com/bnjjj/witgen), please do not edit yourself, you can generate a new one thanks to cargo witgen generate command. (witme v0.2.0) 

@@ -1,8 +1,8 @@
 use crate::ContractError;
-use chess_engine::{Board, Color, Evaluate, GameResult, Move, Piece, Position};
+use chess_engine::{Board, Color, GameResult, Move, Piece, Position};
 use near_sdk::{
     borsh::{self, BorshDeserialize, BorshSerialize},
-    log, near_bindgen,
+    env, log, near_bindgen,
     serde::{Deserialize, Serialize},
     AccountId,
 };
@@ -39,8 +39,7 @@ pub enum Player {
 pub enum Difficulty {
     Easy,
     Medium,
-    // Hard,
-    // VeryHard,
+    Hard,
 }
 
 #[near_bindgen]
@@ -113,10 +112,11 @@ impl Game {
                     let depth = match difficulty {
                         Difficulty::Easy => 0,
                         Difficulty::Medium => 1,
-                        // Difficulty::Hard => 2,
-                        // Difficulty::VeryHard => 3,
+                        Difficulty::Hard => 2,
                     };
+                    log!("gas before {:?}", env::used_gas());
                     let (ai_mv, _, _) = board.get_best_next_move(depth);
+                    log!("gas after {:?}", env::used_gas());
                     log!("Black: {}", ai_mv);
                     match board.play_move(ai_mv) {
                         GameResult::Continuing(board) => (board, None),
@@ -153,17 +153,15 @@ impl Game {
         (-1..8)
             .rev()
             .flat_map(|row| {
-                (-1..10).map(move |col| -> char {
-                    if (col == -1 || col == 8 || col == 9) && row == -1 {
+                (-1..9).map(move |col| -> char {
+                    if col == -1 && row == -1 {
                         ' '
                     } else if col == -1 {
                         (b'1' + row as u8) as char
+                    } else if col == 8 {
+                        '\n'
                     } else if row == -1 {
                         (b'A' + col as u8) as char
-                    } else if col == 8 {
-                        ' '
-                    } else if col == 9 {
-                        '\n'
                     } else if let Some(piece) = self.board.get_piece(Position::new(row, col)) {
                         match piece {
                             Piece::King(Color::Black, _) => '♚',
@@ -180,9 +178,9 @@ impl Game {
                             Piece::Pawn(Color::White, _) => '♙',
                         }
                     } else if (row + col) % 2 == 0 {
-                        '□'
+                        '⬜'
                     } else {
-                        '■'
+                        '⬛'
                     }
                 })
             })
