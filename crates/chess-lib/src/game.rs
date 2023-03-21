@@ -109,14 +109,12 @@ impl Game {
         let outcome = match self.board.play_move(mv) {
             GameResult::Continuing(board) => {
                 let (board, outcome) = if let Player::Ai(difficulty) = &self.black {
-                    let depth = match difficulty {
-                        Difficulty::Easy => 0,
-                        Difficulty::Medium => 1,
-                        Difficulty::Hard => 2,
+                    let depths = match difficulty {
+                        Difficulty::Easy => vec![24],
+                        Difficulty::Medium => vec![20, 16],
+                        Difficulty::Hard => vec![16, 12, 8],
                     };
-                    log!("gas before {:?}", env::used_gas());
-                    let (ai_mv, _, _) = board.get_best_next_move(depth);
-                    log!("gas after {:?}", env::used_gas());
+                    let (ai_mv, _, _) = board.get_next_move(&depths, env::random_seed_array());
                     log!("Black: {}", ai_mv);
                     match board.play_move(ai_mv) {
                         GameResult::Continuing(board) => (board, None),

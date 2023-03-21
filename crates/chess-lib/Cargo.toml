@@ -8,6 +8,7 @@ edition = "2021"
 crate-type = ["rlib"]
 
 [dependencies]
+getrandom = { version = "0.2", features = ["js"] }
 near-contract-standards = "4"
 near-sdk = "4"
 thiserror = "1"
