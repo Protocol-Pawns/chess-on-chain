@@ -11,34 +11,36 @@ import {
   f32,
   f64,
   CallOptions,
-  Difficulty,
-  Result,
-  Gas,
-  StorageBalanceBounds,
-  Duration,
-  GameId,
-  Player,
-  NftContractMetadata,
-  GameOutcome,
   U128,
-  Timestamp,
-  Token,
-  TokenId,
-  Color,
-  TokenMetadata,
-  ContractError,
-  StorageBalance,
-  WrappedDuration,
+  MoveStr,
   StorageUsage,
-  GameInfo,
-  Base64VecU8,
-  AccountId,
-  PublicKey,
+  TokenId,
   Balance,
+  StorageBalance,
+  GameOutcome,
+  Color,
+  Timestamp,
+  Base64VecU8,
+  Duration,
   FungibleTokenMetadata,
+  WrappedDuration,
+  Player,
+  GameInfo,
+  Result,
+  StorageBalanceBounds,
+  PublicKey,
+  TokenMetadata,
+  NftContractMetadata,
+  GameId,
+  ContractError,
+  Token,
+  Gas,
+  AccountId,
+  Difficulty,
 } from "./types";
 
 /**
+* Requires exactly 0.05N (50000000000000000000000 yoctoNear) to pay for storage.
 * 
 * @contractMethod change
 */
@@ -106,6 +108,13 @@ export interface New {
 }
 export type New__Result = void;
 /**
+* Create a new game against an AI player.
+* 
+* Returns game ID, which is necessary to play the game.
+* You can only have 5 open games due to storage limitations.
+* If you reach the limit you can call `resign` method.
+* 
+* Before you can play a game you need to pay `storage_deposit`.
 * 
 * @contractMethod change
 */
@@ -118,19 +127,27 @@ export interface CreateAiGame {
 }
 export type CreateAiGame__Result = Result<GameId, ContractError>;
 /**
+* Plays a move.
+* 
+* Only works, if it is your turn. Panics otherwise.
 * 
 * @contractMethod change
 */
 export interface PlayMove {
   args: {
     game_id: GameId;
-    mv: string;
+    mv: MoveStr;
   };
   options: CallOptions
   
 }
 export type PlayMove__Result = Result<[GameOutcome | null, string], ContractError>;
 /**
+* Resigns a game.
+* 
+* Can be called even if it is not your turn.
+* You might need to call this if a game is stuck and the AI refuses to work.
+* You can also only have 5 open games due to storage limitations.
 * 
 * @contractMethod change
 */
@@ -143,6 +160,7 @@ export interface Resign {
 }
 export type Resign__Result = Result<[], ContractError>;
 /**
+* Renders a game as a string.
 * 
 * @contractMethod view
 */
@@ -154,6 +172,7 @@ export interface RenderBoard {
 }
 export type RenderBoard__Result = Result<string, ContractError>;
 /**
+* Returns information about a game including players and turn color.
 * 
 * @contractMethod view
 */
@@ -165,6 +184,7 @@ export interface GameInfo {
 }
 export type GameInfo__Result = Result<GameInfo, ContractError>;
 /**
+* Returns all open game IDs for given wallet ID.
 * 
 * @contractMethod view
 */

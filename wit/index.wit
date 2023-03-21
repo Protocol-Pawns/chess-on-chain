@@ -20,6 +20,11 @@ variant contract-error {
 }
 
 
+///  Unique game ID, which consists of:
+/// 
+///  - block height
+///  - wallet ID, e.g. "my-wallet.near"
+///  - enemy wallet ID if player or empty if AI
 type game-id = tuple<u64, account-id, option<account-id>>
 
 variant player {
@@ -28,6 +33,15 @@ variant player {
 }
 
 
+///  AI difficulty setting.
+/// 
+///  The AI uses the [Minimax algorithm, along with Alpha-Beta pruning](https://github.com/Tarnadas/chess-engine#how-does-it-work)
+///  The higher the difficulty the more moves will be calculated in advance.
+/// 
+///  Please be aware, that gas usage increases on higher difficulties:
+///  - Easy: ~8TGas
+///  - Medium: ~30TGas
+///  - Hard: ~110TGas
 enum difficulty {
     easy,
     medium,
@@ -48,6 +62,17 @@ variant game-outcome {
 
 
 
+///  A valid move will be parsed from a string.
+/// 
+///  Possible [valid formats](https://docs.rs/chess-engine/latest/chess_engine/enum.Move.html#method.parse) include:
+///  - "e2e4"
+///  - "e2 e4"
+///  - "e2 to e4"
+///  - "castle queenside"
+///  - "castle kingside"
+type move-str = string
+
+///  Requires exactly 0.05N (50000000000000000000000 yoctoNear) to pay for storage.
 ///  @change
 storage-deposit: function(account-id: option<account-id>, registration-only: option<bool>) -> storage-balance
 
@@ -63,19 +88,37 @@ storage-balance-of: function(account-id: account-id) -> option<storage-balance>
 
 ///  @change
 new: function()
+///  Create a new game against an AI player.
+/// 
+///  Returns game ID, which is necessary to play the game.
+///  You can only have 5 open games due to storage limitations.
+///  If you reach the limit you can call `resign` method.
+/// 
+///  Before you can play a game you need to pay `storage_deposit`.
 ///  @change
 create-ai-game: function(difficulty: difficulty) -> expected<game-id, contract-error>
 
+///  Plays a move.
+/// 
+///  Only works, if it is your turn. Panics otherwise.
 ///  @change
-play-move: function(game-id: game-id, mv: string) -> expected<tuple<option<game-outcome>, string>, contract-error>
+play-move: function(game-id: game-id, mv: move-str) -> expected<tuple<option<game-outcome>, string>, contract-error>
 
+///  Resigns a game.
+/// 
+///  Can be called even if it is not your turn.
+///  You might need to call this if a game is stuck and the AI refuses to work.
+///  You can also only have 5 open games due to storage limitations.
 ///  @change
 resign: function(game-id: game-id) -> expected<tuple<>, contract-error>
 
+///  Renders a game as a string.
 render-board: function(game-id: game-id) -> expected<string, contract-error>
 
+///  Returns information about a game including players and turn color.
 game-info: function(game-id: game-id) -> expected<game-info, contract-error>
 
+///  Returns all open game IDs for given wallet ID.
 get-game-ids: function(account-id: account-id) -> expected<list<game-id>, contract-error>
 
 

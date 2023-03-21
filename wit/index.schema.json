@@ -236,6 +236,7 @@
     "CreateAiGame": {
       "additionalProperties": false,
       "contractMethod": "change",
+      "description": "Create a new game against an AI player.\n\nReturns game ID, which is necessary to play the game. You can only have 5 open games due to storage limitations. If you reach the limit you can call `resign` method.\n\nBefore you can play a game you need to pay `storage_deposit`.",
       "properties": {
         "args": {
           "additionalProperties": false,
@@ -263,6 +264,7 @@
       "$ref": "#/definitions/Result%3CGameId%2CContractError%3E"
     },
     "Difficulty": {
+      "description": "AI difficulty setting.\n\nThe AI uses the [Minimax algorithm, along with Alpha-Beta pruning](https://github.com/Tarnadas/chess-engine#how-does-it-work) The higher the difficulty the more moves will be calculated in advance.\n\nPlease be aware, that gas usage increases on higher difficulties:\n- Easy: ~8TGas\n- Medium: ~30TGas\n- Hard: ~110TGas",
       "enum": [
         "Easy",
         "Medium",
@@ -271,6 +273,7 @@
       "type": "string"
     },
     "GameId": {
+      "description": "Unique game ID, which consists of:\n\n- block height\n- wallet ID, e.g. \"my-wallet.near\"\n- enemy wallet ID if player or empty if AI",
       "items": [
         {
           "$ref": "#/definitions/u64"
@@ -296,6 +299,7 @@
     "GameInfo": {
       "additionalProperties": false,
       "contractMethod": "view",
+      "description": "Returns information about a game including players and turn color.",
       "properties": {
         "args": {
           "additionalProperties": false,
@@ -361,6 +365,7 @@
     "GetGameIds": {
       "additionalProperties": false,
       "contractMethod": "view",
+      "description": "Returns all open game IDs for given wallet ID.",
       "properties": {
         "args": {
           "additionalProperties": false,
@@ -381,7 +386,11 @@
       "type": "object"
     },
     "GetGameIds__Result": {
-      "$ref": "#/definitions/Result%3Cdef-alias-1808117282-2489-2546-1808117282-0-5969%5B%5D%2CContractError%3E"
+      "$ref": "#/definitions/Result%3Cdef-alias-1808117282-2489-2692-1808117282-0-6761945456593%5B%5D%2CContractError%3E"
+    },
+    "MoveStr": {
+      "description": "A valid move will be parsed from a string.\n\nPossible [valid formats](https://docs.rs/chess-engine/latest/chess_engine/enum.Move.html#method.parse) include:\n- \"e2e4\"\n- \"e2 e4\"\n- \"e2 to e4\"\n- \"castle queenside\"\n- \"castle kingside\"",
+      "type": "string"
     },
     "New": {
       "additionalProperties": false,
@@ -407,6 +416,7 @@
     "PlayMove": {
       "additionalProperties": false,
       "contractMethod": "change",
+      "description": "Plays a move.\n\nOnly works, if it is your turn. Panics otherwise.",
       "properties": {
         "args": {
           "additionalProperties": false,
@@ -415,7 +425,7 @@
               "$ref": "#/definitions/GameId"
             },
             "mv": {
-              "type": "string"
+              "$ref": "#/definitions/MoveStr"
             }
           },
           "required": [
@@ -435,7 +445,7 @@
       "type": "object"
     },
     "PlayMove__Result": {
-      "$ref": "#/definitions/Result%3C%5B(def-alias-1808117282-2887-2956-1808117282-0-5969%7Cnull)%2Cstring%5D%2CContractError%3E"
+      "$ref": "#/definitions/Result%3C%5B(def-alias-1808117282-3397-3466-1808117282-0-6761%7Cnull)%2Cstring%5D%2CContractError%3E"
     },
     "Player": {
       "anyOf": [
@@ -484,6 +494,7 @@
     "RenderBoard": {
       "additionalProperties": false,
       "contractMethod": "view",
+      "description": "Renders a game as a string.",
       "properties": {
         "args": {
           "additionalProperties": false,
@@ -509,6 +520,7 @@
     "Resign": {
       "additionalProperties": false,
       "contractMethod": "change",
+      "description": "Resigns a game.\n\nCan be called even if it is not your turn. You might need to call this if a game is stuck and the AI refuses to work. You can also only have 5 open games due to storage limitations.",
       "properties": {
         "args": {
           "additionalProperties": false,
@@ -611,7 +623,7 @@
         }
       ]
     },
-    "Result<[(def-alias-1808117282-2887-2956-1808117282-0-5969|null),string],ContractError>": {
+    "Result<[(def-alias-1808117282-3397-3466-1808117282-0-6761|null),string],ContractError>": {
       "anyOf": [
         {
           "additionalProperties": false,
@@ -706,7 +718,7 @@
         }
       ]
     },
-    "Result<def-alias-1808117282-2489-2546-1808117282-0-5969[],ContractError>": {
+    "Result<def-alias-1808117282-2489-2692-1808117282-0-6761945456593[],ContractError>": {
       "anyOf": [
         {
           "additionalProperties": false,
@@ -853,6 +865,7 @@
     "StorageDeposit": {
       "additionalProperties": false,
       "contractMethod": "change",
+      "description": "Requires exactly 0.05N (50000000000000000000000 yoctoNear) to pay for storage.",
       "properties": {
         "args": {
           "additionalProperties": false,

@@ -6,11 +6,12 @@ use near_sdk::{
     assert_one_yocto, env, json_types::U128, near_bindgen, AccountId, Balance, Promise,
 };
 
-/// 0.1N
-pub const STORAGE_ACCOUNT_COST: Balance = 100_000_000_000_000_000_000_000;
+/// 0.05N
+pub const STORAGE_ACCOUNT_COST: Balance = 50_000_000_000_000_000_000_000;
 
 #[near_bindgen]
 impl StorageManagement for Chess {
+    /// Requires exactly 0.05N (50000000000000000000000 yoctoNear) to pay for storage.
     #[payable]
     fn storage_deposit(
         &mut self,

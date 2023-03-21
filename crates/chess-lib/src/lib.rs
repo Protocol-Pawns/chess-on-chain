@@ -15,6 +15,7 @@ use near_sdk::{
     store::UnorderedMap,
     AccountId, Balance, BorshStorageKey, PanicOnDefault,
 };
+use witgen::witgen;
 
 #[derive(BorshStorageKey, BorshSerialize)]
 pub enum StorageKey {
@@ -30,6 +31,17 @@ pub struct Chess {
     pub games: UnorderedMap<GameId, Game>,
 }
 
+/// A valid move will be parsed from a string.
+///
+/// Possible [valid formats](https://docs.rs/chess-engine/latest/chess_engine/enum.Move.html#method.parse) include:
+/// - "e2e4"
+/// - "e2 e4"
+/// - "e2 to e4"
+/// - "castle queenside"
+/// - "castle kingside"
+#[witgen]
+pub type MoveStr = String;
+
 #[near_bindgen]
 impl Chess {
     #[init]
@@ -44,6 +56,13 @@ impl Chess {
         })
     }
 
+    /// Create a new game against an AI player.
+    ///
+    /// Returns game ID, which is necessary to play the game.
+    /// You can only have 5 open games due to storage limitations.
+    /// If you reach the limit you can call `resign` method.
+    ///
+    /// Before you can play a game you need to pay `storage_deposit`.
     #[handle_result]
     pub fn create_ai_game(&mut self, difficulty: Difficulty) -> Result<GameId, ContractError> {
         let account_id = env::signer_account_id();
@@ -62,11 +81,14 @@ impl Chess {
         Ok(game_id)
     }
 
+    /// Plays a move.
+    ///
+    /// Only works, if it is your turn. Panics otherwise.
     #[handle_result]
     pub fn play_move(
         &mut self,
         game_id: GameId,
-        mv: String,
+        mv: MoveStr,
     ) -> Result<(Option<GameOutcome>, String), ContractError> {
         let account_id = env::signer_account_id();
         let account = self
@@ -95,6 +117,11 @@ impl Chess {
         Ok((outcome, board))
     }
 
+    /// Resigns a game.
+    ///
+    /// Can be called even if it is not your turn.
+    /// You might need to call this if a game is stuck and the AI refuses to work.
+    /// You can also only have 5 open games due to storage limitations.
     #[handle_result]
     pub fn resign(&mut self, game_id: GameId) -> Result<(), ContractError> {
         let account_id = env::signer_account_id();
@@ -116,6 +143,7 @@ impl Chess {
         Ok(())
     }
 
+    /// Renders a game as a string.
     #[handle_result]
     pub fn render_board(&self, game_id: GameId) -> Result<String, ContractError> {
         let game = self
@@ -125,6 +153,7 @@ impl Chess {
         Ok(game.render_board())
     }
 
+    /// Returns information about a game including players and turn color.
     #[handle_result]
     pub fn game_info(&self, game_id: GameId) -> Result<GameInfo, ContractError> {
         let game = self
@@ -139,6 +168,7 @@ impl Chess {
         })
     }
 
+    /// Returns all open game IDs for given wallet ID.
     #[handle_result]
     pub fn get_game_ids(&self, account_id: AccountId) -> Result<Vec<GameId>, ContractError> {
         let account = self

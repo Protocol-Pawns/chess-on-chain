@@ -117,6 +117,13 @@ export interface ContractErrorNotEnoughDeposit {
 export interface ContractErrorOperationNotSupported {
   tag: "operation-not-supported",
 }
+/**
+* Unique game ID, which consists of:
+* 
+* - block height
+* - wallet ID, e.g. "my-wallet.near"
+* - enemy wallet ID if player or empty if AI
+*/
 export type GameId = [u64, AccountId, AccountId | null];
 export type Player = PlayerHuman | PlayerAi;
 export interface PlayerHuman {
@@ -127,6 +134,17 @@ export interface PlayerAi {
   tag: "ai",
   val: Difficulty,
 }
+/**
+* AI difficulty setting.
+* 
+* The AI uses the [Minimax algorithm, along with Alpha-Beta pruning](https://github.com/Tarnadas/chess-engine#how-does-it-work)
+* The higher the difficulty the more moves will be calculated in advance.
+* 
+* Please be aware, that gas usage increases on higher difficulties:
+* - Easy: ~8TGas
+* - Medium: ~30TGas
+* - Hard: ~110TGas
+*/
 export enum Difficulty {
   Easy = "Easy",
   Medium = "Medium",
@@ -145,6 +163,17 @@ export interface GameOutcomeVictory {
 export interface GameOutcomeStalemate {
   tag: "stalemate",
 }
+/**
+* A valid move will be parsed from a string.
+* 
+* Possible [valid formats](https://docs.rs/chess-engine/latest/chess_engine/enum.Move.html#method.parse) include:
+* - "e2e4"
+* - "e2 e4"
+* - "e2 to e4"
+* - "castle queenside"
+* - "castle kingside"
+*/
+export type MoveStr = string;
 /**
 * The color of a piece.
 */
