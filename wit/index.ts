@@ -11,32 +11,32 @@ import {
   f32,
   f64,
   CallOptions,
-  U128,
-  MoveStr,
-  StorageUsage,
   TokenId,
-  Balance,
-  StorageBalance,
-  GameOutcome,
-  Color,
   Timestamp,
-  Base64VecU8,
-  Duration,
-  FungibleTokenMetadata,
-  WrappedDuration,
-  Player,
+  StorageUsage,
   GameInfo,
-  Result,
-  StorageBalanceBounds,
-  PublicKey,
-  TokenMetadata,
-  NftContractMetadata,
-  GameId,
-  ContractError,
-  Token,
-  Gas,
   AccountId,
+  Color,
+  Gas,
+  MoveStr,
+  Result,
+  Balance,
+  Base64VecU8,
   Difficulty,
+  PublicKey,
+  Player,
+  GameId,
+  U128,
+  FungibleTokenMetadata,
+  Duration,
+  TokenMetadata,
+  StorageBalance,
+  WrappedDuration,
+  ContractError,
+  GameOutcome,
+  Token,
+  NftContractMetadata,
+  StorageBalanceBounds,
 } from "./types";
 
 /**
@@ -159,6 +159,18 @@ export interface Resign {
   
 }
 export type Resign__Result = Result<[], ContractError>;
+/**
+* Returns an array of strings representing the board
+* 
+* @contractMethod view
+*/
+export interface GetBoard {
+  args: {
+    game_id: GameId;
+  };
+  
+}
+export type GetBoard__Result = Result<string[], ContractError>;
 /**
 * Renders a game as a string.
 * 

@@ -143,6 +143,16 @@ impl Chess {
         Ok(())
     }
 
+    /// Returns an array of strings representing the board
+    #[handle_result]
+    pub fn get_board(&self, game_id: GameId) -> Result<[String; 8], ContractError> {
+        let game = self
+            .games
+            .get(&game_id)
+            .ok_or(ContractError::GameNotExists)?;
+        Ok(game.get_board())
+    }
+
     /// Renders a game as a string.
     #[handle_result]
     pub fn render_board(&self, game_id: GameId) -> Result<String, ContractError> {

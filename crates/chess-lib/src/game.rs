@@ -161,6 +161,37 @@ impl Game {
         Ok(outcome)
     }
 
+    pub fn get_board(&self) -> [String; 8] {
+        (0..8)
+            .map(|row| -> String {
+                (0..8)
+                    .map(move |col| -> char {
+                        if let Some(piece) = self.board.get_piece(Position::new(row, col)) {
+                            match piece {
+                                Piece::King(Color::Black, _) => '♚',
+                                Piece::King(Color::White, _) => '♔',
+                                Piece::Queen(Color::Black, _) => '♛',
+                                Piece::Queen(Color::White, _) => '♕',
+                                Piece::Rook(Color::Black, _) => '♜',
+                                Piece::Rook(Color::White, _) => '♖',
+                                Piece::Bishop(Color::Black, _) => '♝',
+                                Piece::Bishop(Color::White, _) => '♗',
+                                Piece::Knight(Color::Black, _) => '♞',
+                                Piece::Knight(Color::White, _) => '♘',
+                                Piece::Pawn(Color::Black, _) => '♟',
+                                Piece::Pawn(Color::White, _) => '♙',
+                            }
+                        } else {
+                            ' '
+                        }
+                    })
+                    .collect()
+            })
+            .collect::<Vec<_>>()
+            .try_into()
+            .unwrap()
+    }
+
     pub fn render_board(&self) -> String {
         (-1..8)
             .rev()
