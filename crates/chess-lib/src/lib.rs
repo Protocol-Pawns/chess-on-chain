@@ -22,6 +22,7 @@ use witgen::witgen;
 #[derive(BorshStorageKey, BorshSerialize)]
 pub enum StorageKey {
     Accounts,
+    VAccounts,
     AccountOrderIds,
     AccountFinishedGames,
     Games,
@@ -61,7 +62,7 @@ impl Chess {
             return Err(ContractError::AlreadyInitilized);
         }
         Ok(Self {
-            accounts: UnorderedMap::new(StorageKey::Accounts),
+            accounts: UnorderedMap::new(StorageKey::VAccounts),
             games: UnorderedMap::new(StorageKey::Games),
         })
     }
@@ -71,9 +72,10 @@ impl Chess {
     pub fn migrate() -> Self {
         let old_chess: OldChess = env::state_read().unwrap();
 
-        let mut accounts = UnorderedMap::new(StorageKey::Accounts);
-        for (account_id, account) in old_chess.accounts.iter() {
-            accounts.insert(account_id.clone(), account.into());
+        let mut accounts = UnorderedMap::new(StorageKey::VAccounts);
+        for (account_id, old_account) in old_chess.accounts.iter() {
+            let account: Account = old_account.into();
+            accounts.insert(account_id.clone(), account);
         }
 
         Self {

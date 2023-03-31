@@ -30,13 +30,13 @@ impl From<&OldAccount> for Account {
     fn from(old_account: &OldAccount) -> Self {
         let id = env::sha256_array(old_account.account_id.as_bytes());
         let game_id_prefix: Vec<u8> = [
-            StorageKey::Accounts.try_to_vec().unwrap().as_slice(),
+            StorageKey::VAccounts.try_to_vec().unwrap().as_slice(),
             &id,
             StorageKey::AccountOrderIds.try_to_vec().unwrap().as_slice(),
         ]
         .concat();
         let finished_games_prefix: Vec<u8> = [
-            StorageKey::Accounts.try_to_vec().unwrap().as_slice(),
+            StorageKey::VAccounts.try_to_vec().unwrap().as_slice(),
             &id,
             StorageKey::AccountFinishedGames
                 .try_to_vec()
@@ -62,13 +62,13 @@ impl Account {
     pub fn new(account_id: AccountId, near_amount: Balance) -> Self {
         let id = env::sha256_array(account_id.as_bytes());
         let game_id_prefix: Vec<u8> = [
-            StorageKey::Accounts.try_to_vec().unwrap().as_slice(),
+            StorageKey::VAccounts.try_to_vec().unwrap().as_slice(),
             &id,
             StorageKey::AccountOrderIds.try_to_vec().unwrap().as_slice(),
         ]
         .concat();
         let finished_games_prefix: Vec<u8> = [
-            StorageKey::Accounts.try_to_vec().unwrap().as_slice(),
+            StorageKey::VAccounts.try_to_vec().unwrap().as_slice(),
             &id,
             StorageKey::AccountFinishedGames
                 .try_to_vec()
