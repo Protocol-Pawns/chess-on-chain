@@ -13,7 +13,7 @@ pub enum Account {
 
 #[derive(BorshDeserialize, BorshSerialize)]
 pub struct AccountV1 {
-    pub near_amount: Balance,
+    near_amount: Balance,
     account_id: AccountId,
     game_ids: UnorderedSet<GameId>,
     finished_games: UnorderedSet<GameId>,
@@ -78,5 +78,10 @@ impl Account {
     pub fn get_game_ids(&self) -> Vec<GameId> {
         let Account::V1(account) = self;
         account.game_ids.into_iter().cloned().collect()
+    }
+
+    pub fn get_finished_games(&self) -> Vec<GameId> {
+        let Account::V1(account) = self;
+        account.finished_games.into_iter().cloned().collect()
     }
 }

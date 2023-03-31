@@ -272,6 +272,32 @@
       ],
       "type": "string"
     },
+    "FinishedGames": {
+      "additionalProperties": false,
+      "contractMethod": "view",
+      "description": "Returns game IDs of finished games for given account ID.\n\nOutput is NOT ordered, but client side can do so by looking at block height of game ID (first array entry).",
+      "properties": {
+        "args": {
+          "additionalProperties": false,
+          "properties": {
+            "account_id": {
+              "$ref": "#/definitions/AccountId"
+            }
+          },
+          "required": [
+            "account_id"
+          ],
+          "type": "object"
+        }
+      },
+      "required": [
+        "args"
+      ],
+      "type": "object"
+    },
+    "FinishedGames__Result": {
+      "$ref": "#/definitions/Result%3Cdef-alias-1808117282-2580-2783-1808117282-0-6761945456593%5B%5D%2CContractError%3E"
+    },
     "GameId": {
       "description": "Unique game ID, which consists of:\n\n- block height\n- wallet ID, e.g. \"my-wallet.near\"\n- enemy wallet ID if player or empty if AI",
       "items": [
@@ -412,7 +438,7 @@
       "type": "object"
     },
     "GetGameIds__Result": {
-      "$ref": "#/definitions/Result%3Cdef-alias-1808117282-2489-2692-1808117282-0-6761945456593%5B%5D%2CContractError%3E"
+      "$ref": "#/definitions/Result%3Cdef-alias-1808117282-2580-2783-1808117282-0-6761945456593%5B%5D%2CContractError%3E"
     },
     "MoveStr": {
       "description": "A valid move will be parsed from a string.\n\nPossible [valid formats](https://docs.rs/chess-engine/latest/chess_engine/enum.Move.html#method.parse) include:\n- \"e2e4\"\n- \"e2 e4\"\n- \"e2 to e4\"\n- \"castle queenside\"\n- \"castle kingside\"",
@@ -471,7 +497,7 @@
       "type": "object"
     },
     "PlayMove__Result": {
-      "$ref": "#/definitions/Result%3C%5B(def-alias-1808117282-3397-3466-1808117282-0-6761%7Cnull)%2Cstring%5B%5D%5D%2CContractError%3E"
+      "$ref": "#/definitions/Result%3C%5B(def-alias-1808117282-3488-3557-1808117282-0-6761%7Cnull)%2Cstring%5B%5D%5D%2CContractError%3E"
     },
     "Player": {
       "anyOf": [
@@ -516,6 +542,27 @@
         "val"
       ],
       "type": "object"
+    },
+    "RecentFinishedGames": {
+      "additionalProperties": false,
+      "contractMethod": "view",
+      "description": "Returns game IDs of recently finished games (max 100).\n\nOutput is ordered with newest game ID as first elemtn.",
+      "properties": {
+        "args": {
+          "additionalProperties": false,
+          "type": "object"
+        }
+      },
+      "required": [
+        "args"
+      ],
+      "type": "object"
+    },
+    "RecentFinishedGames__Result": {
+      "items": {
+        "$ref": "#/definitions/GameId"
+      },
+      "type": "array"
     },
     "RenderBoard": {
       "additionalProperties": false,
@@ -649,7 +696,7 @@
         }
       ]
     },
-    "Result<[(def-alias-1808117282-3397-3466-1808117282-0-6761|null),string[]],ContractError>": {
+    "Result<[(def-alias-1808117282-3488-3557-1808117282-0-6761|null),string[]],ContractError>": {
       "anyOf": [
         {
           "additionalProperties": false,
@@ -747,7 +794,7 @@
         }
       ]
     },
-    "Result<def-alias-1808117282-2489-2692-1808117282-0-6761945456593[],ContractError>": {
+    "Result<def-alias-1808117282-2580-2783-1808117282-0-6761945456593[],ContractError>": {
       "anyOf": [
         {
           "additionalProperties": false,

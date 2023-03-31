@@ -11,32 +11,32 @@ import {
   f32,
   f64,
   CallOptions,
-  GameId,
-  GameOutcome,
-  AccountId,
-  StorageBalance,
-  GameInfo,
-  Timestamp,
-  Balance,
-  WrappedDuration,
   Duration,
-  Base64VecU8,
-  StorageUsage,
-  FungibleTokenMetadata,
-  PublicKey,
+  AccountId,
+  Timestamp,
+  GameOutcome,
   Gas,
-  StorageBalanceBounds,
-  Result,
   Color,
-  TokenMetadata,
-  Player,
-  NftContractMetadata,
-  Token,
-  U128,
-  ContractError,
-  Difficulty,
   MoveStr,
+  StorageUsage,
   TokenId,
+  Balance,
+  NftContractMetadata,
+  GameInfo,
+  FungibleTokenMetadata,
+  StorageBalanceBounds,
+  GameId,
+  ContractError,
+  U128,
+  StorageBalance,
+  Result,
+  Player,
+  Base64VecU8,
+  Difficulty,
+  Token,
+  WrappedDuration,
+  TokenMetadata,
+  PublicKey,
 } from "./types";
 
 /**
@@ -207,3 +207,29 @@ export interface GetGameIds {
   
 }
 export type GetGameIds__Result = Result<GameId[], ContractError>;
+/**
+* Returns game IDs of recently finished games (max 100).
+* 
+* Output is ordered with newest game ID as first elemtn.
+* 
+* @contractMethod view
+*/
+export interface RecentFinishedGames {
+  args: {};
+  
+}
+export type RecentFinishedGames__Result = GameId[];
+/**
+* Returns game IDs of finished games for given account ID.
+* 
+* Output is NOT ordered, but client side can do so by looking at block height of game ID (first array entry).
+* 
+* @contractMethod view
+*/
+export interface FinishedGames {
+  args: {
+    account_id: AccountId;
+  };
+  
+}
+export type FinishedGames__Result = Result<GameId[], ContractError>;

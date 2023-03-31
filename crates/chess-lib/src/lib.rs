@@ -14,9 +14,10 @@ use chess_engine::Move;
 use near_sdk::{
     borsh::{self, BorshDeserialize, BorshSerialize},
     env, near_bindgen,
-    store::{UnorderedMap, UnorderedSet},
+    store::{Lazy, UnorderedMap, UnorderedSet},
     AccountId, Balance, BorshStorageKey, PanicOnDefault,
 };
+use std::collections::VecDeque;
 use witgen::witgen;
 
 #[derive(BorshStorageKey, BorshSerialize)]
@@ -27,6 +28,7 @@ pub enum StorageKey {
     AccountFinishedGames,
     Games,
     RecentFinishedGames,
+    RecentFinishedGamesV2,
 }
 
 #[near_bindgen]
@@ -34,7 +36,7 @@ pub enum StorageKey {
 pub struct Chess {
     pub accounts: UnorderedMap<AccountId, Account>,
     pub games: UnorderedMap<GameId, Game>,
-    pub recent_finished_games: UnorderedSet<GameId>,
+    pub recent_finished_games: Lazy<VecDeque<GameId>>,
 }
 
 #[near_bindgen]
@@ -42,6 +44,7 @@ pub struct Chess {
 pub struct OldChess {
     pub accounts: UnorderedMap<AccountId, Account>,
     pub games: UnorderedMap<GameId, Game>,
+    pub recent_finished_games: UnorderedSet<GameId>,
 }
 
 /// A valid move will be parsed from a string.
@@ -66,7 +69,7 @@ impl Chess {
         Ok(Self {
             accounts: UnorderedMap::new(StorageKey::VAccounts),
             games: UnorderedMap::new(StorageKey::Games),
-            recent_finished_games: UnorderedSet::new(StorageKey::RecentFinishedGames),
+            recent_finished_games: Lazy::new(StorageKey::RecentFinishedGamesV2, VecDeque::new()),
         })
     }
 
@@ -77,7 +80,10 @@ impl Chess {
         Self {
             accounts: old_chess.accounts,
             games: old_chess.games,
-            recent_finished_games: UnorderedSet::new(StorageKey::RecentFinishedGames),
+            recent_finished_games: Lazy::new(
+                StorageKey::RecentFinishedGamesV2,
+                old_chess.recent_finished_games.iter().cloned().collect(),
+            ),
         }
     }
 
@@ -154,6 +160,12 @@ impl Chess {
         let (outcome, board) = if let Some((outcome, board_state)) = game.play_move(mv)? {
             self.games.remove(&game_id).unwrap();
             account.remove_game_id(&game_id);
+            account.save_finished_game(game_id.clone());
+            let recent_finished_games = self.recent_finished_games.get_mut();
+            recent_finished_games.push_front(game_id);
+            if recent_finished_games.len() > 100 {
+                recent_finished_games.pop_back();
+            }
             (Some(outcome), board_state)
         } else {
             (None, self.games.get(&game_id).unwrap().get_board_state())
@@ -231,6 +243,25 @@ impl Chess {
             .get(&account_id)
             .ok_or_else(|| ContractError::AccountNotRegistered(account_id.clone()))?;
         Ok(account.get_game_ids())
+    }
+
+    /// Returns game IDs of recently finished games (max 100).
+    ///
+    /// Output is ordered with newest game ID as first elemtn.
+    pub fn recent_finished_games(&self) -> Vec<GameId> {
+        self.recent_finished_games.iter().cloned().collect()
+    }
+
+    /// Returns game IDs of finished games for given account ID.
+    ///
+    /// Output is NOT ordered, but client side can do so by looking at block height of game ID (first array entry).
+    #[handle_result]
+    pub fn finished_games(&self, account_id: AccountId) -> Result<Vec<GameId>, ContractError> {
+        let account = self
+            .accounts
+            .get(&account_id)
+            .ok_or_else(|| ContractError::AccountNotRegistered(account_id.clone()))?;
+        Ok(account.get_finished_games())
     }
 }
 
