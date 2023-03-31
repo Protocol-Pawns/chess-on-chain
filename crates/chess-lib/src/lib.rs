@@ -56,6 +56,15 @@ impl Chess {
         })
     }
 
+    #[private]
+    pub fn clear_all_games(&mut self) {
+        for (game_id, game) in self.games.drain() {
+            let Player::Human(account_id) = &game.white else { panic!() };
+            let account = self.accounts.get_mut(account_id).unwrap();
+            account.remove_game_id(&game_id);
+        }
+    }
+
     /// Create a new game against an AI player.
     ///
     /// Returns game ID, which is necessary to play the game.
