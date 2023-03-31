@@ -14,7 +14,7 @@ use chess_engine::Move;
 use near_sdk::{
     borsh::{self, BorshDeserialize, BorshSerialize},
     env, near_bindgen,
-    store::UnorderedMap,
+    store::{UnorderedMap, UnorderedSet},
     AccountId, Balance, BorshStorageKey, PanicOnDefault,
 };
 use witgen::witgen;
@@ -26,6 +26,7 @@ pub enum StorageKey {
     AccountOrderIds,
     AccountFinishedGames,
     Games,
+    RecentFinishedGames,
 }
 
 #[near_bindgen]
@@ -33,12 +34,13 @@ pub enum StorageKey {
 pub struct Chess {
     pub accounts: UnorderedMap<AccountId, Account>,
     pub games: UnorderedMap<GameId, Game>,
+    pub recent_finished_games: UnorderedSet<GameId>,
 }
 
 #[near_bindgen]
 #[derive(BorshDeserialize, BorshSerialize, PanicOnDefault)]
 pub struct OldChess {
-    pub accounts: UnorderedMap<AccountId, OldAccount>,
+    pub accounts: UnorderedMap<AccountId, Account>,
     pub games: UnorderedMap<GameId, Game>,
 }
 
@@ -64,6 +66,7 @@ impl Chess {
         Ok(Self {
             accounts: UnorderedMap::new(StorageKey::VAccounts),
             games: UnorderedMap::new(StorageKey::Games),
+            recent_finished_games: UnorderedSet::new(StorageKey::RecentFinishedGames),
         })
     }
 
@@ -71,16 +74,10 @@ impl Chess {
     #[init(ignore_state)]
     pub fn migrate() -> Self {
         let old_chess: OldChess = env::state_read().unwrap();
-
-        let mut accounts = UnorderedMap::new(StorageKey::VAccounts);
-        for (account_id, old_account) in old_chess.accounts.iter() {
-            let account: Account = old_account.into();
-            accounts.insert(account_id.clone(), account);
-        }
-
         Self {
-            accounts,
+            accounts: old_chess.accounts,
             games: old_chess.games,
+            recent_finished_games: UnorderedSet::new(StorageKey::RecentFinishedGames),
         }
     }
 

@@ -19,45 +19,6 @@ pub struct AccountV1 {
     finished_games: UnorderedSet<GameId>,
 }
 
-#[derive(BorshDeserialize, BorshSerialize)]
-pub struct OldAccount {
-    near_amount: Balance,
-    account_id: AccountId,
-    game_ids: UnorderedSet<GameId>,
-}
-
-impl From<&OldAccount> for Account {
-    fn from(old_account: &OldAccount) -> Self {
-        let id = env::sha256_array(old_account.account_id.as_bytes());
-        let game_id_prefix: Vec<u8> = [
-            StorageKey::VAccounts.try_to_vec().unwrap().as_slice(),
-            &id,
-            StorageKey::AccountOrderIds.try_to_vec().unwrap().as_slice(),
-        ]
-        .concat();
-        let finished_games_prefix: Vec<u8> = [
-            StorageKey::VAccounts.try_to_vec().unwrap().as_slice(),
-            &id,
-            StorageKey::AccountFinishedGames
-                .try_to_vec()
-                .unwrap()
-                .as_slice(),
-        ]
-        .concat();
-        let mut game_ids = UnorderedSet::new(game_id_prefix);
-        for game_id in old_account.game_ids.iter() {
-            game_ids.insert(game_id.clone());
-        }
-
-        Self::V1(AccountV1 {
-            near_amount: old_account.near_amount,
-            account_id: old_account.account_id.clone(),
-            game_ids,
-            finished_games: UnorderedSet::new(finished_games_prefix),
-        })
-    }
-}
-
 impl Account {
     pub fn new(account_id: AccountId, near_amount: Balance) -> Self {
         let id = env::sha256_array(account_id.as_bytes());
@@ -102,6 +63,11 @@ impl Account {
     pub fn remove_game_id(&mut self, game_id: &GameId) -> bool {
         let Account::V1(account) = self;
         account.game_ids.remove(game_id)
+    }
+
+    pub fn save_finished_game(&mut self, game_id: GameId) {
+        let Account::V1(account) = self;
+        account.finished_games.insert(game_id);
     }
 
     pub fn is_playing(&self) -> bool {
