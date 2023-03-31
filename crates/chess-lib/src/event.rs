@@ -24,5 +24,6 @@ pub enum ChessEvent {
     FinishGame {
         game_id: GameId,
         outcome: GameOutcome,
+        board: [String; 8],
     },
 }

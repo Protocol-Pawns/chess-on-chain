@@ -83,7 +83,6 @@ pub struct GameInfo {
 #[derive(BorshDeserialize, BorshSerialize, Clone, Debug, Deserialize, Serialize)]
 #[serde(crate = "near_sdk::serde")]
 #[witgen]
-
 pub enum GameOutcome {
     Victory(Color),
     Stalemate,
@@ -147,7 +146,10 @@ impl Game {
         false
     }
 
-    pub fn play_move(&mut self, mv: Move) -> Result<Option<GameOutcome>, ContractError> {
+    pub fn play_move(
+        &mut self,
+        mv: Move,
+    ) -> Result<Option<(GameOutcome, [String; 8])>, ContractError> {
         let Game::V1(game) = self;
         let turn_color = game.board.get_turn_color();
         let event = ChessEvent::PlayMove {
@@ -156,7 +158,7 @@ impl Game {
             mv: mv.to_string(),
         };
         event.emit();
-        let outcome = match game.board.play_move(mv) {
+        let outcome_with_board = match game.board.play_move(mv) {
             GameResult::Continuing(board) => {
                 let event = ChessEvent::ChangeBoard {
                     board: Self::_get_board_state(&board),
@@ -184,20 +186,24 @@ impl Game {
                             (board, None)
                         }
                         GameResult::Victory(color) => {
+                            let board_state = Self::_get_board_state(&board.apply_eval_move(ai_mv));
                             let event = ChessEvent::FinishGame {
                                 game_id: game.game_id.clone(),
                                 outcome: GameOutcome::Victory(color),
+                                board: board_state.clone(),
                             };
                             event.emit();
-                            (board, Some(GameOutcome::Victory(color)))
+                            (board, Some((GameOutcome::Victory(color), board_state)))
                         }
                         GameResult::Stalemate => {
+                            let board_state = Self::_get_board_state(&board.apply_eval_move(ai_mv));
                             let event = ChessEvent::FinishGame {
                                 game_id: game.game_id.clone(),
                                 outcome: GameOutcome::Stalemate,
+                                board: board_state.clone(),
                             };
                             event.emit();
-                            (board, Some(GameOutcome::Stalemate))
+                            (board, Some((GameOutcome::Stalemate, board_state)))
                         }
                         GameResult::IllegalMove(_) => return Err(ContractError::IllegalMove),
                     }
@@ -208,24 +214,28 @@ impl Game {
                 outcome
             }
             GameResult::Victory(color) => {
+                let board_state = Self::_get_board_state(&game.board.apply_eval_move(mv));
                 let event = ChessEvent::FinishGame {
                     game_id: game.game_id.clone(),
                     outcome: GameOutcome::Victory(color),
+                    board: board_state.clone(),
                 };
                 event.emit();
-                Some(GameOutcome::Victory(color))
+                Some((GameOutcome::Victory(color), board_state))
             }
             GameResult::Stalemate => {
+                let board_state = Self::_get_board_state(&game.board.apply_eval_move(mv));
                 let event = ChessEvent::FinishGame {
                     game_id: game.game_id.clone(),
                     outcome: GameOutcome::Stalemate,
+                    board: board_state.clone(),
                 };
                 event.emit();
-                Some(GameOutcome::Stalemate)
+                Some((GameOutcome::Stalemate, board_state))
             }
             GameResult::IllegalMove(_) => return Err(ContractError::IllegalMove),
         };
-        Ok(outcome)
+        Ok(outcome_with_board)
     }
 
     pub fn get_board_state(&self) -> [String; 8] {
