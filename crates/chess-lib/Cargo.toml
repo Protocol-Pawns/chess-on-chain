@@ -9,14 +9,22 @@ crate-type = ["rlib"]
 
 [dependencies]
 getrandom = { version = "0.2", features = ["js"] }
-near-contract-standards = "4"
-near-sdk = "4"
 thiserror = "1"
 witgen = "0.15"
 
 [dependencies.chess-engine]
 version = "0.1"
 path = "../../../chess-engine"
+
+[dependencies.near-contract-standards]
+version = "4"
+git = "https://github.com/near/near-sdk-rs.git"
+rev = "89f8c2d776c8d00feb45239fdb15725527f1894b"
+
+[dependencies.near-sdk]
+version = "4"
+git = "https://github.com/near/near-sdk-rs.git"
+rev = "89f8c2d776c8d00feb45239fdb15725527f1894b"
 
 [package.metadata.witgen]
 export = true

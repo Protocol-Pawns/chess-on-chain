@@ -65,84 +65,84 @@ const renderPiece = (piece) => {
   switch (piece) {
     case " ":
       return "";
-    case "♟":
+    case "p":
       return (
         <img
           alt="black pawn"
           src="https://raw.githubusercontent.com/nikfrank/react-chess-pieces/master/src/p-black.svg"
         />
       );
-    case "♙":
+    case "P":
       return (
         <img
           alt="white pawn"
           src="https://raw.githubusercontent.com/nikfrank/react-chess-pieces/master/src/P-white.svg"
         />
       );
-    case "♞":
+    case "n":
       return (
         <img
           alt="black knight"
           src="https://raw.githubusercontent.com/nikfrank/react-chess-pieces/master/src/n-black.svg"
         />
       );
-    case "♘":
+    case "N":
       return (
         <img
           alt="white knight"
           src="https://raw.githubusercontent.com/nikfrank/react-chess-pieces/master/src/N-white.svg"
         />
       );
-    case "♝":
+    case "b":
       return (
         <img
           alt="black bishop"
           src="https://raw.githubusercontent.com/nikfrank/react-chess-pieces/master/src/b-black.svg"
         />
       );
-    case "♗":
+    case "B":
       return (
         <img
           alt="white bishop"
           src="https://raw.githubusercontent.com/nikfrank/react-chess-pieces/master/src/B-white.svg"
         />
       );
-    case "♜":
+    case "r":
       return (
         <img
           alt="black rook"
           src="https://raw.githubusercontent.com/nikfrank/react-chess-pieces/master/src/r-black.svg"
         />
       );
-    case "♖":
+    case "R":
       return (
         <img
           alt="white rook"
           src="https://raw.githubusercontent.com/nikfrank/react-chess-pieces/master/src/R-white.svg"
         />
       );
-    case "♛":
+    case "q":
       return (
         <img
           alt="black queen"
           src="https://raw.githubusercontent.com/nikfrank/react-chess-pieces/master/src/q-black.svg"
         />
       );
-    case "♕":
+    case "Q":
       return (
         <img
           alt="white queen"
           src="https://raw.githubusercontent.com/nikfrank/react-chess-pieces/master/src/Q-white.svg"
         />
       );
-    case "♚":
+    case "k":
       return (
         <img
           alt="black king"
           src="https://raw.githubusercontent.com/nikfrank/react-chess-pieces/master/src/k-black.svg"
         />
       );
-    case "♔":
+    case "K":
       return (
         <img
           alt="white king"

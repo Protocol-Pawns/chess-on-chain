@@ -1,4 +1,4 @@
-use crate::ContractError;
+use crate::{ChessEvent, ContractError};
 use chess_engine::{Board, Color, GameResult, Move, Piece, Position};
 use near_sdk::{
     borsh::{self, BorshDeserialize, BorshSerialize},
@@ -19,6 +19,7 @@ use witgen::witgen;
     Deserialize,
     Serialize,
     Clone,
+    Debug,
     Hash,
     Ord,
     PartialOrd,
@@ -29,7 +30,7 @@ use witgen::witgen;
 #[witgen]
 pub struct GameId(pub u64, pub AccountId, pub Option<AccountId>);
 
-#[derive(BorshDeserialize, BorshSerialize, Clone, Serialize)]
+#[derive(BorshDeserialize, BorshSerialize, Clone, Debug, Serialize)]
 #[serde(crate = "near_sdk::serde")]
 #[witgen]
 pub enum Player {
@@ -46,7 +47,7 @@ pub enum Player {
 /// - Easy: ~8TGas
 /// - Medium: ~30TGas
 /// - Hard: ~110TGas
-#[derive(BorshDeserialize, BorshSerialize, Clone, Deserialize, Serialize)]
+#[derive(BorshDeserialize, BorshSerialize, Clone, Debug, Deserialize, Serialize)]
 #[serde(crate = "near_sdk::serde")]
 #[witgen]
 
@@ -56,9 +57,15 @@ pub enum Difficulty {
     Hard,
 }
 
+#[derive(BorshDeserialize, BorshSerialize)]
+pub enum Game {
+    V1(GameV1),
+}
+
 #[near_bindgen]
 #[derive(BorshDeserialize, BorshSerialize)]
-pub struct Game {
+pub struct GameV1 {
+    pub game_id: GameId,
     pub white: Player,
     pub black: Player,
     pub board: Board,
@@ -73,7 +80,7 @@ pub struct GameInfo {
     pub turn_color: Color,
 }
 
-#[derive(BorshDeserialize, BorshSerialize, Deserialize, Serialize)]
+#[derive(BorshDeserialize, BorshSerialize, Clone, Debug, Deserialize, Serialize)]
 #[serde(crate = "near_sdk::serde")]
 #[witgen]
 
@@ -83,18 +90,40 @@ pub enum GameOutcome {
 }
 
 impl Game {
-    pub fn new(white: Player, black: Player) -> Self {
-        Self {
+    pub fn new(game_id: GameId, white: Player, black: Player) -> Self {
+        Game::V1(GameV1 {
+            game_id,
             white,
             black,
             board: Board::default(),
-        }
+        })
+    }
+
+    pub fn get_game_id(&self) -> &GameId {
+        let Game::V1(game) = self;
+        &game.game_id
+    }
+
+    pub fn get_white(&self) -> &Player {
+        let Game::V1(game) = self;
+        &game.white
+    }
+
+    pub fn get_black(&self) -> &Player {
+        let Game::V1(game) = self;
+        &game.black
+    }
+
+    pub fn get_board(&self) -> &Board {
+        let Game::V1(game) = self;
+        &game.board
     }
 
     pub fn is_turn(&self, account_id: AccountId) -> bool {
-        let player = match self.board.get_turn_color() {
-            Color::White => &self.white,
-            Color::Black => &self.black,
+        let Game::V1(game) = self;
+        let player = match game.board.get_turn_color() {
+            Color::White => &game.white,
+            Color::Black => &game.black,
         };
         if let Player::Human(id) = player {
             id == &account_id
@@ -104,12 +133,13 @@ impl Game {
     }
 
     pub fn is_player(&self, account_id: AccountId) -> bool {
-        if let Player::Human(id) = &self.white {
+        let Game::V1(game) = self;
+        if let Player::Human(id) = &game.white {
             if id == &account_id {
                 return true;
             }
         }
-        if let Player::Human(id) = &self.black {
+        if let Player::Human(id) = &game.black {
             if id == &account_id {
                 return true;
             }
@@ -118,11 +148,17 @@ impl Game {
     }
 
     pub fn play_move(&mut self, mv: Move) -> Result<Option<GameOutcome>, ContractError> {
-        let turn_color = self.board.get_turn_color();
-        log!("{}: {}", turn_color, mv);
-        let outcome = match self.board.play_move(mv) {
+        let Game::V1(game) = self;
+        let turn_color = game.board.get_turn_color();
+        let event = ChessEvent::PlayMove {
+            game_id: game.game_id.clone(),
+            color: turn_color,
+            mv: mv.to_string(),
+        };
+        event.emit();
+        let outcome = match game.board.play_move(mv) {
             GameResult::Continuing(board) => {
-                let (board, outcome) = if let Player::Ai(difficulty) = &self.black {
+                let (board, outcome) = if let Player::Ai(difficulty) = &game.black {
                     let depths = match difficulty {
                         Difficulty::Easy => vec![24],
                         Difficulty::Medium => vec![20, 16],
@@ -130,6 +166,12 @@ impl Game {
                     };
                     let (ai_mv, _, _) = board.get_next_move(&depths, env::random_seed_array());
                     log!("Black: {}", ai_mv);
+                    let event = ChessEvent::PlayMove {
+                        game_id: game.game_id.clone(),
+                        color: Color::Black,
+                        mv: ai_mv.to_string(),
+                    };
+                    event.emit();
                     match board.play_move(ai_mv) {
                         GameResult::Continuing(board) => (board, None),
                         GameResult::Victory(color) => {
@@ -145,7 +187,7 @@ impl Game {
                 } else {
                     (board, None)
                 };
-                self.board = board;
+                game.board = board;
                 outcome
             }
             GameResult::Victory(color) => {
@@ -161,25 +203,26 @@ impl Game {
         Ok(outcome)
     }
 
-    pub fn get_board(&self) -> [String; 8] {
+    pub fn get_board_state(&self) -> [String; 8] {
+        let Game::V1(game) = self;
         (0..8)
             .map(|row| -> String {
                 (0..8)
                     .map(move |col| -> char {
-                        if let Some(piece) = self.board.get_piece(Position::new(row, col)) {
+                        if let Some(piece) = game.board.get_piece(Position::new(row, col)) {
                             match piece {
-                                Piece::King(Color::Black, _) => '♚',
-                                Piece::King(Color::White, _) => '♔',
-                                Piece::Queen(Color::Black, _) => '♛',
-                                Piece::Queen(Color::White, _) => '♕',
-                                Piece::Rook(Color::Black, _) => '♜',
-                                Piece::Rook(Color::White, _) => '♖',
-                                Piece::Bishop(Color::Black, _) => '♝',
-                                Piece::Bishop(Color::White, _) => '♗',
-                                Piece::Knight(Color::Black, _) => '♞',
-                                Piece::Knight(Color::White, _) => '♘',
-                                Piece::Pawn(Color::Black, _) => '♟',
-                                Piece::Pawn(Color::White, _) => '♙',
+                                Piece::King(Color::Black, _) => 'k',
+                                Piece::King(Color::White, _) => 'K',
+                                Piece::Queen(Color::Black, _) => 'q',
+                                Piece::Queen(Color::White, _) => 'Q',
+                                Piece::Rook(Color::Black, _) => 'r',
+                                Piece::Rook(Color::White, _) => 'R',
+                                Piece::Bishop(Color::Black, _) => 'b',
+                                Piece::Bishop(Color::White, _) => 'B',
+                                Piece::Knight(Color::Black, _) => 'n',
+                                Piece::Knight(Color::White, _) => 'N',
+                                Piece::Pawn(Color::Black, _) => 'p',
+                                Piece::Pawn(Color::White, _) => 'P',
                             }
                         } else {
                             ' '
@@ -193,6 +236,7 @@ impl Game {
     }
 
     pub fn render_board(&self) -> String {
+        let Game::V1(game) = self;
         (-1..8)
             .rev()
             .flat_map(|row| {
@@ -205,7 +249,7 @@ impl Game {
                         '\n'
                     } else if row == -1 {
                         (b'A' + col as u8) as char
-                    } else if let Some(piece) = self.board.get_piece(Position::new(row, col)) {
+                    } else if let Some(piece) = game.board.get_piece(Position::new(row, col)) {
                         match piece {
                             Piece::King(Color::Black, _) => '♚',
                             Piece::King(Color::White, _) => '♔',

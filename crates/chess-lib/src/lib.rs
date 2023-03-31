@@ -1,10 +1,12 @@
 mod account;
 mod error;
+mod event;
 mod game;
 mod storage;
 
 pub use account::*;
 pub use error::*;
+pub use event::*;
 pub use game::*;
 pub use storage::*;
 
@@ -59,7 +61,7 @@ impl Chess {
     #[private]
     pub fn clear_all_games(&mut self) {
         for (game_id, game) in self.games.drain() {
-            let Player::Human(account_id) = &game.white else { panic!() };
+            let Player::Human(account_id) = game.get_white() else { panic!() };
             let account = self.accounts.get_mut(account_id).unwrap();
             account.remove_game_id(&game_id);
         }
@@ -84,7 +86,17 @@ impl Chess {
         let game_id = GameId(block_height, account_id.clone(), None);
         account.add_game_id(game_id.clone())?;
 
-        let game = Game::new(Player::Human(account_id), Player::Ai(difficulty));
+        let game = Game::new(
+            game_id.clone(),
+            Player::Human(account_id),
+            Player::Ai(difficulty),
+        );
+        let event = ChessEvent::CreateGame {
+            game_id: game_id.clone(),
+            white: game.get_white().clone(),
+            black: game.get_black().clone(),
+        };
+        event.emit();
         self.games.insert(game_id.clone(), game);
 
         Ok(game_id)
@@ -98,7 +110,7 @@ impl Chess {
         &mut self,
         game_id: GameId,
         mv: MoveStr,
-    ) -> Result<(Option<GameOutcome>, String), ContractError> {
+    ) -> Result<(Option<GameOutcome>, [String; 8]), ContractError> {
         let account_id = env::signer_account_id();
         let account = self
             .accounts
@@ -116,11 +128,16 @@ impl Chess {
         }
 
         let (outcome, board) = if let Some(outcome) = game.play_move(mv)? {
-            let game = self.games.remove(&game_id);
+            let game = self.games.remove(&game_id).unwrap();
             account.remove_game_id(&game_id);
-            (Some(outcome), game.unwrap().render_board())
+            let event = ChessEvent::FinishGame {
+                game_id,
+                outcome: outcome.clone(),
+            };
+            event.emit();
+            (Some(outcome), game.get_board_state())
         } else {
-            (None, self.games.get(&game_id).unwrap().render_board())
+            (None, self.games.get(&game_id).unwrap().get_board_state())
         };
 
         Ok((outcome, board))
@@ -159,7 +176,7 @@ impl Chess {
             .games
             .get(&game_id)
             .ok_or(ContractError::GameNotExists)?;
-        Ok(game.get_board())
+        Ok(game.get_board_state())
     }
 
     /// Renders a game as a string.
@@ -181,9 +198,9 @@ impl Chess {
             .ok_or(ContractError::GameNotExists)?;
 
         Ok(GameInfo {
-            white: game.white.clone(),
-            black: game.black.clone(),
-            turn_color: game.board.get_turn_color(),
+            white: game.get_white().clone(),
+            black: game.get_black().clone(),
+            turn_color: game.get_board().get_turn_color(),
         })
     }
 

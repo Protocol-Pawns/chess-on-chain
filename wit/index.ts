@@ -12,31 +12,31 @@ import {
   f64,
   CallOptions,
   Balance,
-  Difficulty,
-  Timestamp,
-  AccountId,
-  ContractError,
-  TokenMetadata,
-  StorageBalance,
-  GameId,
-  GameOutcome,
-  PublicKey,
-  MoveStr,
-  FungibleTokenMetadata,
-  Result,
-  StorageUsage,
-  WrappedDuration,
-  StorageBalanceBounds,
-  GameInfo,
   Base64VecU8,
-  Player,
-  TokenId,
-  Gas,
-  Color,
-  Duration,
+  MoveStr,
+  StorageUsage,
   U128,
-  Token,
+  PublicKey,
+  FungibleTokenMetadata,
   NftContractMetadata,
+  Result,
+  StorageBalance,
+  TokenId,
+  GameOutcome,
+  Gas,
+  Token,
+  GameId,
+  Duration,
+  StorageBalanceBounds,
+  Timestamp,
+  Player,
+  ContractError,
+  GameInfo,
+  TokenMetadata,
+  WrappedDuration,
+  AccountId,
+  Color,
+  Difficulty,
 } from "./types";
 
 /**
@@ -141,7 +141,7 @@ export interface PlayMove {
   options: CallOptions
   
 }
-export type PlayMove__Result = Result<[GameOutcome | null, string], ContractError>;
+export type PlayMove__Result = Result<[GameOutcome | null, string[]], ContractError>;
 /**
 * Resigns a game.
 * 

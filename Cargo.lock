@@ -740,8 +740,7 @@ dependencies = [
 [[package]]
 name = "near-contract-standards"
 version = "4.1.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7bacc932e79b26472797adfb21689294b6f90960d1570daaf1e0b682b59fcb35"
+source = "git+https://github.com/near/near-sdk-rs.git?rev=89f8c2d776c8d00feb45239fdb15725527f1894b#89f8c2d776c8d00feb45239fdb15725527f1894b"
 dependencies = [
  "near-sdk",
  "schemars",
@@ -846,8 +845,7 @@ dependencies = [
 [[package]]
 name = "near-sdk"
 version = "4.1.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "15eb3de2defe3626260cc209a6cdb985c6b27b0bd4619fad97dcfae002c3c5bd"
+source = "git+https://github.com/near/near-sdk-rs.git?rev=89f8c2d776c8d00feb45239fdb15725527f1894b#89f8c2d776c8d00feb45239fdb15725527f1894b"
 dependencies = [
  "base64 0.13.1",
  "borsh",
@@ -869,8 +867,7 @@ dependencies = [
 [[package]]
 name = "near-sdk-macros"
 version = "4.1.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4907affc9f5ed559456509188ff0024f1f2099c0830e6bdb66eb61d5b75912c0"
+source = "git+https://github.com/near/near-sdk-rs.git?rev=89f8c2d776c8d00feb45239fdb15725527f1894b#89f8c2d776c8d00feb45239fdb15725527f1894b"
 dependencies = [
  "Inflector",
  "proc-macro2",
@@ -881,8 +878,7 @@ dependencies = [
 [[package]]
 name = "near-sys"
 version = "0.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e307313276eaeced2ca95740b5639e1f3125b7c97f0a1151809d105f1aa8c6d3"
+source = "git+https://github.com/near/near-sdk-rs.git?rev=89f8c2d776c8d00feb45239fdb15725527f1894b#89f8c2d776c8d00feb45239fdb15725527f1894b"
 
 [[package]]
 name = "near-vm-errors"
