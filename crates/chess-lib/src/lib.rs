@@ -95,6 +95,7 @@ impl Chess {
             game_id: game_id.clone(),
             white: game.get_white().clone(),
             black: game.get_black().clone(),
+            board: game.get_board_state(),
         };
         event.emit();
         self.games.insert(game_id.clone(), game);
@@ -130,11 +131,6 @@ impl Chess {
         let (outcome, board) = if let Some(outcome) = game.play_move(mv)? {
             let game = self.games.remove(&game_id).unwrap();
             account.remove_game_id(&game_id);
-            let event = ChessEvent::FinishGame {
-                game_id,
-                outcome: outcome.clone(),
-            };
-            event.emit();
             (Some(outcome), game.get_board_state())
         } else {
             (None, self.games.get(&game_id).unwrap().get_board_state())

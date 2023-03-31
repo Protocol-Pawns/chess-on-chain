@@ -10,6 +10,7 @@ pub enum ChessEvent {
         game_id: GameId,
         white: Player,
         black: Player,
+        board: [String; 8],
     },
     #[event_version("1.0.0")]
     PlayMove {
@@ -17,6 +18,8 @@ pub enum ChessEvent {
         color: Color,
         mv: MoveStr,
     },
+    #[event_version("1.0.0")]
+    ChangeBoard { board: [String; 8] },
     #[event_version("1.0.0")]
     FinishGame {
         game_id: GameId,

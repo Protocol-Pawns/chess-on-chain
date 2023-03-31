@@ -2,7 +2,7 @@ use crate::{ChessEvent, ContractError};
 use chess_engine::{Board, Color, GameResult, Move, Piece, Position};
 use near_sdk::{
     borsh::{self, BorshDeserialize, BorshSerialize},
-    env, log, near_bindgen,
+    env, near_bindgen,
     serde::{Deserialize, Serialize},
     AccountId,
 };
@@ -158,6 +158,10 @@ impl Game {
         event.emit();
         let outcome = match game.board.play_move(mv) {
             GameResult::Continuing(board) => {
+                let event = ChessEvent::ChangeBoard {
+                    board: Self::_get_board_state(&board),
+                };
+                event.emit();
                 let (board, outcome) = if let Player::Ai(difficulty) = &game.black {
                     let depths = match difficulty {
                         Difficulty::Easy => vec![24],
@@ -165,7 +169,6 @@ impl Game {
                         Difficulty::Hard => vec![16, 12, 8],
                     };
                     let (ai_mv, _, _) = board.get_next_move(&depths, env::random_seed_array());
-                    log!("Black: {}", ai_mv);
                     let event = ChessEvent::PlayMove {
                         game_id: game.game_id.clone(),
                         color: Color::Black,
@@ -173,13 +176,27 @@ impl Game {
                     };
                     event.emit();
                     match board.play_move(ai_mv) {
-                        GameResult::Continuing(board) => (board, None),
+                        GameResult::Continuing(board) => {
+                            let event = ChessEvent::ChangeBoard {
+                                board: Self::_get_board_state(&board),
+                            };
+                            event.emit();
+                            (board, None)
+                        }
                         GameResult::Victory(color) => {
-                            log!("{} won the match", color);
+                            let event = ChessEvent::FinishGame {
+                                game_id: game.game_id.clone(),
+                                outcome: GameOutcome::Victory(color),
+                            };
+                            event.emit();
                             (board, Some(GameOutcome::Victory(color)))
                         }
                         GameResult::Stalemate => {
-                            log!("Draw due to stalement");
+                            let event = ChessEvent::FinishGame {
+                                game_id: game.game_id.clone(),
+                                outcome: GameOutcome::Stalemate,
+                            };
+                            event.emit();
                             (board, Some(GameOutcome::Stalemate))
                         }
                         GameResult::IllegalMove(_) => return Err(ContractError::IllegalMove),
@@ -191,11 +208,19 @@ impl Game {
                 outcome
             }
             GameResult::Victory(color) => {
-                log!("{} won the match", color);
+                let event = ChessEvent::FinishGame {
+                    game_id: game.game_id.clone(),
+                    outcome: GameOutcome::Victory(color),
+                };
+                event.emit();
                 Some(GameOutcome::Victory(color))
             }
             GameResult::Stalemate => {
-                log!("Draw due to stalement");
+                let event = ChessEvent::FinishGame {
+                    game_id: game.game_id.clone(),
+                    outcome: GameOutcome::Stalemate,
+                };
+                event.emit();
                 Some(GameOutcome::Stalemate)
             }
             GameResult::IllegalMove(_) => return Err(ContractError::IllegalMove),
@@ -205,11 +230,15 @@ impl Game {
 
     pub fn get_board_state(&self) -> [String; 8] {
         let Game::V1(game) = self;
+        Self::_get_board_state(&game.board)
+    }
+
+    fn _get_board_state(board: &Board) -> [String; 8] {
         (0..8)
             .map(|row| -> String {
                 (0..8)
                     .map(move |col| -> char {
-                        if let Some(piece) = game.board.get_piece(Position::new(row, col)) {
+                        if let Some(piece) = board.get_piece(Position::new(row, col)) {
                             match piece {
                                 Piece::King(Color::Black, _) => 'k',
                                 Piece::King(Color::White, _) => 'K',
