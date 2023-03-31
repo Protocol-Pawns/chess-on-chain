@@ -65,10 +65,10 @@ pub enum Game {
 #[near_bindgen]
 #[derive(BorshDeserialize, BorshSerialize)]
 pub struct GameV1 {
-    pub game_id: GameId,
-    pub white: Player,
-    pub black: Player,
-    pub board: Board,
+    game_id: GameId,
+    white: Player,
+    black: Player,
+    board: Board,
 }
 
 #[derive(Serialize)]

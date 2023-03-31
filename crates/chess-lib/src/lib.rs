@@ -23,6 +23,7 @@ use witgen::witgen;
 pub enum StorageKey {
     Accounts,
     AccountOrderIds,
+    AccountFinishedGames,
     Games,
 }
 
@@ -30,6 +31,13 @@ pub enum StorageKey {
 #[derive(BorshDeserialize, BorshSerialize, PanicOnDefault)]
 pub struct Chess {
     pub accounts: UnorderedMap<AccountId, Account>,
+    pub games: UnorderedMap<GameId, Game>,
+}
+
+#[near_bindgen]
+#[derive(BorshDeserialize, BorshSerialize, PanicOnDefault)]
+pub struct OldChess {
+    pub accounts: UnorderedMap<AccountId, OldAccount>,
     pub games: UnorderedMap<GameId, Game>,
 }
 
@@ -56,6 +64,22 @@ impl Chess {
             accounts: UnorderedMap::new(StorageKey::Accounts),
             games: UnorderedMap::new(StorageKey::Games),
         })
+    }
+
+    #[private]
+    #[init(ignore_state)]
+    pub fn migrate() -> Self {
+        let old_chess: OldChess = env::state_read().unwrap();
+
+        let mut accounts = UnorderedMap::new(StorageKey::Accounts);
+        for (account_id, account) in old_chess.accounts.iter() {
+            accounts.insert(account_id.clone(), account.into());
+        }
+
+        Self {
+            accounts,
+            games: old_chess.games,
+        }
     }
 
     #[private]

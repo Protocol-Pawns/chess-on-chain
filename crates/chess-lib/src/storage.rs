@@ -59,7 +59,7 @@ impl StorageManagement for Chess {
         self.internal_get_account(&account_id)
             .ok()
             .map(|account| StorageBalance {
-                total: U128(account.near_amount),
+                total: U128(account.get_near_amount()),
                 available: U128(0),
             })
     }
@@ -108,7 +108,7 @@ impl Chess {
             if account.is_playing() {
                 return Err(ContractError::AccountIsPlaying);
             }
-            Promise::new(account_id.clone()).transfer(account.near_amount);
+            Promise::new(account_id.clone()).transfer(account.get_near_amount());
             self.accounts.remove(&account_id);
             Ok(true)
         } else {
