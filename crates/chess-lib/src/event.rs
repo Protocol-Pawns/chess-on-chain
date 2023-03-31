@@ -2,7 +2,7 @@ use crate::{GameId, GameOutcome, MoveStr, Player};
 use chess_engine::Color;
 use near_sdk::near_bindgen;
 
-#[near_bindgen(event_json(standard = "chess001"))]
+#[near_bindgen(event_json(standard = "chess-game"))]
 #[derive(Debug)]
 pub enum ChessEvent {
     #[event_version("1.0.0")]

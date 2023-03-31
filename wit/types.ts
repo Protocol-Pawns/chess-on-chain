@@ -80,6 +80,13 @@ export type CallOptions = {
 }
 
 
+/**
+* The color of a piece.
+*/
+export enum Color {
+  White = "White",
+  Black = "Black",
+}
 export type ContractError = ContractErrorAlreadyInitilized | ContractErrorAccountNotRegistered | ContractErrorAccountIsPlaying | ContractErrorMaxGamesReached | ContractErrorGameNotExists | ContractErrorMoveParse | ContractErrorIllegalMove | ContractErrorNotYourTurn | ContractErrorNotPlaying | ContractErrorNotEnoughDeposit | ContractErrorOperationNotSupported;
 export interface ContractErrorAlreadyInitilized {
   tag: "already-initilized",
@@ -174,13 +181,6 @@ export interface GameOutcomeStalemate {
 * - "castle kingside"
 */
 export type MoveStr = string;
-/**
-* The color of a piece.
-*/
-export enum Color {
-  White = "White",
-  Black = "Black",
-}
 /**
 * StorageUsage is used to count the amount of storage used by a contract.
 */
