@@ -161,6 +161,7 @@ impl Game {
         let outcome_with_board = match game.board.play_move(mv) {
             GameResult::Continuing(board) => {
                 let event = ChessEvent::ChangeBoard {
+                    game_id: game.game_id.clone(),
                     board: Self::_get_board_state(&board),
                 };
                 event.emit();
@@ -180,6 +181,7 @@ impl Game {
                     match board.play_move(ai_mv) {
                         GameResult::Continuing(board) => {
                             let event = ChessEvent::ChangeBoard {
+                                game_id: game.game_id.clone(),
                                 board: Self::_get_board_state(&board),
                             };
                             event.emit();

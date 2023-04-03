@@ -19,7 +19,7 @@ pub enum ChessEvent {
         mv: MoveStr,
     },
     #[event_version("1.0.0")]
-    ChangeBoard { board: [String; 8] },
+    ChangeBoard { game_id: GameId, board: [String; 8] },
     #[event_version("1.0.0")]
     FinishGame {
         game_id: GameId,
