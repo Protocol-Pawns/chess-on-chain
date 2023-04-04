@@ -4,11 +4,11 @@
     "colId": "9630cc86-7a07-4400-95bb-66282c47ecd0",
     "containerId": "",
     "name": "transactions",
-    "url": "{{base_url}}/account/transactions/{{contract_id}}",
+    "url": "{{base_url}}/event-historic/{{contract_id}}?contractFilter=marior.near&filters=FUNCTION_CALL",
     "method": "GET",
     "sortNum": 10000,
     "created": "2023-03-30T19:23:30.335Z",
-    "modified": "2023-03-30T19:45:12.999Z",
+    "modified": "2023-04-04T05:37:38.919Z",
     "headers": [
       {
         "name": "x-api-key",
@@ -24,6 +24,16 @@
         "name": "offset",
         "value": "50",
         "isDisabled": true,
+        "isPath": false
+      },
+      {
+        "name": "contractFilter",
+        "value": "marior.near",
+        "isPath": false
+      },
+      {
+        "name": "filters",
+        "value": "FUNCTION_CALL",
         "isPath": false
       }
     ],

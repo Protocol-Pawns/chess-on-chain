@@ -3,8 +3,7 @@ const accountId = game_id[1];
 const gameIdStr = JSON.stringify(game_id);
 const contractId = "app.chess-game.near";
 const chessBoardWidget = "chess-game.near/widget/ChessBoard";
-const waitTime = 250;
-// TODO HTTP error seems to break SocialVM rerendering on state update
+const waitTime = 50;
 const waitTimeOnErr = 500;
 
 if (!accountId) {
@@ -16,6 +15,7 @@ const BoardView = styled.div`
   flex-direction: column;
   align-items: center;
   justify-content: center;
+  max-width: 100vw;
 `;
 const LoadingWrapper = styled.div`
   display: flex;
@@ -33,27 +33,14 @@ const Loading = styled.div`
   animation: rotate 800ms linear infinite;
 
   @keyframes rotate {
-		0% {
-			transform: rotate(0deg);
-		}
-		100% {
-			transform: rotate(360deg);
-		}
-	}
+    0% {
+      transform: rotate(0deg);
+    }
+    100% {
+      transform: rotate(360deg);
+    }
+  }
 `;
-
-if (state.error) {
-  const Error = styled.div`
-    color: #c00;
-    font-size: 2rem;
-    margin: 2rem 0;
-  `;
-  return (
-    <BoardView>
-      <Error>{state.error}</Error>
-    </BoardView>
-  );
-}
 
 const fetchOptions = {
   headers: {
@@ -66,7 +53,7 @@ if (!state.transactions) {
   let offset = 0;
   while (true) {
     const res = fetch(
-      `https://api.pikespeak.ai/account/transactions/${contractId}?offset=${offset}`,
+      `https://api.pikespeak.ai/event-historic/${contractId}?offset=${offset}&contractFilter=${accountId}&filters=FUNCTION_CALL`,
       fetchOptions
     );
     offset += 50;
@@ -85,63 +72,44 @@ State.init({
   transactions,
   events,
   tabIndex: 0,
-  error: state?.error ?? undefined,
+  errCount: state?.errCount ?? 0,
 });
 
 if (transactions.length > 0) {
-  let tx;
-  while (!tx && transactions.length > 0) {
-    tx = transactions.pop();
-    if (tx.signer !== accountId) {
-      tx = undefined;
-    }
-  }
-  if (!tx) {
-    State.update({
-      transactions: [],
-    });
-    return (
-      <LoadingWrapper>
-        <div>Scanning transactions. Remaining: 0</div>
-        <Loading />
-      </LoadingWrapper>
-    );
-  }
+  const tx = transactions.pop();
 
-  asyncFetch(`https://api.pikespeak.ai/tx/graph-by-hash/${tx.id}`, fetchOptions)
-    .then(({ body }) => {
-      const { logs } = body[0].transaction_graph.eoNode.childs[0].content;
-      const newEvents = logs
-        .filter((log) => log.startsWith("EVENT_JSON:"))
-        .map((log) => JSON.parse(log.substr(11)))
-        .filter(({ data }) => JSON.stringify(data.game_id) == gameIdStr);
-      if (newEvents.length > 0) {
-        State.update({
-          transactions,
-          events: events.concat(newEvents),
-        });
-        return;
-      }
-
+  asyncFetch(
+    `https://api.pikespeak.ai/tx/graph-by-hash/${tx.transaction_id}`,
+    fetchOptions
+  ).then(({ ok, body }) => {
+    if (!ok) {
+      transactions.push(tx);
       setTimeout(() => {
         State.update({
-          transactions,
+          errCount: state.errCount + 1,
         });
-      }, waitTime);
-    })
-    .catch((err) => {
-      if (!tx) return;
-      transactions.push(tx);
-      console.log(err);
+      }, waitTimeOnErr);
+      return;
+    }
+    const { logs } = body[0].transaction_graph.eoNode.childs[0].content;
+    const newEvents = logs
+      .filter((log) => log.startsWith("EVENT_JSON:"))
+      .map((log) => JSON.parse(log.substr(11)))
+      .filter(({ data }) => JSON.stringify(data.game_id) == gameIdStr);
+    if (newEvents.length > 0) {
       State.update({
-        error: `Pikespeak API returned error. Please try to refresh this page.`,
+        transactions,
+        events: events.concat(newEvents),
       });
-      // setTimeout(() => {
-      //   State.update({
-      //     transactions,
-      //   });
-      // }, waitTimeOnErr);
-    });
+      return;
+    }
+
+    setTimeout(() => {
+      State.update({
+        transactions,
+      });
+    }, waitTime);
+  });
   return (
     <LoadingWrapper>
       <div>Scanning transactions. Remaining: {transactions.length}</div>
@@ -155,8 +123,9 @@ const GameInfo = styled.div`
   flex-direction: column;
   justify-content: center;
   font-size: 1.4rem;
-  margin: 1rem;
+  margin: 1rem 0.3rem;
   width: 350px;
+  max-width: calc(100% - 0.6rem);
 `;
 const Button = styled.button`
   display: flex;
