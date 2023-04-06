@@ -1,0 +1,19 @@
+{
+  "manifest": "arweave/paths",
+  "version": "0.1.0",
+  "paths": {
+    "chess-hk-bk.png": { "id": "sv7JfrPnBXd2l2HtIoLBoEUODvC7PAK7vrKnyaWoUcg" },
+    "chess-hk-wp.png": { "id": "-7_s-7LnDn4qM5Q0jpjcteRQu2yAGWXmMwS3kI0lSTw" },
+    "chess-hk-wr.png": { "id": "7uEwuoFxvVkfFvHMThafcjDUGBnpPJ6SO2pLUDiIYGE" },
+    "chess-hk-wb.png": { "id": "Ckv60R4iA6GNXxBkM-KLUdWkcAFCFGThnQxOP7ZNFNE" },
+    "chess-hk-wq.png": { "id": "_tDEJmWurd4GwmiyZCBFpQC2sOFtIpk9KNLBV9Q0l7s" },
+    "chess-hk-bp.png": { "id": "LzI45apIve-AjB6A3ZD_d7EoUrCMcUTztsOaF_juopk" },
+    "chess-hk-wn.png": { "id": "cGlNyjGgFZErPN7HtV75BcoyXoyBM4Meh1gX1SAwkAQ" },
+    "chess-hk-bn.png": { "id": "d1Lcj3HD4IOhfgbghI7LQwsEh28-VchTQRaPWfcCp7w" },
+    "chess-hk-br.png": { "id": "9P9Ytq3dYyAKEsqtAjooRdZBSL30zbwVleIZcBAyQAc" },
+    "chess-hk-wk.png": { "id": "0iKUMCo2xIU8ZYLbFNeCgJmfKXtgOK2GnfflN8x8cQw" },
+    "chess-hk-bq.png": { "id": "bVeVEsYXbUpPuKMAFR8RUZKeS7zQPDS61zT1D7oN3ys" },
+    "chess-hk-bb.png": { "id": "1G6xINtjiTK5LE5ZxBJW0_ARF-iHaYtDvEtZng1MlHo" },
+    "chess-hk.png": { "id": "IxdL73-Wn-vZKOkSDgIBekAckEXdkT3TzD7iG8HphL4" }
+  }
+}
