@@ -10,9 +10,13 @@ const chessGameReplayWidget = "chess-game.near/widget/ChessGameReplay";
 const LobbyView = styled.div`
   display: flex;
   flex-direction: column;
-  align-items: center;
-  max-width: 500px;
+  align-items: ${(props) => (props.alignItems ? props.alignItems : "center")};
+  max-width: 550px;
   margin: 0 auto;
+
+  h1 {
+    align-self: center;
+  }
 
   > * {
     margin: 1.2rem 0;
@@ -21,7 +25,7 @@ const LobbyView = styled.div`
 const Content = styled.div`
   display: flex;
   flex-direction: column;
-  align-items: center;
+  align-items: ${(props) => (props.alignItems ? props.alignItems : "center")};
 
   > * {
       margin: 0.4rem 0;
@@ -30,6 +34,7 @@ const Content = styled.div`
 const Button = styled.button`
   display: flex;
   flex-direction: column;
+  align-self: ${(props) => (props.alignSelf ? props.alignSelf : "unset")};
   border: 1px solid black;
   border-radius: 4px;
   font-size: ${(props) => (props.fontSize ? props.fontSize : "1rem")};
@@ -163,16 +168,22 @@ const renderGameIds = (gameIds, isFinished, displayPlayers) =>
 let content;
 if (state.game_id) {
   content = (
-    <Content>
-      <Button onClick={returnToLobby}>Return To Lobby</Button>
-      <Button onClick={resign}>Resign</Button>
+    <Content alignItems="stretch">
+      <Button alignSelf="center" onClick={returnToLobby}>
+        Return To Lobby
+      </Button>
+      <Button alignSelf="center" onClick={resign}>
+        Resign
+      </Button>
       <Widget src={chessGameWidget} props={{ game_id: state.game_id }} />
     </Content>
   );
 } else if (state.replay_game_id) {
   content = (
-    <Content>
-      <Button onClick={returnToLobby}>Return To Lobby</Button>
+    <Content alignItems="stretch">
+      <Button alignSelf="center" onClick={returnToLobby}>
+        Return To Lobby
+      </Button>
       <Widget
         src={chessGameReplayWidget}
         props={{ game_id: state.replay_game_id }}
@@ -224,7 +235,9 @@ if (state.game_id) {
 }
 
 return (
-  <LobbyView>
+  <LobbyView
+    alignItems={state.game_id || state.replay_game_id ? "stretch" : "center"}
+  >
     <h1>Chess On Chain</h1>
     {content}
     <Disclaimer>

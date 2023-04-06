@@ -17,6 +17,7 @@ State.init({
   board,
   gameInfo,
   move: "",
+  assetType: state.assetType ?? "default",
 });
 
 const BoardView = styled.div`
@@ -66,6 +67,12 @@ const updateMove = (event) => {
     move: event.target.value,
   });
 };
+const selectAsset = (event) => {
+  console.log("event.target.value", event.target.value);
+  State.update({
+    assetType: event.target.value,
+  });
+};
 
 const playMove = () => {
   if (!state.move) return;
@@ -83,17 +90,21 @@ const playMove = () => {
 const Footer = styled.div`
   display: flex;
   flex-direction: column;
+  padding-bottom: 2rem;
 `;
 
 const text = `
-  A valid move will be parsed from a string.
+  _A valid move will be parsed from a string._
   
-  Possible valid formats include:
+  _Possible valid formats include:_
   - \"e2e4\"
   - \"e2 e4\"
   - \"e2 to e4\"
   - \"castle queenside\"
   - \"castle kingside\"'
+`;
+const assetText = `
+  _Assets are free to use right now, but will later be unlocked via NFTs._
 `;
 
 return (
@@ -104,7 +115,10 @@ return (
       {renderPlayer("Black", state.gameInfo.black)}
       <div>Turn: {state.gameInfo.turn_color}</div>
     </GameInfo>
-    <Widget src={chessBoardWidget} props={{ board: state.board }} />
+    <Widget
+      src={chessBoardWidget}
+      props={{ board: state.board, assetType: state.assetType }}
+    />
     <Footer>
       <h3>Your Move:</h3>
       <div>
@@ -118,6 +132,13 @@ return (
         <SendButton onClick={playMove}>Play</SendButton>
       </div>
       <Markdown text={text} />
+
+      <h3>Assets:</h3>
+      <select onChange={selectAsset} value={state.assetType}>
+        <option value="default">Regular</option>
+        <option value="hk">Hollow Knight Style</option>
+      </select>
+      <Markdown text={assetText} />
     </Footer>
   </BoardView>
 );
