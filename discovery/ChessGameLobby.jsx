@@ -38,6 +38,13 @@ const Button = styled.button`
   border: 1px solid black;
   border-radius: 4px;
   font-size: ${(props) => (props.fontSize ? props.fontSize : "1rem")};
+  max-width: 220px;
+
+  > * {
+    max-width: 100%;
+    text-overflow: ellipsis;
+    overflow: hidden;
+  }
 `;
 const Disclaimer = styled.div`
   margin-top: 1rem;
@@ -256,8 +263,7 @@ return (
       >
         Nearblocks
       </a>
-      . Game results and history will be displayed once we implemented an
-      indexer and an API!
+      .
     </Disclaimer>
   </LobbyView>
 );
