@@ -5,6 +5,8 @@ use near_sdk::{
 use thiserror::Error;
 use witgen::witgen;
 
+use crate::ChallengeId;
+
 #[derive(BorshSerialize, Debug, Error, FunctionError)]
 #[witgen]
 pub enum ContractError {
@@ -30,4 +32,14 @@ pub enum ContractError {
     NotEnoughDeposit(Balance, Balance),
     #[error("Operation not supported")]
     OperationNotSupported,
+    #[error("Unable to deserialize message")]
+    Deserialize,
+    #[error("Challenge with ID {} does not exist", _0)]
+    ChallengeNotExists(ChallengeId),
+    #[error("Only the challenger wallet ID can reject a challenge")]
+    WrongChallengerId,
+    #[error("Only the challenged wallet ID can accept or reject a challenge")]
+    WrongChallengedId,
+    #[error("Challenged wallet did not pay proper wager to accept challenge")]
+    PaidWager,
 }

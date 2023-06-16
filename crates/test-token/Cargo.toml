@@ -1,22 +1,13 @@
 [package]
-name = "chess-lib"
-version = "1.0.0"
-authors = ["Mario Reder <mario.reder@pm.me>"]
+name = "test-token"
+version = "0.1.0"
+authors = ["Mario Reder <mario@orderly.network>"]
 edition = "2021"
 
 [lib]
-crate-type = ["rlib"]
+crate-type = ["cdylib", "rlib"]
 
 [dependencies]
-getrandom = { version = "0.2", features = ["js"] }
-serde_json = "1"
-thiserror = "1"
-witgen = "0.15"
-
-[dependencies.chess-engine]
-version = "0.1"
-path = "../../../chess-engine"
-
 [dependencies.near-contract-standards]
 version = "4"
 git = "https://github.com/near/near-sdk-rs.git"
@@ -28,6 +19,3 @@ git = "https://github.com/near/near-sdk-rs.git"
 rev = "89f8c2d776c8d00feb45239fdb15725527f1894b"
 default-features = false
 features = ["unit-testing", "unstable"]
-
-[package.metadata.witgen]
-export = true

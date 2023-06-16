@@ -1,21 +1,29 @@
 mod account;
+mod challenge;
 mod error;
 mod event;
 mod game;
 mod storage;
+mod view;
 
 pub use account::*;
+pub use challenge::*;
 pub use error::*;
 pub use event::*;
 pub use game::*;
 pub use storage::*;
+pub use view::*;
 
 use chess_engine::Move;
+use near_contract_standards::fungible_token::receiver::FungibleTokenReceiver;
 use near_sdk::{
     borsh::{self, BorshDeserialize, BorshSerialize},
-    env, near_bindgen,
-    store::{Lazy, UnorderedMap, UnorderedSet},
-    AccountId, Balance, BorshStorageKey, PanicOnDefault,
+    env,
+    json_types::U128,
+    near_bindgen,
+    serde::{Deserialize, Serialize},
+    store::{Lazy, UnorderedMap},
+    AccountId, Balance, BorshStorageKey, PanicOnDefault, PromiseOrValue,
 };
 use std::collections::VecDeque;
 use witgen::witgen;
@@ -26,7 +34,10 @@ pub enum StorageKey {
     VAccounts,
     AccountOrderIds,
     AccountFinishedGames,
+    AccountChallenger,
+    AccountChallenged,
     Games,
+    Challenges,
     RecentFinishedGames,
     RecentFinishedGamesV2,
 }
@@ -36,6 +47,7 @@ pub enum StorageKey {
 pub struct Chess {
     pub accounts: UnorderedMap<AccountId, Account>,
     pub games: UnorderedMap<GameId, Game>,
+    pub challenges: UnorderedMap<ChallengeId, Challenge>,
     pub recent_finished_games: Lazy<VecDeque<GameId>>,
 }
 
@@ -44,7 +56,7 @@ pub struct Chess {
 pub struct OldChess {
     pub accounts: UnorderedMap<AccountId, Account>,
     pub games: UnorderedMap<GameId, Game>,
-    pub recent_finished_games: UnorderedSet<GameId>,
+    pub recent_finished_games: Lazy<VecDeque<GameId>>,
 }
 
 /// A valid move will be parsed from a string.
@@ -69,6 +81,7 @@ impl Chess {
         Ok(Self {
             accounts: UnorderedMap::new(StorageKey::VAccounts),
             games: UnorderedMap::new(StorageKey::Games),
+            challenges: UnorderedMap::new(StorageKey::Challenges),
             recent_finished_games: Lazy::new(StorageKey::RecentFinishedGamesV2, VecDeque::new()),
         })
     }
@@ -76,14 +89,21 @@ impl Chess {
     #[private]
     #[init(ignore_state)]
     pub fn migrate() -> Self {
-        let old_chess: OldChess = env::state_read().unwrap();
+        let mut chess: OldChess = env::state_read().unwrap();
+
+        let mut accounts = vec![];
+        for (account_id, account) in chess.accounts.drain() {
+            accounts.push((account_id, account.migrate()));
+        }
+        for (account_id, account) in accounts {
+            chess.accounts.insert(account_id, account);
+        }
+
         Self {
-            accounts: old_chess.accounts,
-            games: old_chess.games,
-            recent_finished_games: Lazy::new(
-                StorageKey::RecentFinishedGamesV2,
-                old_chess.recent_finished_games.iter().cloned().collect(),
-            ),
+            accounts: chess.accounts,
+            games: chess.games,
+            challenges: UnorderedMap::new(StorageKey::Challenges),
+            recent_finished_games: chess.recent_finished_games,
         }
     }
 
@@ -111,15 +131,11 @@ impl Chess {
             .get_mut(&account_id)
             .ok_or_else(|| ContractError::AccountNotRegistered(account_id.clone()))?;
 
-        let block_height = env::block_height();
-        let game_id = GameId(block_height, account_id.clone(), None);
+        let game = Game::new(Player::Human(account_id), Player::Ai(difficulty));
+        let game_id = game.get_game_id().clone();
+
         account.add_game_id(game_id.clone())?;
 
-        let game = Game::new(
-            game_id.clone(),
-            Player::Human(account_id),
-            Player::Ai(difficulty),
-        );
         let event = ChessEvent::CreateGame {
             game_id: game_id.clone(),
             white: game.get_white().clone(),
@@ -130,6 +146,53 @@ impl Chess {
         self.games.insert(game_id.clone(), game);
 
         Ok(game_id)
+    }
+
+    /// Challenges a player to a non-money match.
+    #[handle_result]
+    pub fn challenge(&mut self, challenged_id: AccountId) -> Result<(), ContractError> {
+        let challenger_id = env::predecessor_account_id();
+        self.internal_challenge(challenger_id, challenged_id, None)
+    }
+
+    /// Accepts a challenge.
+    ///
+    /// Only works on non-money matches. Otherwise `ft_transfer_call` needs to be used for the
+    /// respective token that is used as wager.
+    #[handle_result]
+    pub fn accept_challenge(&mut self, challenge_id: ChallengeId) -> Result<GameId, ContractError> {
+        let challenged_id = env::predecessor_account_id();
+        self.internal_accept_challenge(challenged_id, challenge_id)
+    }
+
+    /// Rejects a challenge.
+    #[handle_result]
+    pub fn reject_challenge(
+        &mut self,
+        challenge_id: ChallengeId,
+        is_challenger: bool,
+    ) -> Result<(), ContractError> {
+        let challenge = self
+            .challenges
+            .remove(&challenge_id)
+            .ok_or(ContractError::ChallengeNotExists(challenge_id.clone()))?;
+        challenge.check_reject(is_challenger)?;
+
+        let challenger_id = challenge.get_challenger();
+        let challenger = self
+            .accounts
+            .get_mut(challenger_id)
+            .ok_or_else(|| ContractError::AccountNotRegistered(challenger_id.clone()))?;
+        challenger.reject_challenge(&challenge_id, true)?;
+
+        let challenged_id = challenge.get_challenged();
+        let challenged = self
+            .accounts
+            .get_mut(challenged_id)
+            .ok_or_else(|| ContractError::AccountNotRegistered(challenged_id.clone()))?;
+        challenged.reject_challenge(&challenge_id, true)?;
+
+        Ok(())
     }
 
     /// Plays a move.
@@ -199,73 +262,139 @@ impl Chess {
         account.remove_game_id(&game_id);
         Ok(())
     }
+}
 
-    /// Returns an array of strings representing the board
-    #[handle_result]
-    pub fn get_board(&self, game_id: GameId) -> Result<[String; 8], ContractError> {
-        let game = self
-            .games
-            .get(&game_id)
-            .ok_or(ContractError::GameNotExists)?;
-        Ok(game.get_board_state())
-    }
+#[derive(Debug, Deserialize, Serialize)]
+#[serde(crate = "near_sdk::serde")]
+#[witgen]
+pub enum FtReceiverMsg {
+    Challenge(ChallengeMsg),
+    AcceptChallenge(AcceptChallengeMsg),
+}
 
-    /// Renders a game as a string.
-    #[handle_result]
-    pub fn render_board(&self, game_id: GameId) -> Result<String, ContractError> {
-        let game = self
-            .games
-            .get(&game_id)
-            .ok_or(ContractError::GameNotExists)?;
-        Ok(game.render_board())
-    }
+#[derive(Debug, Deserialize, Serialize)]
+#[serde(crate = "near_sdk::serde")]
+#[witgen]
+pub struct ChallengeMsg {
+    challenged_id: AccountId,
+}
 
-    /// Returns information about a game including players and turn color.
-    #[handle_result]
-    pub fn game_info(&self, game_id: GameId) -> Result<GameInfo, ContractError> {
-        let game = self
-            .games
-            .get(&game_id)
-            .ok_or(ContractError::GameNotExists)?;
+#[derive(Debug, Deserialize, Serialize)]
+#[serde(crate = "near_sdk::serde")]
+#[witgen]
+pub struct AcceptChallengeMsg {
+    challenge_id: ChallengeId,
+}
 
-        Ok(GameInfo {
-            white: game.get_white().clone(),
-            black: game.get_black().clone(),
-            turn_color: game.get_board().get_turn_color(),
-        })
-    }
-
-    /// Returns all open game IDs for given wallet ID.
-    #[handle_result]
-    pub fn get_game_ids(&self, account_id: AccountId) -> Result<Vec<GameId>, ContractError> {
-        let account = self
-            .accounts
-            .get(&account_id)
-            .ok_or_else(|| ContractError::AccountNotRegistered(account_id.clone()))?;
-        Ok(account.get_game_ids())
-    }
-
-    /// Returns game IDs of recently finished games (max 100).
-    ///
-    /// Output is ordered with newest game ID as first elemtn.
-    pub fn recent_finished_games(&self) -> Vec<GameId> {
-        self.recent_finished_games.iter().cloned().collect()
-    }
-
-    /// Returns game IDs of finished games for given account ID.
-    ///
-    /// Output is NOT ordered, but client side can do so by looking at block height of game ID (first array entry).
-    #[handle_result]
-    pub fn finished_games(&self, account_id: AccountId) -> Result<Vec<GameId>, ContractError> {
-        let account = self
-            .accounts
-            .get(&account_id)
-            .ok_or_else(|| ContractError::AccountNotRegistered(account_id.clone()))?;
-        Ok(account.get_finished_games())
+#[near_bindgen]
+impl FungibleTokenReceiver for Chess {
+    fn ft_on_transfer(
+        &mut self,
+        sender_id: AccountId,
+        amount: U128,
+        msg: String,
+    ) -> PromiseOrValue<U128> {
+        match self.internal_ft_on_transfer(sender_id, amount, msg) {
+            Ok(res) => res,
+            Err(err) => {
+                panic!("{}", err);
+            }
+        }
     }
 }
 
 impl Chess {
+    fn internal_ft_on_transfer(
+        &mut self,
+        sender_id: AccountId,
+        amount: U128,
+        msg: String,
+    ) -> Result<PromiseOrValue<U128>, ContractError> {
+        let msg = serde_json::from_str(&msg).map_err(|_| ContractError::Deserialize)?;
+
+        match msg {
+            FtReceiverMsg::Challenge(ChallengeMsg { challenged_id }) => {
+                let challenger_id = sender_id;
+                let token_id = env::predecessor_account_id();
+                self.internal_challenge(challenger_id, challenged_id, Some((token_id, amount.0)))?;
+            }
+            FtReceiverMsg::AcceptChallenge(AcceptChallengeMsg { challenge_id }) => {
+                let challenged_id = sender_id;
+                self.internal_accept_challenge(challenged_id, challenge_id)?;
+            }
+        }
+
+        Ok(PromiseOrValue::Value(0.into()))
+    }
+
+    fn internal_challenge(
+        &mut self,
+        challenger_id: AccountId,
+        challenged_id: AccountId,
+        wager: Wager,
+    ) -> Result<(), ContractError> {
+        let challenge: Challenge =
+            Challenge::new(challenger_id.clone(), challenged_id.clone(), wager);
+
+        let challenger = self
+            .accounts
+            .get_mut(&challenger_id)
+            .ok_or_else(|| ContractError::AccountNotRegistered(challenger_id.clone()))?;
+        challenger.add_challenge(challenge.id().clone(), true);
+
+        let challenged = self
+            .accounts
+            .get_mut(&challenged_id)
+            .ok_or_else(|| ContractError::AccountNotRegistered(challenged_id.clone()))?;
+        challenged.add_challenge(challenge.id().clone(), false);
+
+        self.challenges.insert(challenge.id().clone(), challenge);
+
+        Ok(())
+    }
+
+    fn internal_accept_challenge(
+        &mut self,
+        challenged_id: AccountId,
+        challenge_id: ChallengeId,
+    ) -> Result<GameId, ContractError> {
+        let challenged = self
+            .accounts
+            .get_mut(&challenged_id)
+            .ok_or_else(|| ContractError::AccountNotRegistered(challenged_id.clone()))?;
+
+        let challenge = self
+            .challenges
+            .remove(&challenge_id)
+            .ok_or(ContractError::ChallengeNotExists(challenge_id.clone()))?;
+        challenge.check_accept(&challenged_id, &None)?;
+
+        let challenger_id = challenge.get_challenger();
+        let game = Game::new(
+            Player::Human(challenger_id.clone()),
+            Player::Human(challenged_id),
+        );
+        let game_id = game.get_game_id().clone();
+
+        challenged.accept_challenge(&challenge_id, game_id.clone(), false)?;
+        let challenger = self
+            .accounts
+            .get_mut(challenger_id)
+            .ok_or_else(|| ContractError::AccountNotRegistered(challenger_id.clone()))?;
+        challenger.accept_challenge(&challenge_id, game_id.clone(), true)?;
+
+        let event = ChessEvent::CreateGame {
+            game_id: game_id.clone(),
+            white: game.get_white().clone(),
+            black: game.get_black().clone(),
+            board: game.get_board_state(),
+        };
+        event.emit();
+        self.games.insert(game_id.clone(), game);
+
+        Ok(game_id)
+    }
+
     pub(crate) fn internal_get_account(
         &self,
         account_id: &AccountId,

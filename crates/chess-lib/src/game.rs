@@ -38,6 +38,15 @@ pub enum Player {
     Ai(Difficulty),
 }
 
+impl Player {
+    pub fn get_account_id(&self) -> Option<AccountId> {
+        match self {
+            Player::Human(account_id) => Some(account_id.clone()),
+            Player::Ai(_) => None,
+        }
+    }
+}
+
 /// AI difficulty setting.
 ///
 /// The AI uses the [Minimax algorithm, along with Alpha-Beta pruning](https://github.com/Tarnadas/chess-engine#how-does-it-work)
@@ -89,7 +98,13 @@ pub enum GameOutcome {
 }
 
 impl Game {
-    pub fn new(game_id: GameId, white: Player, black: Player) -> Self {
+    pub fn new(white: Player, black: Player) -> Self {
+        let block_height = env::block_height();
+        let game_id = GameId(
+            block_height,
+            white.get_account_id().unwrap(),
+            black.get_account_id(),
+        );
         Game::V1(GameV1 {
             game_id,
             white,

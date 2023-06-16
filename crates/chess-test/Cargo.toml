@@ -1,0 +1,19 @@
+[package]
+name = "chess-test"
+version = "1.0.0"
+authors = ["Mario Reder <mario.reder@pm.me>"]
+edition = "2021"
+
+[dependencies]
+anyhow = "1"
+chess-lib = { path = "../chess-lib" }
+test-token = { path = "../test-token" }
+tokio = { version = "1", features = ["full"] }
+workspaces = "0.7"
+
+[dependencies.near-sdk]
+version = "4"
+git = "https://github.com/near/near-sdk-rs.git"
+rev = "89f8c2d776c8d00feb45239fdb15725527f1894b"
+default-features = false
+features = ["unit-testing", "unstable"]
