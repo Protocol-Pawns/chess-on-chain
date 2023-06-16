@@ -48,11 +48,31 @@ impl Account {
                 .as_slice(),
         ]
         .concat();
-        Self::V1(AccountV1 {
+        let challenger_prefix: Vec<u8> = [
+            StorageKey::VAccounts.try_to_vec().unwrap().as_slice(),
+            &id,
+            StorageKey::AccountChallenger
+                .try_to_vec()
+                .unwrap()
+                .as_slice(),
+        ]
+        .concat();
+        let challenged_prefix: Vec<u8> = [
+            StorageKey::VAccounts.try_to_vec().unwrap().as_slice(),
+            &id,
+            StorageKey::AccountChallenged
+                .try_to_vec()
+                .unwrap()
+                .as_slice(),
+        ]
+        .concat();
+        Self::V2(AccountV2 {
             account_id,
             near_amount,
             game_ids: UnorderedSet::new(game_id_prefix),
             finished_games: UnorderedSet::new(finished_games_prefix),
+            challenger: UnorderedSet::new(challenger_prefix),
+            challenged: UnorderedSet::new(challenged_prefix),
         })
     }
 

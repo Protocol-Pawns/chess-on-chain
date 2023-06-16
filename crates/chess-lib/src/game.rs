@@ -30,7 +30,7 @@ use witgen::witgen;
 #[witgen]
 pub struct GameId(pub u64, pub AccountId, pub Option<AccountId>);
 
-#[derive(BorshDeserialize, BorshSerialize, Clone, Debug, Serialize)]
+#[derive(BorshDeserialize, BorshSerialize, Clone, Debug, Serialize, Deserialize)]
 #[serde(crate = "near_sdk::serde")]
 #[witgen]
 pub enum Player {
