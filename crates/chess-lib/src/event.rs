@@ -1,6 +1,6 @@
 use crate::{Challenge, ChallengeId, GameId, GameOutcome, MoveStr, Player};
 use chess_engine::Color;
-use near_sdk::near_bindgen;
+use near_sdk::{near_bindgen, AccountId};
 
 #[near_bindgen(event_json(standard = "chess-game"))]
 #[derive(Debug)]
@@ -29,6 +29,11 @@ pub enum ChessEvent {
     },
     #[event_version("1.0.0")]
     ChangeBoard { game_id: GameId, board: [String; 8] },
+    #[event_version("1.0.0")]
+    ResignGame {
+        game_id: GameId,
+        resigner: AccountId,
+    },
     #[event_version("1.0.0")]
     FinishGame {
         game_id: GameId,

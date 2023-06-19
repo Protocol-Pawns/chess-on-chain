@@ -133,28 +133,28 @@ impl Game {
         &game.board
     }
 
-    pub fn is_turn(&self, account_id: AccountId) -> bool {
+    pub fn is_turn(&self, account_id: &AccountId) -> bool {
         let Game::V1(game) = self;
         let player = match game.board.get_turn_color() {
             Color::White => &game.white,
             Color::Black => &game.black,
         };
         if let Player::Human(id) = player {
-            id == &account_id
+            id == account_id
         } else {
             false
         }
     }
 
-    pub fn is_player(&self, account_id: AccountId) -> bool {
+    pub fn is_player(&self, account_id: &AccountId) -> bool {
         let Game::V1(game) = self;
         if let Player::Human(id) = &game.white {
-            if id == &account_id {
+            if id == account_id {
                 return true;
             }
         }
         if let Player::Human(id) = &game.black {
-            if id == &account_id {
+            if id == account_id {
                 return true;
             }
         }

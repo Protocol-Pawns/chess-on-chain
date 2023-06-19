@@ -42,13 +42,14 @@ pub struct ChessEvent {
     pub event_kind: ChessEventKind,
 }
 
-pub const KNOWN_EVENT_KINDS: [&str; 7] = [
+pub const KNOWN_EVENT_KINDS: [&str; 8] = [
     "challenge",
     "accept_challenge",
     "reject_challenge",
     "create_game",
     "play_move",
     "change_board",
+    "resign_game",
     "finish_game",
 ];
 
@@ -62,6 +63,7 @@ pub enum ChessEventKind {
     CreateGame(CreateGameEventData),
     PlayMove(PlayMoveEventData),
     ChangeBoard(ChangeBoardEventData),
+    ResignGame(ResignGameEventData),
     FinishGame(FinishGameEventData),
 }
 
@@ -103,6 +105,12 @@ pub struct PlayMoveEventData {
 pub struct ChangeBoardEventData {
     pub game_id: GameId,
     pub board: [String; 8],
+}
+
+#[derive(Clone, Serialize, Deserialize, Debug)]
+pub struct ResignGameEventData {
+    pub game_id: GameId,
+    pub resigner: String,
 }
 
 #[derive(Clone, Serialize, Deserialize, Debug)]
@@ -188,6 +196,9 @@ impl Display for ChessEvent {
             ChessEventKind::ChangeBoard(_) => {
                 formatter.write_fmt(format_args!("{}: change_board", "event".bright_cyan()))?;
             }
+            ChessEventKind::ResignGame(_) => {
+                formatter.write_fmt(format_args!("{}: resign_game", "event".bright_cyan()))?;
+            }
             ChessEventKind::FinishGame(_) => {
                 formatter.write_fmt(format_args!("{}: finish_game", "event".bright_cyan()))?;
             }
@@ -215,6 +226,9 @@ impl Display for ChessEvent {
                 formatter.write_fmt(format_args!("\n{}: {:?}", "data".bright_cyan(), data))?;
             }
             ChessEventKind::ChangeBoard(data) => {
+                formatter.write_fmt(format_args!("\n{}: {:?}", "data".bright_cyan(), data))?;
+            }
+            ChessEventKind::ResignGame(data) => {
                 formatter.write_fmt(format_args!("\n{}: {:?}", "data".bright_cyan(), data))?;
             }
             ChessEventKind::FinishGame(data) => {

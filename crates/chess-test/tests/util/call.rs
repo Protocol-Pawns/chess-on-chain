@@ -105,7 +105,7 @@ pub async fn challenge_with_wager(
 pub async fn accept_challenge(
     contract: &Contract,
     sender: &Account,
-    challenge_id: ChallengeId,
+    challenge_id: &ChallengeId,
 ) -> anyhow::Result<(GameId, Vec<event::ContractEvent>)> {
     let (res, events): (ExecutionResult<Value>, Vec<event::ContractEvent>) = log_tx_result(
         Some("accept_challenge"),
@@ -143,7 +143,7 @@ pub async fn accept_challenge_with_wager(
 pub async fn reject_challenge(
     contract: &Contract,
     sender: &Account,
-    challenge_id: ChallengeId,
+    challenge_id: &ChallengeId,
     is_challenger: bool,
 ) -> anyhow::Result<(ExecutionResult<Value>, Vec<event::ContractEvent>)> {
     let (res, events): (ExecutionResult<Value>, Vec<event::ContractEvent>) = log_tx_result(
@@ -177,6 +177,23 @@ pub async fn play_move(
             .await?,
     )?;
     Ok((res.json()?, events))
+}
+
+pub async fn resign(
+    contract: &Contract,
+    sender: &Account,
+    game_id: &GameId,
+) -> anyhow::Result<(ExecutionResult<Value>, Vec<event::ContractEvent>)> {
+    let (res, events) = log_tx_result(
+        Some("resign"),
+        sender
+            .call(contract.id(), "resign")
+            .args_json((game_id,))
+            .max_gas()
+            .transact()
+            .await?,
+    )?;
+    Ok((res, events))
 }
 
 async fn ft_transfer_call<T: Serialize>(

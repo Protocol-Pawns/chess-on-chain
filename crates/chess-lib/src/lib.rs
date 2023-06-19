@@ -219,7 +219,7 @@ impl Chess {
             .ok_or(ContractError::GameNotExists)?;
         let mv = Move::parse(mv).map_err(ContractError::MoveParse)?;
 
-        if !game.is_turn(account_id) {
+        if !game.is_turn(&account_id) {
             return Err(ContractError::NotYourTurn);
         }
 
@@ -257,12 +257,18 @@ impl Chess {
             .games
             .get_mut(&game_id)
             .ok_or(ContractError::GameNotExists)?;
-        let account_id = env::signer_account_id();
-        if !game.is_player(account_id) {
+        if !game.is_player(&account_id) {
             return Err(ContractError::NotPlaying);
         }
         self.games.remove(&game_id);
         account.remove_game_id(&game_id);
+
+        let event = ChessEvent::ResignGame {
+            game_id,
+            resigner: account_id,
+        };
+        event.emit();
+
         Ok(())
     }
 }

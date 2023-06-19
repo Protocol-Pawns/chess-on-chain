@@ -1,3 +1,4 @@
+use crate::ContractError;
 use near_sdk::{
     borsh::{self, BorshDeserialize, BorshSerialize},
     env,
@@ -7,8 +8,6 @@ use near_sdk::{
 };
 use std::fmt;
 use witgen::witgen;
-
-use crate::ContractError;
 
 #[witgen]
 pub type ChallengeId = String;
