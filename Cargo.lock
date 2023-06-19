@@ -448,10 +448,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "chess-engine"
+version = "0.1.2"
+source = "git+https://github.com/Tarnadas/chess-engine.git#0e7f565f60b7572a3ebeeea2276d120af9dcea22"
+dependencies = [
+ "either",
+ "near-sdk",
+ "rand 0.8.5",
+ "rand_chacha 0.3.1",
+ "witgen",
+]
+
+[[package]]
 name = "chess-lib"
 version = "1.0.0"
 dependencies = [
- "chess-engine",
+ "chess-engine 0.1.2 (git+https://github.com/Tarnadas/chess-engine.git)",
  "getrandom 0.2.8",
  "near-contract-standards",
  "near-sdk",
@@ -465,7 +477,7 @@ name = "chess-test"
 version = "1.0.0"
 dependencies = [
  "anyhow",
- "chess-engine",
+ "chess-engine 0.1.2",
  "chess-lib",
  "near-contract-standards",
  "near-sdk",
