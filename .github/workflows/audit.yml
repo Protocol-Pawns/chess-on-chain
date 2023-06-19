@@ -1,3 +1,5 @@
+name: Audit dependencies
+
 on:
   push:
     paths:
@@ -7,8 +9,6 @@ on:
     paths:
       - "**/Cargo.toml"
       - "**/Cargo.lock"
-
-name: Audit dependencies
 
 env:
   RUST_TOOLCHAIN: nightly-2023-03-20

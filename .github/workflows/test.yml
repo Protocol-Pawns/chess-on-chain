@@ -1,3 +1,5 @@
+name: Test
+
 on:
   push:
     paths:
@@ -14,10 +16,9 @@ on:
       - "Cargo.toml"
       - "rust-toolchain"
 
-name: Rust Server Test
-
 env:
   RUST_TOOLCHAIN: nightly-2023-03-20
+  BINARYEN_VERSION: 110
 
 jobs:
   test:
@@ -39,11 +40,11 @@ jobs:
           override: true
           components: rustfmt, clippy
 
-      - uses: actions-rs/cargo@v1
-        name: Install wasm-opt
-        with:
-          command: install
-          args: --version 0.110.0 wasm-opt
+      - name: Install wasm-opt
+        run: |
+          curl -L https://github.com/WebAssembly/binaryen/releases/download/version_${{ env.BINARYEN_VERSION }}/binaryen-version_${{ env.BINARYEN_VERSION }}-x86_64-linux.tar.gz --output binaryen.tar.gz
+          tar -zxvf binaryen.tar.gz binaryen-version_${{ env.BINARYEN_VERSION }}/bin/wasm-opt
+          mv binaryen-version_${{ env.BINARYEN_VERSION }}/bin/wasm-opt /home/runner/.local/bin/wasm-opt
 
       - uses: actions/cache@v2
         with:
