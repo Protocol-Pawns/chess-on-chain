@@ -1,5 +1,6 @@
 use chess_engine::Color;
-use chess_lib::{GameId, GameOutcome, MoveStr, Player};
+use chess_lib::{ChallengeId, GameId, GameOutcome, MoveStr, Player, Wager};
+use near_sdk::AccountId;
 use owo_colors::OwoColorize;
 use serde::{Deserialize, Serialize};
 use std::fmt::{self, Display, Formatter};
@@ -45,10 +46,32 @@ pub struct ChessEvent {
 #[serde(tag = "event", content = "data")]
 #[serde(rename_all = "snake_case")]
 pub enum ChessEventKind {
+    Challenge(ChallengeEventData),
+    AcceptChallenge(AcceptChallengeEventData),
+    RejectChallenge(RejectChallengeEventData),
     CreateGame(CreateGameEventData),
     PlayMove(PlayMoveEventData),
     ChangeBoard(ChangeBoardEventData),
     FinishGame(FinishGameEventData),
+}
+
+#[derive(Clone, Serialize, Deserialize, Debug)]
+pub struct ChallengeEventData {
+    pub id: String,
+    pub challenger: AccountId,
+    pub challenged: AccountId,
+    pub wager: Wager,
+}
+
+#[derive(Clone, Serialize, Deserialize, Debug)]
+pub struct AcceptChallengeEventData {
+    pub challenge_id: ChallengeId,
+    pub game_id: GameId,
+}
+
+#[derive(Clone, Serialize, Deserialize, Debug)]
+pub struct RejectChallengeEventData {
+    pub challenge_id: ChallengeId,
 }
 
 #[derive(Clone, Serialize, Deserialize, Debug)]
@@ -137,6 +160,15 @@ impl Display for FtTransferData {
 impl Display for ChessEvent {
     fn fmt(&self, formatter: &mut Formatter<'_>) -> fmt::Result {
         match &self.event_kind {
+            ChessEventKind::Challenge(_) => {
+                formatter.write_fmt(format_args!("{}: challenge", "event".bright_cyan()))?;
+            }
+            ChessEventKind::AcceptChallenge(_) => {
+                formatter.write_fmt(format_args!("{}: accept_challenge", "event".bright_cyan()))?;
+            }
+            ChessEventKind::RejectChallenge(_) => {
+                formatter.write_fmt(format_args!("{}: reject_challenge", "event".bright_cyan()))?;
+            }
             ChessEventKind::CreateGame(_) => {
                 formatter.write_fmt(format_args!("{}: create_game", "event".bright_cyan()))?;
             }
@@ -157,6 +189,15 @@ impl Display for ChessEvent {
             self.version
         ))?;
         match &self.event_kind {
+            ChessEventKind::Challenge(data) => {
+                formatter.write_fmt(format_args!("\n{}: {:?}", "data".bright_cyan(), data))?;
+            }
+            ChessEventKind::AcceptChallenge(data) => {
+                formatter.write_fmt(format_args!("\n{}: {:?}", "data".bright_cyan(), data))?;
+            }
+            ChessEventKind::RejectChallenge(data) => {
+                formatter.write_fmt(format_args!("\n{}: {:?}", "data".bright_cyan(), data))?;
+            }
             ChessEventKind::CreateGame(data) => {
                 formatter.write_fmt(format_args!("\n{}: {:?}", "data".bright_cyan(), data))?;
             }

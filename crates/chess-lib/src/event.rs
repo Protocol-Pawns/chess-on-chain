@@ -1,10 +1,19 @@
-use crate::{GameId, GameOutcome, MoveStr, Player};
+use crate::{Challenge, ChallengeId, GameId, GameOutcome, MoveStr, Player};
 use chess_engine::Color;
 use near_sdk::near_bindgen;
 
 #[near_bindgen(event_json(standard = "chess-game"))]
 #[derive(Debug)]
 pub enum ChessEvent {
+    #[event_version("1.0.0")]
+    Challenge(Challenge),
+    #[event_version("1.0.0")]
+    AcceptChallenge {
+        challenge_id: ChallengeId,
+        game_id: GameId,
+    },
+    #[event_version("1.0.0")]
+    RejectChallenge { challenge_id: ChallengeId },
     #[event_version("1.0.0")]
     CreateGame {
         game_id: GameId,

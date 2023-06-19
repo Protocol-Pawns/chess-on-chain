@@ -1,5 +1,6 @@
 pub mod call;
 pub mod event;
+pub mod view;
 
 use chess_lib::ChessEvent;
 use owo_colors::OwoColorize;

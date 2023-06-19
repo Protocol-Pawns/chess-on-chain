@@ -1,5 +1,5 @@
-use super::{event, log_tx_result, log_view_result};
-use chess_lib::{Difficulty, GameId, GameOutcome, MoveStr};
+use super::{event, log_tx_result};
+use chess_lib::{ChallengeId, Difficulty, GameId, GameOutcome, MoveStr};
 use workspaces::{
     result::{ExecutionResult, Value},
     types::Balance,
@@ -42,6 +42,58 @@ pub async fn create_ai_game(
     Ok((res.json()?, events))
 }
 
+pub async fn challenge(
+    contract: &Contract,
+    sender: &Account,
+    challenged_id: &AccountId,
+) -> anyhow::Result<(ExecutionResult<Value>, Vec<event::ContractEvent>)> {
+    let (res, events): (ExecutionResult<Value>, Vec<super::event::ContractEvent>) = log_tx_result(
+        Some("challenge"),
+        sender
+            .call(contract.id(), "challenge")
+            .args_json((challenged_id,))
+            .max_gas()
+            .transact()
+            .await?,
+    )?;
+    Ok((res, events))
+}
+
+pub async fn accept_challenge(
+    contract: &Contract,
+    sender: &Account,
+    challenge_id: ChallengeId,
+) -> anyhow::Result<(GameId, Vec<event::ContractEvent>)> {
+    let (res, events): (ExecutionResult<Value>, Vec<super::event::ContractEvent>) = log_tx_result(
+        Some("accept_challenge"),
+        sender
+            .call(contract.id(), "accept_challenge")
+            .args_json((challenge_id,))
+            .max_gas()
+            .transact()
+            .await?,
+    )?;
+    Ok((res.json()?, events))
+}
+
+pub async fn reject_challenge(
+    contract: &Contract,
+    sender: &Account,
+    challenge_id: ChallengeId,
+    is_challenger: bool,
+) -> anyhow::Result<(ExecutionResult<Value>, Vec<event::ContractEvent>)> {
+    let (res, events): (ExecutionResult<Value>, Vec<super::event::ContractEvent>) = log_tx_result(
+        Some("reject_challenge"),
+        sender
+            .call(contract.id(), "reject_challenge")
+            .args_json((challenge_id, is_challenger))
+            .max_gas()
+            .transact()
+            .await?,
+    )?;
+    Ok((res, events))
+}
+
 pub async fn play_move(
     contract: &Contract,
     sender: &Account,
@@ -61,19 +113,4 @@ pub async fn play_move(
             .await?,
     )?;
     Ok((res.json()?, events))
-}
-
-pub async fn get_game_ids(
-    contract: &Contract,
-    account_id: &AccountId,
-) -> anyhow::Result<Vec<GameId>> {
-    let res = log_view_result(
-        contract
-            .call("get_game_ids")
-            .args_json((account_id,))
-            .max_gas()
-            .view()
-            .await?,
-    )?;
-    Ok(res.json()?)
 }

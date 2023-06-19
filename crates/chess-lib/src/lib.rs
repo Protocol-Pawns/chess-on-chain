@@ -151,7 +151,7 @@ impl Chess {
     /// Challenges a player to a non-money match.
     #[handle_result]
     pub fn challenge(&mut self, challenged_id: AccountId) -> Result<(), ContractError> {
-        let challenger_id = env::predecessor_account_id();
+        let challenger_id = env::signer_account_id();
         self.internal_challenge(challenger_id, challenged_id, None)
     }
 
@@ -161,7 +161,7 @@ impl Chess {
     /// respective token that is used as wager.
     #[handle_result]
     pub fn accept_challenge(&mut self, challenge_id: ChallengeId) -> Result<GameId, ContractError> {
-        let challenged_id = env::predecessor_account_id();
+        let challenged_id = env::signer_account_id();
         self.internal_accept_challenge(challenged_id, challenge_id)
     }
 
@@ -190,7 +190,10 @@ impl Chess {
             .accounts
             .get_mut(challenged_id)
             .ok_or_else(|| ContractError::AccountNotRegistered(challenged_id.clone()))?;
-        challenged.reject_challenge(&challenge_id, true)?;
+        challenged.reject_challenge(&challenge_id, false)?;
+
+        let event = ChessEvent::RejectChallenge { challenge_id };
+        event.emit();
 
         Ok(())
     }
@@ -348,7 +351,11 @@ impl Chess {
             .ok_or_else(|| ContractError::AccountNotRegistered(challenged_id.clone()))?;
         challenged.add_challenge(challenge.id().clone(), false);
 
-        self.challenges.insert(challenge.id().clone(), challenge);
+        self.challenges
+            .insert(challenge.id().clone(), challenge.clone());
+
+        let event = ChessEvent::Challenge(challenge);
+        event.emit();
 
         Ok(())
     }
@@ -383,6 +390,11 @@ impl Chess {
             .ok_or_else(|| ContractError::AccountNotRegistered(challenger_id.clone()))?;
         challenger.accept_challenge(&challenge_id, game_id.clone(), true)?;
 
+        let event = ChessEvent::AcceptChallenge {
+            challenge_id,
+            game_id: game_id.clone(),
+        };
+        event.emit();
         let event = ChessEvent::CreateGame {
             game_id: game_id.clone(),
             white: game.get_white().clone(),

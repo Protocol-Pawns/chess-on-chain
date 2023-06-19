@@ -4,6 +4,7 @@ use near_sdk::{
     serde::Serialize,
     AccountId, Balance,
 };
+use std::fmt;
 use witgen::witgen;
 
 use crate::ContractError;
@@ -14,7 +15,9 @@ pub type ChallengeId = String;
 #[witgen]
 pub type Wager = Option<(AccountId, Balance)>;
 
-#[derive(BorshDeserialize, BorshSerialize, Clone, Eq, Ord, PartialEq, PartialOrd, Serialize)]
+#[derive(
+    BorshDeserialize, BorshSerialize, Clone, Debug, Eq, Ord, PartialEq, PartialOrd, Serialize,
+)]
 #[serde(crate = "near_sdk::serde")]
 #[witgen]
 pub struct Challenge {
@@ -24,10 +27,14 @@ pub struct Challenge {
     wager: Wager,
 }
 
+pub fn create_challenge_id<T: fmt::Display>(challenger: T, challenged: T) -> String {
+    format!("{}-vs-{}", challenger, challenged)
+}
+
 impl Challenge {
     pub fn new(challenger: AccountId, challenged: AccountId, wager: Wager) -> Self {
         Self {
-            id: format!("{}-vs-{}", &challenger, &challenged),
+            id: create_challenge_id(&challenger, &challenged),
             challenger,
             challenged,
             wager,
@@ -49,7 +56,7 @@ impl Challenge {
     }
 
     pub fn check_reject(&self, is_challenger: bool) -> Result<(), ContractError> {
-        let sender_id = env::predecessor_account_id();
+        let sender_id = env::signer_account_id();
         if is_challenger && sender_id != self.challenger {
             return Err(ContractError::WrongChallengerId);
         } else if !is_challenger && sender_id != self.challenged {
