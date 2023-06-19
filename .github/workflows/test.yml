@@ -30,6 +30,8 @@ jobs:
     steps:
       - uses: actions/checkout@v2
         name: Checkout
+        with:
+          submodules: recursive
 
       - uses: actions-rs/toolchain@v1
         name: Install Toolchain

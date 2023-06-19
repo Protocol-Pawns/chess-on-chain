@@ -16,7 +16,8 @@ workspaces = "0.7"
 
 [dependencies.chess-engine]
 version = "0.1"
-path = "../../../chess-engine"
+git = "https://github.com/Tarnadas/chess-engine.git"
+# path = "../../../chess-engine"
 
 [dependencies.near-contract-standards]
 version = "4"
