@@ -1,0 +1,75 @@
+on:
+  push:
+    paths:
+      - ".github/workflows/test.yml"
+      - "crates/**/*"
+      - "Cargo.toml"
+      - "build.sh"
+      - "rust-toolchain"
+  pull_request:
+    paths:
+      - ".github/workflows/test.yml"
+      - "crates/**/*"
+      - "build.sh"
+      - "Cargo.toml"
+      - "rust-toolchain"
+
+name: Rust Server Test
+
+env:
+  RUST_TOOLCHAIN: nightly-2023-03-20
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    env:
+      RUST_BACKTRACE: full
+
+    steps:
+      - uses: actions/checkout@v2
+        name: Checkout
+
+      - uses: actions-rs/toolchain@v1
+        name: Install Toolchain
+        with:
+          profile: minimal
+          toolchain: ${{ env.RUST_TOOLCHAIN }}
+          target: wasm32-unknown-unknown
+          override: true
+          components: rustfmt, clippy
+
+      - uses: actions-rs/cargo@v1
+        name: Install wasm-opt
+        with:
+          command: install
+          args: --version 0.110.0 wasm-opt
+
+      - uses: actions/cache@v2
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+
+      - uses: actions-rs/cargo@v1
+        name: Clippy
+        with:
+          command: clippy
+          args: -- -D warnings
+
+      - uses: actions-rs/cargo@v1
+        name: Fmt
+        with:
+          command: fmt
+          args: -- --check
+
+      - name: Build
+        run: ./build.sh
+
+      - uses: actions-rs/cargo@v1
+        name: Test
+        with:
+          command: test
+          args: -- --nocapture

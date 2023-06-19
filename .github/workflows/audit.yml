@@ -1,0 +1,40 @@
+on:
+  push:
+    paths:
+      - "**/Cargo.toml"
+      - "**/Cargo.lock"
+  pull_request:
+    paths:
+      - "**/Cargo.toml"
+      - "**/Cargo.lock"
+
+name: Audit dependencies
+
+env:
+  RUST_TOOLCHAIN: nightly-2023-03-20
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v2
+        name: Checkout
+
+      - uses: actions-rs/toolchain@v1
+        name: Install Toolchain
+        with:
+          profile: minimal
+          toolchain: ${{ env.RUST_TOOLCHAIN }}
+          override: true
+
+      - uses: actions-rs/cargo@v1
+        name: Install Cargo Tools
+        with:
+          command: install
+          args: cargo-audit
+
+      - uses: actions-rs/cargo@v1
+        name: Audit
+        with:
+          command: audit
