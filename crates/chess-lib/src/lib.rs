@@ -162,7 +162,7 @@ impl Chess {
     #[handle_result]
     pub fn accept_challenge(&mut self, challenge_id: ChallengeId) -> Result<GameId, ContractError> {
         let challenged_id = env::signer_account_id();
-        self.internal_accept_challenge(challenged_id, challenge_id)
+        self.internal_accept_challenge(challenged_id, challenge_id, &None)
     }
 
     /// Rejects a challenge.
@@ -279,14 +279,14 @@ pub enum FtReceiverMsg {
 #[serde(crate = "near_sdk::serde")]
 #[witgen]
 pub struct ChallengeMsg {
-    challenged_id: AccountId,
+    pub challenged_id: AccountId,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(crate = "near_sdk::serde")]
 #[witgen]
 pub struct AcceptChallengeMsg {
-    challenge_id: ChallengeId,
+    pub challenge_id: ChallengeId,
 }
 
 #[near_bindgen]
@@ -319,11 +319,16 @@ impl Chess {
             FtReceiverMsg::Challenge(ChallengeMsg { challenged_id }) => {
                 let challenger_id = sender_id;
                 let token_id = env::predecessor_account_id();
-                self.internal_challenge(challenger_id, challenged_id, Some((token_id, amount.0)))?;
+                self.internal_challenge(challenger_id, challenged_id, Some((token_id, amount)))?;
             }
             FtReceiverMsg::AcceptChallenge(AcceptChallengeMsg { challenge_id }) => {
                 let challenged_id = sender_id;
-                self.internal_accept_challenge(challenged_id, challenge_id)?;
+                let token_id = env::predecessor_account_id();
+                self.internal_accept_challenge(
+                    challenged_id,
+                    challenge_id,
+                    &Some((token_id, amount)),
+                )?;
             }
         }
 
@@ -364,6 +369,7 @@ impl Chess {
         &mut self,
         challenged_id: AccountId,
         challenge_id: ChallengeId,
+        paid_wager: &Wager,
     ) -> Result<GameId, ContractError> {
         let challenged = self
             .accounts
@@ -374,7 +380,7 @@ impl Chess {
             .challenges
             .remove(&challenge_id)
             .ok_or(ContractError::ChallengeNotExists(challenge_id.clone()))?;
-        challenge.check_accept(&challenged_id, &None)?;
+        challenge.check_accept(&challenged_id, paid_wager)?;
 
         let challenger_id = challenge.get_challenger();
         let game = Game::new(

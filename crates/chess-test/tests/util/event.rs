@@ -42,6 +42,16 @@ pub struct ChessEvent {
     pub event_kind: ChessEventKind,
 }
 
+pub const KNOWN_EVENT_KINDS: [&str; 7] = [
+    "challenge",
+    "accept_challenge",
+    "reject_challenge",
+    "create_game",
+    "play_move",
+    "change_board",
+    "finish_game",
+];
+
 #[derive(Clone, Serialize, Deserialize, Debug)]
 #[serde(tag = "event", content = "data")]
 #[serde(rename_all = "snake_case")]

@@ -1,7 +1,13 @@
 use super::{event, log_tx_result};
-use chess_lib::{ChallengeId, Difficulty, GameId, GameOutcome, MoveStr};
+use chess_lib::{
+    AcceptChallengeMsg, ChallengeId, ChallengeMsg, Difficulty, FtReceiverMsg, GameId, GameOutcome,
+    MoveStr,
+};
+use near_sdk::json_types::U128;
+use serde::Serialize;
+use serde_json::json;
 use workspaces::{
-    result::{ExecutionResult, Value},
+    result::{ExecutionFinalResult, ExecutionResult, Value},
     types::Balance,
     Account, AccountId, Contract,
 };
@@ -25,12 +31,28 @@ pub async fn storage_deposit(
     Ok(res)
 }
 
+pub async fn mint_tokens(
+    token: &Contract,
+    receiver: &AccountId,
+    amount: u128,
+) -> anyhow::Result<ExecutionResult<Value>> {
+    let (res, _) = log_tx_result(
+        None,
+        token
+            .call("mint")
+            .args_json((receiver, U128::from(amount)))
+            .transact()
+            .await?,
+    )?;
+    Ok(res)
+}
+
 pub async fn create_ai_game(
     contract: &Contract,
     sender: &Account,
     difficulty: Difficulty,
 ) -> anyhow::Result<(GameId, Vec<event::ContractEvent>)> {
-    let (res, events): (ExecutionResult<Value>, Vec<super::event::ContractEvent>) = log_tx_result(
+    let (res, events): (ExecutionResult<Value>, Vec<event::ContractEvent>) = log_tx_result(
         Some("create_ai_game"),
         sender
             .call(contract.id(), "create_ai_game")
@@ -47,7 +69,7 @@ pub async fn challenge(
     sender: &Account,
     challenged_id: &AccountId,
 ) -> anyhow::Result<(ExecutionResult<Value>, Vec<event::ContractEvent>)> {
-    let (res, events): (ExecutionResult<Value>, Vec<super::event::ContractEvent>) = log_tx_result(
+    let (res, events): (ExecutionResult<Value>, Vec<event::ContractEvent>) = log_tx_result(
         Some("challenge"),
         sender
             .call(contract.id(), "challenge")
@@ -59,12 +81,33 @@ pub async fn challenge(
     Ok((res, events))
 }
 
+pub async fn challenge_with_wager(
+    sender: &Account,
+    token_id: &AccountId,
+    receiver_id: &AccountId,
+    amount: U128,
+    msg: ChallengeMsg,
+) -> anyhow::Result<(ExecutionResult<Value>, Vec<event::ContractEvent>)> {
+    let (res, events): (ExecutionResult<Value>, Vec<event::ContractEvent>) = log_tx_result(
+        Some("challenge_with_wager"),
+        ft_transfer_call(
+            sender,
+            token_id,
+            receiver_id,
+            amount,
+            FtReceiverMsg::Challenge(msg),
+        )
+        .await?,
+    )?;
+    Ok((res, events))
+}
+
 pub async fn accept_challenge(
     contract: &Contract,
     sender: &Account,
     challenge_id: ChallengeId,
 ) -> anyhow::Result<(GameId, Vec<event::ContractEvent>)> {
-    let (res, events): (ExecutionResult<Value>, Vec<super::event::ContractEvent>) = log_tx_result(
+    let (res, events): (ExecutionResult<Value>, Vec<event::ContractEvent>) = log_tx_result(
         Some("accept_challenge"),
         sender
             .call(contract.id(), "accept_challenge")
@@ -76,13 +119,34 @@ pub async fn accept_challenge(
     Ok((res.json()?, events))
 }
 
+pub async fn accept_challenge_with_wager(
+    sender: &Account,
+    token_id: &AccountId,
+    receiver_id: &AccountId,
+    amount: U128,
+    msg: AcceptChallengeMsg,
+) -> anyhow::Result<(ExecutionResult<Value>, Vec<event::ContractEvent>)> {
+    let (res, events): (ExecutionResult<Value>, Vec<event::ContractEvent>) = log_tx_result(
+        Some("accept_challenge_with_wager"),
+        ft_transfer_call(
+            sender,
+            token_id,
+            receiver_id,
+            amount,
+            FtReceiverMsg::AcceptChallenge(msg),
+        )
+        .await?,
+    )?;
+    Ok((res, events))
+}
+
 pub async fn reject_challenge(
     contract: &Contract,
     sender: &Account,
     challenge_id: ChallengeId,
     is_challenger: bool,
 ) -> anyhow::Result<(ExecutionResult<Value>, Vec<event::ContractEvent>)> {
-    let (res, events): (ExecutionResult<Value>, Vec<super::event::ContractEvent>) = log_tx_result(
+    let (res, events): (ExecutionResult<Value>, Vec<event::ContractEvent>) = log_tx_result(
         Some("reject_challenge"),
         sender
             .call(contract.id(), "reject_challenge")
@@ -113,4 +177,25 @@ pub async fn play_move(
             .await?,
     )?;
     Ok((res.json()?, events))
+}
+
+async fn ft_transfer_call<T: Serialize>(
+    sender: &Account,
+    token_id: &AccountId,
+    receiver_id: &AccountId,
+    amount: U128,
+    msg: T,
+) -> anyhow::Result<ExecutionFinalResult> {
+    Ok(sender
+        .call(token_id, "ft_transfer_call")
+        .args_json((
+            receiver_id,
+            amount,
+            Option::<String>::None,
+            json!(msg).to_string(),
+        ))
+        .max_gas()
+        .deposit(1)
+        .transact()
+        .await?)
 }

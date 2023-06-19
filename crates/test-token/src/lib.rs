@@ -31,7 +31,6 @@ impl Contract {
         }
     }
 
-    #[payable]
     pub fn mint(&mut self, account_id: AccountId, amount: U128) {
         self.token.internal_deposit(&account_id, amount.into());
     }

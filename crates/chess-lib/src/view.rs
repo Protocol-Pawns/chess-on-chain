@@ -1,4 +1,4 @@
-use crate::{ChallengeId, Chess, ChessExt, ContractError, GameId, GameInfo};
+use crate::{Challenge, ChallengeId, Chess, ChessExt, ContractError, GameId, GameInfo};
 use near_sdk::{near_bindgen, AccountId};
 
 #[near_bindgen]
@@ -48,7 +48,17 @@ impl Chess {
         Ok(account.get_game_ids())
     }
 
-    /// Returns all open challenges
+    /// Returns info about open challenge.
+    #[handle_result]
+    pub fn get_challenge(&self, challenge_id: ChallengeId) -> Result<Challenge, ContractError> {
+        let challenge = self
+            .challenges
+            .get(&challenge_id)
+            .ok_or_else(|| ContractError::ChallengeNotExists(challenge_id.clone()))?;
+        Ok(challenge.clone())
+    }
+
+    /// Returns all open challenges.
     #[handle_result]
     pub fn get_challenges(
         &self,

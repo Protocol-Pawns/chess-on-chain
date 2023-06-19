@@ -18,6 +18,11 @@ workspaces = "0.7"
 version = "0.1"
 path = "../../../chess-engine"
 
+[dependencies.near-contract-standards]
+version = "4"
+git = "https://github.com/near/near-sdk-rs.git"
+rev = "89f8c2d776c8d00feb45239fdb15725527f1894b"
+
 [dependencies.near-sdk]
 version = "4"
 git = "https://github.com/near/near-sdk-rs.git"
