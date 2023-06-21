@@ -12,6 +12,21 @@ use workspaces::{
     Account, AccountId, Contract,
 };
 
+pub async fn migrate(
+    contract: &Contract,
+    sender: &Account,
+) -> anyhow::Result<ExecutionResult<Value>> {
+    let (res, _): (ExecutionResult<Value>, Vec<event::ContractEvent>) = log_tx_result(
+        Some("migrate"),
+        sender
+            .call(contract.id(), "migrate")
+            .max_gas()
+            .transact()
+            .await?,
+    )?;
+    Ok(res)
+}
+
 pub async fn storage_deposit(
     contract: &Contract,
     sender: &Account,
@@ -62,6 +77,23 @@ pub async fn create_ai_game(
             .await?,
     )?;
     Ok((res.json()?, events))
+}
+
+pub async fn create_ai_game_old(
+    contract: &Contract,
+    sender: &Account,
+    difficulty: Difficulty,
+) -> anyhow::Result<ExecutionResult<Value>> {
+    let (res, _): (ExecutionResult<Value>, Vec<event::ContractEvent>) = log_tx_result(
+        Some("create_ai_game_old"),
+        sender
+            .call(contract.id(), "create_ai_game")
+            .args_json((difficulty,))
+            .max_gas()
+            .transact()
+            .await?,
+    )?;
+    Ok(res)
 }
 
 pub async fn challenge(

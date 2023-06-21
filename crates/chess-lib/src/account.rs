@@ -8,8 +8,16 @@ use near_sdk::{
 
 #[derive(BorshDeserialize, BorshSerialize)]
 pub enum Account {
-    V2(AccountV2),
     V1(AccountV1),
+    V2(AccountV2),
+}
+
+#[derive(BorshDeserialize, BorshSerialize)]
+pub struct AccountV1 {
+    near_amount: Balance,
+    account_id: AccountId,
+    game_ids: UnorderedSet<GameId>,
+    finished_games: UnorderedSet<GameId>,
 }
 
 #[derive(BorshDeserialize, BorshSerialize)]
@@ -20,14 +28,6 @@ pub struct AccountV2 {
     finished_games: UnorderedSet<GameId>,
     challenger: UnorderedSet<ChallengeId>,
     challenged: UnorderedSet<ChallengeId>,
-}
-
-#[derive(BorshDeserialize, BorshSerialize)]
-pub struct AccountV1 {
-    near_amount: Balance,
-    account_id: AccountId,
-    game_ids: UnorderedSet<GameId>,
-    finished_games: UnorderedSet<GameId>,
 }
 
 impl Account {

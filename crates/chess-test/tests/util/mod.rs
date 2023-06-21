@@ -2,11 +2,10 @@ pub mod call;
 pub mod event;
 pub mod view;
 
-use std::fmt;
-
 use chess_lib::ChessEvent;
 use owo_colors::OwoColorize;
 use serde::Serialize;
+use std::fmt;
 use tokio::fs;
 use workspaces::{
     network::Sandbox,
@@ -38,7 +37,9 @@ macro_rules! print_log {
     };
 }
 
-pub async fn initialize_contracts() -> anyhow::Result<(Worker<Sandbox>, Account, Contract)> {
+pub async fn initialize_contracts(
+    path: Option<&'static str>,
+) -> anyhow::Result<(Worker<Sandbox>, Account, Contract)> {
     let worker = workspaces::sandbox().await?;
 
     let owner = worker.dev_create_account().await?;
@@ -48,7 +49,7 @@ pub async fn initialize_contracts() -> anyhow::Result<(Worker<Sandbox>, Account,
         .create_tla_and_deploy(
             "chess.test.near".parse()?,
             key,
-            &fs::read("../../res/chess.wasm").await?,
+            &fs::read(path.unwrap_or("../../res/chess.wasm")).await?,
         )
         .await?
         .into_result()?;
