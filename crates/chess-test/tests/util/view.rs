@@ -1,5 +1,5 @@
 use super::log_view_result;
-use chess_lib::{Challenge, ChallengeId, GameId};
+use chess_lib::{Challenge, ChallengeId, EloRating, GameId};
 use workspaces::{AccountId, Contract};
 
 pub async fn get_game_ids(
@@ -9,6 +9,18 @@ pub async fn get_game_ids(
     let res = log_view_result(
         contract
             .call("get_game_ids")
+            .args_json((account_id,))
+            .max_gas()
+            .view()
+            .await?,
+    )?;
+    Ok(res.json()?)
+}
+
+pub async fn get_elo(contract: &Contract, account_id: &AccountId) -> anyhow::Result<EloRating> {
+    let res = log_view_result(
+        contract
+            .call("get_elo")
             .args_json((account_id,))
             .max_gas()
             .view()

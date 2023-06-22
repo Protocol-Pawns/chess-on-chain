@@ -16,7 +16,7 @@ pub use game::*;
 pub use storage::*;
 pub use view::*;
 
-use chess_engine::Move;
+use chess_engine::{Color, Move};
 use near_contract_standards::fungible_token::receiver::FungibleTokenReceiver;
 use near_sdk::{
     borsh::{self, BorshDeserialize, BorshSerialize},
@@ -236,6 +236,11 @@ impl Chess {
             if recent_finished_games.len() > 100 {
                 recent_finished_games.pop_back();
             }
+
+            if let Player::Human(_) = game.get_black() {
+                self.internal_calculate_elo(&game, &outcome);
+            }
+
             (Some(outcome), board_state)
         } else {
             (None, self.games.get(&game_id).unwrap().get_board_state())
@@ -261,8 +266,17 @@ impl Chess {
             if !game.is_player(&account_id) {
                 return Err(ContractError::NotPlaying);
             }
-            self.games.remove(&game_id);
+            let game = self.games.remove(&game_id).unwrap();
             account.remove_game_id(&game_id);
+
+            if let Player::Human(black_id) = game.get_black() {
+                let outcome = if black_id == &account_id {
+                    GameOutcome::Victory(Color::White)
+                } else {
+                    GameOutcome::Victory(Color::Black)
+                };
+                self.internal_calculate_elo(&game, &outcome);
+            }
 
             let event = ChessEvent::ResignGame {
                 game_id,
@@ -421,6 +435,36 @@ impl Chess {
         self.games.insert(game_id.clone(), game);
 
         Ok(game_id)
+    }
+
+    pub(crate) fn internal_calculate_elo(&mut self, game: &Game, outcome: &GameOutcome) {
+        if let (Some(elo_white), Some(elo_black), GameOutcome::Victory(color)) = (
+            game.get_white()
+                .as_account_mut(self)
+                .map(|account| account.get_elo()),
+            game.get_black()
+                .as_account_mut(self)
+                .map(|account| account.get_elo()),
+            outcome,
+        ) {
+            let (new_elo_white, new_elo_black) = calculate_elo(
+                elo_white,
+                elo_black,
+                match color {
+                    Color::White => &EloOutcome::WIN,
+                    Color::Black => &EloOutcome::LOSS,
+                },
+                &EloConfig::new(),
+            );
+            game.get_white()
+                .as_account_mut(self)
+                .unwrap()
+                .set_elo(new_elo_white);
+            game.get_black()
+                .as_account_mut(self)
+                .unwrap()
+                .set_elo(new_elo_black);
+        }
     }
 
     pub(crate) fn internal_get_account(

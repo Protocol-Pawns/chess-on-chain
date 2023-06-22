@@ -1,4 +1,4 @@
-use crate::{Challenge, ChallengeId, Chess, ChessExt, ContractError, GameId, GameInfo};
+use crate::{Challenge, ChallengeId, Chess, ChessExt, ContractError, EloRating, GameId, GameInfo};
 use near_sdk::{near_bindgen, AccountId};
 
 #[near_bindgen]
@@ -46,6 +46,16 @@ impl Chess {
             .get(&account_id)
             .ok_or_else(|| ContractError::AccountNotRegistered(account_id.clone()))?;
         Ok(account.get_game_ids())
+    }
+
+    /// Returns ELO rating for given wallet ID.
+    #[handle_result]
+    pub fn get_elo(&self, account_id: AccountId) -> Result<EloRating, ContractError> {
+        let account = self
+            .accounts
+            .get(&account_id)
+            .ok_or_else(|| ContractError::AccountNotRegistered(account_id.clone()))?;
+        Ok(account.get_elo())
     }
 
     /// Returns info about open challenge.

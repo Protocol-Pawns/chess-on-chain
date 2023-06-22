@@ -572,6 +572,10 @@ async fn test_finish_game() -> anyhow::Result<()> {
     assert!(games.is_empty());
     let games = view::get_game_ids(&contract, player_b.id()).await?;
     assert!(games.is_empty());
+    let elo = view::get_elo(&contract, player_a.id()).await?;
+    assert_eq!(elo, 1016.);
+    let elo = view::get_elo(&contract, player_b.id()).await?;
+    assert_eq!(elo, 984.);
 
     Ok(())
 }

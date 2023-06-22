@@ -120,6 +120,20 @@ impl Account {
         account.near_amount
     }
 
+    pub fn get_elo(&self) -> EloRating {
+        let Account::V3(account) = self else {
+            panic!("migration required");
+        };
+        account.elo
+    }
+
+    pub fn set_elo(&mut self, elo: EloRating) {
+        let Account::V3(account) = self else {
+            panic!("migration required");
+        };
+        account.elo = elo;
+    }
+
     pub fn add_game_id(&mut self, game_id: GameId) -> Result<(), ContractError> {
         let Account::V3(account) = self else {
             panic!("migration required");
