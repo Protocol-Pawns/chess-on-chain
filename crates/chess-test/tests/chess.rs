@@ -22,15 +22,15 @@ async fn test_migrate() -> anyhow::Result<()> {
         call::storage_deposit(&contract, &player_c, None, None)
     )?;
 
-    // let (_res, _events) = call::challenge(&contract, &player_a, player_b.id()).await?;
-    // let challenge_id = create_challenge_id(player_a.id(), player_b.id());
-    // let (game_id, _events) = call::accept_challenge(&contract, &player_b, &challenge_id).await?;
-    // let block_height = game_id.0;
-    // let game_id = GameId(
-    //     block_height,
-    //     player_a.id().clone().parse()?,
-    //     Some(player_b.id().clone().parse()?),
-    // );
+    let (_res, _events) = call::challenge(&contract, &player_a, player_b.id()).await?;
+    let challenge_id = create_challenge_id(player_a.id(), player_b.id());
+    let (game_id, _events) = call::accept_challenge(&contract, &player_b, &challenge_id).await?;
+    let block_height = game_id.0;
+    let game_id = GameId(
+        block_height,
+        player_a.id().clone().parse()?,
+        Some(player_b.id().clone().parse()?),
+    );
 
     call::create_ai_game_old(&contract, &player_c, Difficulty::Easy).await?;
 
@@ -41,10 +41,10 @@ async fn test_migrate() -> anyhow::Result<()> {
         .into_result()?;
     call::migrate(&contract, contract.as_account()).await?;
 
-    // let game_ids = view::get_game_ids(&contract, player_a.id()).await?;
-    // assert_eq!(game_ids, vec![game_id.clone()]);
-    // let game_ids = view::get_game_ids(&contract, player_b.id()).await?;
-    // assert_eq!(game_ids, vec![game_id.clone()]);
+    let game_ids = view::get_game_ids(&contract, player_a.id()).await?;
+    assert_eq!(game_ids, vec![game_id.clone()]);
+    let game_ids = view::get_game_ids(&contract, player_b.id()).await?;
+    assert_eq!(game_ids, vec![game_id.clone()]);
     let ai_game_ids = view::get_game_ids(&contract, player_c.id()).await?;
     assert!(!ai_game_ids.is_empty());
 

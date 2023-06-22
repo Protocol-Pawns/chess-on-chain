@@ -1,5 +1,6 @@
 mod account;
 mod challenge;
+mod elo;
 mod error;
 mod event;
 mod game;
@@ -8,6 +9,7 @@ mod view;
 
 pub use account::*;
 pub use challenge::*;
+pub use elo::*;
 pub use error::*;
 pub use event::*;
 pub use game::*;
@@ -89,7 +91,7 @@ impl Chess {
     #[private]
     #[init(ignore_state)]
     pub fn migrate() -> Self {
-        let mut chess: OldChess = env::state_read().unwrap();
+        let mut chess: Chess = env::state_read().unwrap();
 
         let mut accounts = vec![];
         for (account_id, account) in chess.accounts.drain() {
@@ -102,7 +104,7 @@ impl Chess {
         Self {
             accounts: chess.accounts,
             games: chess.games,
-            challenges: UnorderedMap::new(StorageKey::Challenges),
+            challenges: chess.challenges,
             recent_finished_games: chess.recent_finished_games,
         }
     }
