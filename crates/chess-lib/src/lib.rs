@@ -208,10 +208,6 @@ impl Chess {
         mv: MoveStr,
     ) -> Result<(Option<GameOutcome>, [String; 8]), ContractError> {
         let account_id = env::signer_account_id();
-        let account = self
-            .accounts
-            .get_mut(&account_id)
-            .ok_or_else(|| ContractError::AccountNotRegistered(account_id.clone()))?;
 
         let game = self
             .games
@@ -224,9 +220,15 @@ impl Chess {
         }
 
         let (outcome, board) = if let Some((outcome, board_state)) = game.play_move(mv)? {
-            self.games.remove(&game_id).unwrap();
-            account.remove_game_id(&game_id);
-            account.save_finished_game(game_id.clone());
+            let game = self.games.remove(&game_id).unwrap();
+            if let Some(account) = game.get_white().as_account_mut(self) {
+                account.remove_game_id(&game_id);
+                account.save_finished_game(game_id.clone());
+            }
+            if let Some(account) = game.get_black().as_account_mut(self) {
+                account.remove_game_id(&game_id);
+                account.save_finished_game(game_id.clone());
+            }
             let recent_finished_games = self.recent_finished_games.get_mut();
             recent_finished_games.push_front(game_id);
             if recent_finished_games.len() > 100 {
@@ -253,21 +255,21 @@ impl Chess {
             .get_mut(&account_id)
             .ok_or_else(|| ContractError::AccountNotRegistered(account_id.clone()))?;
 
-        let game = self
-            .games
-            .get_mut(&game_id)
-            .ok_or(ContractError::GameNotExists)?;
-        if !game.is_player(&account_id) {
-            return Err(ContractError::NotPlaying);
-        }
-        self.games.remove(&game_id);
-        account.remove_game_id(&game_id);
+        if let Some(game) = self.games.get_mut(&game_id) {
+            if !game.is_player(&account_id) {
+                return Err(ContractError::NotPlaying);
+            }
+            self.games.remove(&game_id);
+            account.remove_game_id(&game_id);
 
-        let event = ChessEvent::ResignGame {
-            game_id,
-            resigner: account_id,
-        };
-        event.emit();
+            let event = ChessEvent::ResignGame {
+                game_id,
+                resigner: account_id,
+            };
+            event.emit();
+        } else {
+            account.remove_game_id(&game_id);
+        }
 
         Ok(())
     }

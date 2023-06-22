@@ -47,3 +47,29 @@ pub async fn get_challenge(
     )?;
     Ok(res.json()?)
 }
+
+pub async fn recent_finished_games(contract: &Contract) -> anyhow::Result<Vec<GameId>> {
+    let res = log_view_result(
+        contract
+            .call("recent_finished_games")
+            .max_gas()
+            .view()
+            .await?,
+    )?;
+    Ok(res.json()?)
+}
+
+pub async fn finished_games(
+    contract: &Contract,
+    account_id: &AccountId,
+) -> anyhow::Result<Vec<GameId>> {
+    let res = log_view_result(
+        contract
+            .call("finished_games")
+            .args_json((account_id,))
+            .max_gas()
+            .view()
+            .await?,
+    )?;
+    Ok(res.json()?)
+}

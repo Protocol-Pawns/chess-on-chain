@@ -3,7 +3,7 @@ mod util;
 use chess_engine::Color;
 use chess_lib::{
     create_challenge_id, AcceptChallengeMsg, Challenge, ChallengeMsg, ChessEvent, Difficulty,
-    GameId, Player,
+    GameId, GameOutcome, Player,
 };
 use tokio::fs;
 use util::*;
@@ -499,6 +499,79 @@ async fn test_accept_reject_challenge_check_sender() -> anyhow::Result<()> {
     assert!(res.is_err());
     let res = call::reject_challenge(&contract, &player_c, &challenge_id, true).await;
     assert!(res.is_err());
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn test_finish_game() -> anyhow::Result<()> {
+    let (worker, _, contract) = initialize_contracts(None).await?;
+
+    let player_a = worker.dev_create_account().await?;
+    let player_b = worker.dev_create_account().await?;
+
+    tokio::try_join!(
+        call::storage_deposit(&contract, &player_a, None, None),
+        call::storage_deposit(&contract, &player_b, None, None)
+    )?;
+
+    call::challenge(&contract, &player_a, player_b.id()).await?;
+    let challenge_id = create_challenge_id(player_a.id(), player_b.id());
+
+    let (game_id, _) = call::accept_challenge(&contract, &player_b, &challenge_id).await?;
+    let block_height = game_id.0;
+    let game_id = GameId(
+        block_height,
+        player_a.id().clone().parse()?,
+        Some(player_b.id().clone().parse()?),
+    );
+
+    call::play_move(&contract, &player_a, &game_id, "e2e4".to_string()).await?;
+    call::play_move(&contract, &player_b, &game_id, "a7a6".to_string()).await?;
+    call::play_move(&contract, &player_a, &game_id, "d1f3".to_string()).await?;
+    call::play_move(&contract, &player_b, &game_id, "a6a5".to_string()).await?;
+    call::play_move(&contract, &player_a, &game_id, "f1c4".to_string()).await?;
+    call::play_move(&contract, &player_b, &game_id, "a5a4".to_string()).await?;
+    let ((outcome, board), events) =
+        call::play_move(&contract, &player_a, &game_id, "f3f7".to_string()).await?;
+    let expected_board = [
+        "RNB K NR".to_string(),
+        "PPPP PPP".to_string(),
+        "        ".to_string(),
+        "p B P   ".to_string(),
+        "        ".to_string(),
+        "        ".to_string(),
+        " ppppQpp".to_string(),
+        "rnbqkbnr".to_string(),
+    ];
+    assert_eq!(outcome.unwrap(), GameOutcome::Victory(Color::White));
+    assert_eq!(board, expected_board);
+    assert_event_emits(
+        events,
+        vec![
+            ChessEvent::PlayMove {
+                game_id: game_id.clone(),
+                color: Color::White,
+                mv: "f3 to f7".to_string(),
+            },
+            ChessEvent::FinishGame {
+                game_id: game_id.clone(),
+                outcome: GameOutcome::Victory(Color::White),
+                board: expected_board,
+            },
+        ],
+    )?;
+
+    let games = view::recent_finished_games(&contract).await?;
+    assert_eq!(games, vec![game_id.clone()]);
+    let games = view::finished_games(&contract, player_a.id()).await?;
+    assert_eq!(games, vec![game_id.clone()]);
+    let games = view::finished_games(&contract, player_b.id()).await?;
+    assert_eq!(games, vec![game_id.clone()]);
+    let games = view::get_game_ids(&contract, player_a.id()).await?;
+    assert!(games.is_empty());
+    let games = view::get_game_ids(&contract, player_b.id()).await?;
+    assert!(games.is_empty());
 
     Ok(())
 }

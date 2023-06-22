@@ -1,4 +1,4 @@
-use crate::{ChessEvent, ContractError};
+use crate::{Account, Chess, ChessEvent, ContractError};
 use chess_engine::{Board, Color, GameResult, Move, Piece, Position};
 use near_sdk::{
     borsh::{self, BorshDeserialize, BorshSerialize},
@@ -42,6 +42,13 @@ impl Player {
     pub fn get_account_id(&self) -> Option<AccountId> {
         match self {
             Player::Human(account_id) => Some(account_id.clone()),
+            Player::Ai(_) => None,
+        }
+    }
+
+    pub fn as_account_mut<'a>(&self, chess: &'a mut Chess) -> Option<&'a mut Account> {
+        match self {
+            Player::Human(account_id) => Some(chess.accounts.get_mut(account_id).unwrap()),
             Player::Ai(_) => None,
         }
     }
@@ -89,7 +96,7 @@ pub struct GameInfo {
     pub turn_color: Color,
 }
 
-#[derive(BorshDeserialize, BorshSerialize, Clone, Debug, Deserialize, Serialize)]
+#[derive(BorshDeserialize, BorshSerialize, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(crate = "near_sdk::serde")]
 #[witgen]
 pub enum GameOutcome {
