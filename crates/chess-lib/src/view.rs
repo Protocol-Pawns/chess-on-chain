@@ -58,6 +58,19 @@ impl Chess {
         Ok(account.get_elo())
     }
 
+    pub fn get_elo_ratings(
+        &self,
+        skip: Option<usize>,
+        limit: Option<usize>,
+    ) -> Vec<(AccountId, EloRating)> {
+        self.accounts
+            .iter()
+            .skip(skip.unwrap_or_default())
+            .take(limit.unwrap_or(100))
+            .map(|(account_id, account)| (account_id.clone(), account.get_elo()))
+            .collect()
+    }
+
     /// Returns info about open challenge.
     #[handle_result]
     pub fn get_challenge(&self, challenge_id: ChallengeId) -> Result<Challenge, ContractError> {
