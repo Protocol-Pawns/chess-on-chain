@@ -6,6 +6,8 @@ use near_sdk::{
     AccountId, Balance,
 };
 
+const MAX_OPEN_GAMES: u32 = 10;
+
 #[derive(BorshDeserialize, BorshSerialize)]
 pub enum Account {
     V1(AccountV1),
@@ -138,7 +140,7 @@ impl Account {
         let Account::V3(account) = self else {
             panic!("migration required");
         };
-        if account.game_ids.len() >= 5 {
+        if account.game_ids.len() >= MAX_OPEN_GAMES {
             return Err(ContractError::MaxGamesReached);
         }
         account.game_ids.insert(game_id);

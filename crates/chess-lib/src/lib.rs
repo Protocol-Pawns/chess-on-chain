@@ -120,11 +120,8 @@ impl Chess {
 
     /// Create a new game against an AI player.
     ///
-    /// Returns game ID, which is necessary to play the game.
-    /// You can only have 5 open games due to storage limitations.
-    /// If you reach the limit you can call `resign` method.
-    ///
-    /// Before you can play a game you need to pay `storage_deposit`.
+    /// Returns game ID.
+    /// There can only ever be 10 open games due to storage limitations.
     #[handle_result]
     pub fn create_ai_game(&mut self, difficulty: Difficulty) -> Result<GameId, ContractError> {
         let account_id = env::signer_account_id();
@@ -151,6 +148,9 @@ impl Chess {
     }
 
     /// Challenges a player to a non-money match.
+    ///
+    /// Returns game ID.
+    /// There can only ever be 10 open games due to storage limitations.
     #[handle_result]
     pub fn challenge(&mut self, challenged_id: AccountId) -> Result<(), ContractError> {
         let challenger_id = env::signer_account_id();

@@ -540,6 +540,40 @@ async fn test_no_self_challenge() -> anyhow::Result<()> {
 }
 
 #[tokio::test]
+async fn test_max_open_games() -> anyhow::Result<()> {
+    let (worker, _, contract) = initialize_contracts(None).await?;
+
+    let player_a = worker.dev_create_account().await?;
+    let player_b = worker.dev_create_account().await?;
+
+    tokio::try_join!(
+        call::storage_deposit(&contract, &player_a, None, None),
+        call::storage_deposit(&contract, &player_b, None, None)
+    )?;
+
+    call::create_ai_game(&contract, &player_a, Difficulty::Easy).await?;
+    call::create_ai_game(&contract, &player_a, Difficulty::Easy).await?;
+    call::create_ai_game(&contract, &player_a, Difficulty::Easy).await?;
+    call::create_ai_game(&contract, &player_a, Difficulty::Easy).await?;
+    call::create_ai_game(&contract, &player_a, Difficulty::Easy).await?;
+    call::create_ai_game(&contract, &player_a, Difficulty::Easy).await?;
+    call::create_ai_game(&contract, &player_a, Difficulty::Easy).await?;
+    call::create_ai_game(&contract, &player_a, Difficulty::Easy).await?;
+    call::create_ai_game(&contract, &player_a, Difficulty::Easy).await?;
+    call::create_ai_game(&contract, &player_a, Difficulty::Easy).await?;
+    call::challenge(&contract, &player_a, player_b.id()).await?;
+    let challenge_id = create_challenge_id(player_a.id(), player_b.id());
+
+    let res = call::create_ai_game(&contract, &player_a, Difficulty::Easy).await;
+    assert!(res.is_err());
+
+    let res = call::accept_challenge(&contract, &player_b, &challenge_id).await;
+    assert!(res.is_err());
+
+    Ok(())
+}
+
+#[tokio::test]
 async fn test_finish_game() -> anyhow::Result<()> {
     let (worker, _, contract) = initialize_contracts(None).await?;
 
