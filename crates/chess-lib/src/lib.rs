@@ -371,6 +371,14 @@ impl Chess {
         let challenge: Challenge =
             Challenge::new(challenger_id.clone(), challenged_id.clone(), wager);
 
+        if self.challenges.contains_key(challenge.id())
+            || self
+                .challenges
+                .contains_key(&create_challenge_id(&challenged_id, &challenger_id))
+        {
+            return Err(ContractError::ChallengeExists);
+        }
+
         let challenger = self
             .accounts
             .get_mut(&challenger_id)

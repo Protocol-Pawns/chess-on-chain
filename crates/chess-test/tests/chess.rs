@@ -504,6 +504,42 @@ async fn test_accept_reject_challenge_check_sender() -> anyhow::Result<()> {
 }
 
 #[tokio::test]
+async fn test_challenge_check_duplicate() -> anyhow::Result<()> {
+    let (worker, _, contract) = initialize_contracts(None).await?;
+
+    let player_a = worker.dev_create_account().await?;
+    let player_b = worker.dev_create_account().await?;
+
+    tokio::try_join!(
+        call::storage_deposit(&contract, &player_a, None, None),
+        call::storage_deposit(&contract, &player_b, None, None)
+    )?;
+
+    call::challenge(&contract, &player_a, player_b.id()).await?;
+
+    let res = call::challenge(&contract, &player_a, player_b.id()).await;
+    assert!(res.is_err());
+    let res = call::challenge(&contract, &player_b, player_a.id()).await;
+    assert!(res.is_err());
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn test_no_self_challenge() -> anyhow::Result<()> {
+    let (worker, _, contract) = initialize_contracts(None).await?;
+
+    let player_a = worker.dev_create_account().await?;
+
+    call::storage_deposit(&contract, &player_a, None, None).await?;
+
+    let res = call::challenge(&contract, &player_a, player_a.id()).await;
+    assert!(res.is_err());
+
+    Ok(())
+}
+
+#[tokio::test]
 async fn test_finish_game() -> anyhow::Result<()> {
     let (worker, _, contract) = initialize_contracts(None).await?;
 
