@@ -154,6 +154,9 @@ impl Chess {
     #[handle_result]
     pub fn challenge(&mut self, challenged_id: AccountId) -> Result<(), ContractError> {
         let challenger_id = env::signer_account_id();
+        if challenger_id == challenged_id {
+            return Err(ContractError::SelfChallenge);
+        }
         self.internal_challenge(challenger_id, challenged_id, None)
     }
 
