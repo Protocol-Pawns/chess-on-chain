@@ -1,12 +1,12 @@
-use crate::{ChallengeId, ContractError, EloRating, GameId, StorageKey};
+use crate::{
+    ChallengeId, ContractError, EloRating, GameId, StorageKey, MAX_OPEN_CHALLENGES, MAX_OPEN_GAMES,
+};
 use near_sdk::{
     borsh::{self, BorshDeserialize, BorshSerialize},
     env,
     store::UnorderedSet,
     AccountId, Balance,
 };
-
-const MAX_OPEN_GAMES: u32 = 10;
 
 #[derive(BorshDeserialize, BorshSerialize)]
 pub enum Account {
@@ -216,15 +216,23 @@ impl Account {
         Ok(())
     }
 
-    pub fn add_challenge(&mut self, challenge_id: ChallengeId, is_challenger: bool) {
+    pub fn add_challenge(
+        &mut self,
+        challenge_id: ChallengeId,
+        is_challenger: bool,
+    ) -> Result<(), ContractError> {
         let Account::V3(account) = self else {
             panic!("migration required");
         };
+        if account.challenger.len() + account.challenged.len() >= MAX_OPEN_CHALLENGES {
+            return Err(ContractError::MaxChallengesReached);
+        }
         if is_challenger {
             account.challenger.insert(challenge_id);
         } else {
             account.challenged.insert(challenge_id);
         }
+        Ok(())
     }
 
     pub fn get_challenges(&self, is_challenger: bool) -> Vec<ChallengeId> {

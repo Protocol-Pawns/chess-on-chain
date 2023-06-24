@@ -5,6 +5,7 @@ use chess_lib::{
     create_challenge_id, AcceptChallengeMsg, Challenge, ChallengeMsg, ChessEvent, Difficulty,
     GameId, GameOutcome, Player,
 };
+use futures::future::try_join_all;
 use tokio::fs;
 use util::*;
 
@@ -568,6 +569,38 @@ async fn test_max_open_games() -> anyhow::Result<()> {
     assert!(res.is_err());
 
     let res = call::accept_challenge(&contract, &player_b, &challenge_id).await;
+    assert!(res.is_err());
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn test_max_open_challenges() -> anyhow::Result<()> {
+    let (worker, _, contract) = initialize_contracts(None).await?;
+
+    let player_a = worker.dev_create_account().await?;
+    let player_b = worker.dev_create_account().await?;
+    call::storage_deposit(&contract, &player_a, None, None).await?;
+    call::storage_deposit(&contract, &player_b, None, None).await?;
+    let mut tasks = vec![];
+    for _ in 0..50 {
+        tasks.push(worker.dev_create_account());
+    }
+    let players = try_join_all(tasks).await?;
+
+    let tasks: Vec<_> = players
+        .iter()
+        .map(|player| call::storage_deposit(&contract, player, None, None))
+        .collect();
+    try_join_all(tasks).await?;
+
+    for player in players {
+        call::challenge(&contract, &player_a, player.id()).await?;
+    }
+
+    let res = call::challenge(&contract, &player_a, player_b.id()).await;
+    assert!(res.is_err());
+    let res = call::challenge(&contract, &player_b, player_a.id()).await;
     assert!(res.is_err());
 
     Ok(())

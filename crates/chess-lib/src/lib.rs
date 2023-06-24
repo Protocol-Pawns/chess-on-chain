@@ -30,6 +30,9 @@ use near_sdk::{
 use std::collections::VecDeque;
 use witgen::witgen;
 
+pub const MAX_OPEN_GAMES: u32 = 10;
+pub const MAX_OPEN_CHALLENGES: u32 = 50;
+
 #[derive(BorshStorageKey, BorshSerialize)]
 pub enum StorageKey {
     Accounts,
@@ -383,13 +386,13 @@ impl Chess {
             .accounts
             .get_mut(&challenger_id)
             .ok_or_else(|| ContractError::AccountNotRegistered(challenger_id.clone()))?;
-        challenger.add_challenge(challenge.id().clone(), true);
+        challenger.add_challenge(challenge.id().clone(), true)?;
 
         let challenged = self
             .accounts
             .get_mut(&challenged_id)
             .ok_or_else(|| ContractError::AccountNotRegistered(challenged_id.clone()))?;
-        challenged.add_challenge(challenge.id().clone(), false);
+        challenged.add_challenge(challenge.id().clone(), false)?;
 
         self.challenges
             .insert(challenge.id().clone(), challenge.clone());

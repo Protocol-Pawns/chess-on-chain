@@ -18,6 +18,8 @@ pub enum ContractError {
     AccountIsPlaying,
     #[error("Maximum amount of open games reached")]
     MaxGamesReached,
+    #[error("Maximum amount of open challenges reached")]
+    MaxChallengesReached,
     #[error("Game does not exist")]
     GameNotExists,
     #[error("Cannot parse move {}", _0)]
