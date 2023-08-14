@@ -3,7 +3,7 @@ use chess_lib::{
     AcceptChallengeMsg, ChallengeId, ChallengeMsg, Difficulty, FtReceiverMsg, GameId, GameOutcome,
     MoveStr,
 };
-use near_sdk::json_types::U128;
+use near_sdk::{json_types::U128, PublicKey};
 use serde::Serialize;
 use serde_json::json;
 use workspaces::{
@@ -15,11 +15,13 @@ use workspaces::{
 pub async fn migrate(
     contract: &Contract,
     sender: &Account,
+    social_db: &AccountId,
 ) -> anyhow::Result<ExecutionResult<Value>> {
     let (res, _): (ExecutionResult<Value>, Vec<event::ContractEvent>) = log_tx_result(
         Some("migrate"),
         sender
             .call(contract.id(), "migrate")
+            .args_json((social_db,))
             .max_gas()
             .transact()
             .await?,
@@ -195,6 +197,7 @@ pub async fn play_move(
     sender: &Account,
     game_id: &GameId,
     mv: MoveStr,
+    should_notify: Option<bool>,
 ) -> anyhow::Result<(
     (Option<GameOutcome>, [String; 8]),
     Vec<event::ContractEvent>,
@@ -203,7 +206,7 @@ pub async fn play_move(
         Some("play_move"),
         sender
             .call(contract.id(), "play_move")
-            .args_json((game_id, mv))
+            .args_json((game_id, mv, should_notify))
             .max_gas()
             .transact()
             .await?,
@@ -222,6 +225,26 @@ pub async fn resign(
             .call(contract.id(), "resign")
             .args_json((game_id,))
             .max_gas()
+            .transact()
+            .await?,
+    )?;
+    Ok((res, events))
+}
+
+pub async fn grant_write_permission(
+    contract: &Contract,
+    sender: &Account,
+    predecessor_id: Option<AccountId>,
+    public_key: Option<PublicKey>,
+    keys: Vec<String>,
+) -> anyhow::Result<(ExecutionResult<Value>, Vec<event::ContractEvent>)> {
+    let (res, events) = log_tx_result(
+        Some("grant_write_permission"),
+        sender
+            .call(contract.id(), "grant_write_permission")
+            .args_json((predecessor_id, public_key, keys))
+            .max_gas()
+            .deposit(100_000_000_000_000_000_000_000)
             .transact()
             .await?,
     )?;

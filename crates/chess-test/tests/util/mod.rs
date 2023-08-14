@@ -39,10 +39,33 @@ macro_rules! print_log {
 
 pub async fn initialize_contracts(
     path: Option<&'static str>,
-) -> anyhow::Result<(Worker<Sandbox>, Account, Contract)> {
+) -> anyhow::Result<(Worker<Sandbox>, Account, Contract, Contract)> {
     let worker = workspaces::sandbox().await?;
 
     let owner = worker.dev_create_account().await?;
+
+    let key = SecretKey::from_random(KeyType::ED25519);
+    let social_contract = worker
+        .create_tla_and_deploy(
+            "social.test.near".parse()?,
+            key,
+            &fs::read("../../res/social_db.wasm").await?,
+        )
+        .await?
+        .into_result()?;
+    social_contract
+        .call("new")
+        .max_gas()
+        .transact()
+        .await?
+        .into_result()?;
+    social_contract
+        .call("set_status")
+        .args_json(("Live",))
+        .max_gas()
+        .transact()
+        .await?
+        .into_result()?;
 
     let key = SecretKey::from_random(KeyType::ED25519);
     let contract = worker
@@ -56,12 +79,13 @@ pub async fn initialize_contracts(
 
     contract
         .call("new")
+        .args_json((social_contract.id(),))
         .max_gas()
         .transact()
         .await?
         .into_result()?;
 
-    Ok((worker, owner, contract))
+    Ok((worker, owner, contract, social_contract))
 }
 
 pub async fn initialize_token(

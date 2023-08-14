@@ -4,6 +4,7 @@ mod elo;
 mod error;
 mod event;
 mod game;
+mod social;
 mod storage;
 mod view;
 
@@ -13,6 +14,7 @@ pub use elo::*;
 pub use error::*;
 pub use event::*;
 pub use game::*;
+pub use social::*;
 pub use storage::*;
 pub use view::*;
 
@@ -25,13 +27,14 @@ use near_sdk::{
     near_bindgen,
     serde::{Deserialize, Serialize},
     store::{Lazy, UnorderedMap},
-    AccountId, Balance, BorshStorageKey, PanicOnDefault, PromiseOrValue,
+    AccountId, Balance, BorshStorageKey, Gas, PanicOnDefault, PromiseOrValue,
 };
-use std::collections::VecDeque;
+use std::collections::{HashMap, VecDeque};
 use witgen::witgen;
 
 pub const MAX_OPEN_GAMES: u32 = 10;
 pub const MAX_OPEN_CHALLENGES: u32 = 50;
+pub const TGAS: u64 = 1_000_000_000_000;
 
 #[derive(BorshStorageKey, BorshSerialize)]
 pub enum StorageKey {
@@ -50,6 +53,7 @@ pub enum StorageKey {
 #[near_bindgen]
 #[derive(BorshDeserialize, BorshSerialize, PanicOnDefault)]
 pub struct Chess {
+    pub social_db: AccountId,
     pub accounts: UnorderedMap<AccountId, Account>,
     pub games: UnorderedMap<GameId, Game>,
     pub challenges: UnorderedMap<ChallengeId, Challenge>,
@@ -61,6 +65,7 @@ pub struct Chess {
 pub struct OldChess {
     pub accounts: UnorderedMap<AccountId, Account>,
     pub games: UnorderedMap<GameId, Game>,
+    pub challenges: UnorderedMap<ChallengeId, Challenge>,
     pub recent_finished_games: Lazy<VecDeque<GameId>>,
 }
 
@@ -79,11 +84,12 @@ pub type MoveStr = String;
 impl Chess {
     #[init]
     #[handle_result]
-    pub fn new() -> Result<Self, ContractError> {
+    pub fn new(social_db: AccountId) -> Result<Self, ContractError> {
         if env::state_exists() {
             return Err(ContractError::AlreadyInitilized);
         }
         Ok(Self {
+            social_db,
             accounts: UnorderedMap::new(StorageKey::VAccounts),
             games: UnorderedMap::new(StorageKey::Games),
             challenges: UnorderedMap::new(StorageKey::Challenges),
@@ -93,18 +99,11 @@ impl Chess {
 
     #[private]
     #[init(ignore_state)]
-    pub fn migrate() -> Self {
-        let mut chess: Chess = env::state_read().unwrap();
-
-        let mut accounts = vec![];
-        for (account_id, account) in chess.accounts.drain() {
-            accounts.push((account_id, account.migrate()));
-        }
-        for (account_id, account) in accounts {
-            chess.accounts.insert(account_id, account);
-        }
+    pub fn migrate(social_db: AccountId) -> Self {
+        let chess: OldChess = env::state_read().unwrap();
 
         Self {
+            social_db,
             accounts: chess.accounts,
             games: chess.games,
             challenges: chess.challenges,
@@ -214,6 +213,7 @@ impl Chess {
         &mut self,
         game_id: GameId,
         mv: MoveStr,
+        should_notify: Option<bool>,
     ) -> Result<(Option<GameOutcome>, [String; 8]), ContractError> {
         let account_id = env::signer_account_id();
 
@@ -227,7 +227,37 @@ impl Chess {
             return Err(ContractError::NotYourTurn);
         }
 
-        let (outcome, board) = if let Some((outcome, board_state)) = game.play_move(mv)? {
+        let move_result = game.play_move(mv)?;
+
+        let mut notifications = if should_notify.unwrap_or_default() {
+            let player = match move_result.1 {
+                Color::White => game.get_white(),
+                Color::Black => game.get_black(),
+            };
+
+            if let Player::Human(account_id) = player.clone() {
+                let mut map = HashMap::new();
+                map.insert(
+                    account_id,
+                    Notification {
+                        key: env::current_account_id(),
+                        value: ChessNotification {
+                            _type: "chess-game".to_string(),
+                            item: ChessNotificationItem::YourTurn {
+                                game_id: game_id.clone(),
+                            },
+                        },
+                    },
+                );
+                Some(map)
+            } else {
+                None
+            }
+        } else {
+            None
+        };
+
+        let (outcome, board) = if let Some((outcome, board_state)) = move_result.0 {
             let game = self.games.remove(&game_id).unwrap();
             if let Some(account) = game.get_white().as_account_mut(self) {
                 account.remove_game_id(&game_id);
@@ -238,7 +268,7 @@ impl Chess {
                 account.save_finished_game(game_id.clone());
             }
             let recent_finished_games = self.recent_finished_games.get_mut();
-            recent_finished_games.push_front(game_id);
+            recent_finished_games.push_front(game_id.clone());
             if recent_finished_games.len() > 100 {
                 recent_finished_games.pop_back();
             }
@@ -247,10 +277,33 @@ impl Chess {
                 self.internal_calculate_elo(&game, &outcome);
             }
 
+            if let Some(ref mut notifications) = notifications {
+                let notification = Notification {
+                    key: env::current_account_id(),
+                    value: ChessNotification {
+                        _type: "chess-game".to_string(),
+                        item: ChessNotificationItem::Outcome {
+                            game_id: game_id.clone(),
+                            outcome: outcome.clone(),
+                        },
+                    },
+                };
+                if let Player::Human(account_id) = game.get_white() {
+                    notifications.insert(account_id.clone(), notification.clone());
+                }
+                if let Player::Human(account_id) = game.get_black() {
+                    notifications.insert(account_id.clone(), notification);
+                }
+            }
+
             (Some(outcome), board_state)
         } else {
             (None, self.games.get(&game_id).unwrap().get_board_state())
         };
+
+        if let Some(notifications) = notifications {
+            self.internal_send_notify(notifications);
+        }
 
         Ok((outcome, board))
     }
@@ -493,5 +546,19 @@ impl Chess {
     pub(crate) fn internal_register_account(&mut self, account_id: AccountId, amount: Balance) {
         let account = Account::new(account_id.clone(), amount);
         self.accounts.insert(account_id, account);
+    }
+
+    pub(crate) fn internal_send_notify(&self, notifications: HashMap<AccountId, Notification>) {
+        for (account_id, notification) in notifications {
+            social_db::ext(self.social_db.clone())
+                .with_static_gas(Gas(20 * TGAS))
+                .set(serde_json::json!({
+                    account_id: IndexNotify {
+                        index: Notify {
+                            notify: serde_json::to_string(&notification).unwrap()
+                        }
+                    }
+                }));
+        }
     }
 }

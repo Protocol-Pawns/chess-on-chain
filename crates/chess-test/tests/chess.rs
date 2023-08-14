@@ -2,16 +2,19 @@ mod util;
 
 use chess_engine::Color;
 use chess_lib::{
-    create_challenge_id, AcceptChallengeMsg, Challenge, ChallengeMsg, ChessEvent, Difficulty,
-    GameId, GameOutcome, Player,
+    create_challenge_id, AcceptChallengeMsg, Challenge, ChallengeMsg, ChessEvent,
+    ChessNotification, ChessNotificationItem, Difficulty, GameId, GameOutcome, Notification,
+    Player,
 };
 use futures::future::try_join_all;
 use tokio::fs;
 use util::*;
+use workspaces::{AccountId, Contract};
 
 #[tokio::test]
 async fn test_migrate() -> anyhow::Result<()> {
-    let (worker, _, contract) = initialize_contracts(Some("../../res/chess_old.wasm")).await?;
+    let (worker, _, contract, social_contract) =
+        initialize_contracts(Some("../../res/chess_old.wasm")).await?;
 
     let player_a = worker.dev_create_account().await?;
     let player_b = worker.dev_create_account().await?;
@@ -40,7 +43,7 @@ async fn test_migrate() -> anyhow::Result<()> {
         .deploy(&fs::read("../../res/chess.wasm").await?)
         .await?
         .into_result()?;
-    call::migrate(&contract, contract.as_account()).await?;
+    call::migrate(&contract, contract.as_account(), social_contract.id()).await?;
 
     let game_ids = view::get_game_ids(&contract, player_a.id()).await?;
     assert_eq!(game_ids, vec![game_id.clone()]);
@@ -54,7 +57,7 @@ async fn test_migrate() -> anyhow::Result<()> {
 
 #[tokio::test]
 async fn test_ai_game() -> anyhow::Result<()> {
-    let (worker, _, contract) = initialize_contracts(None).await?;
+    let (worker, _, contract, _) = initialize_contracts(None).await?;
 
     let player_a = worker.dev_create_account().await?;
 
@@ -85,7 +88,7 @@ async fn test_ai_game() -> anyhow::Result<()> {
     assert_eq!(game_ids, vec![game_id.clone()]);
 
     let ((outcome, _board), events) =
-        call::play_move(&contract, &player_a, &game_id, "e2e4".to_string()).await?;
+        call::play_move(&contract, &player_a, &game_id, "e2e4".to_string(), None).await?;
     assert!(outcome.is_none());
     assert_event_emits(
         events,
@@ -143,7 +146,7 @@ async fn test_ai_game() -> anyhow::Result<()> {
 
 #[tokio::test]
 async fn test_accept_challenge() -> anyhow::Result<()> {
-    let (worker, _, contract) = initialize_contracts(None).await?;
+    let (worker, _, contract, _) = initialize_contracts(None).await?;
 
     let player_a = worker.dev_create_account().await?;
     let player_b = worker.dev_create_account().await?;
@@ -206,7 +209,7 @@ async fn test_accept_challenge() -> anyhow::Result<()> {
     assert_eq!(game_ids, vec![game_id.clone()]);
 
     let ((outcome, _board), events) =
-        call::play_move(&contract, &player_a, &game_id, "e2e4".to_string()).await?;
+        call::play_move(&contract, &player_a, &game_id, "e2e4".to_string(), None).await?;
     assert!(outcome.is_none());
     assert_event_emits(
         events,
@@ -246,7 +249,7 @@ async fn test_accept_challenge() -> anyhow::Result<()> {
 
 #[tokio::test]
 async fn test_accept_challenge_with_wager() -> anyhow::Result<()> {
-    let (worker, _, contract) = initialize_contracts(None).await?;
+    let (worker, _, contract, _) = initialize_contracts(None).await?;
     let test_token = initialize_token(&worker, "wrapped Near", "wNEAR", None, 24).await?;
     let wager_amount = 10_000_000_000_000_000_000_000_000; // 10 NEAR
 
@@ -385,7 +388,7 @@ async fn test_accept_challenge_with_wager() -> anyhow::Result<()> {
     );
 
     let ((outcome, _board), events) =
-        call::play_move(&contract, &player_a, &game_id, "e2e4".to_string()).await?;
+        call::play_move(&contract, &player_a, &game_id, "e2e4".to_string(), None).await?;
     assert!(outcome.is_none());
     assert_event_emits(
         events,
@@ -416,7 +419,7 @@ async fn test_accept_challenge_with_wager() -> anyhow::Result<()> {
 
 #[tokio::test]
 async fn test_reject_challenge() -> anyhow::Result<()> {
-    let (worker, _, contract) = initialize_contracts(None).await?;
+    let (worker, _, contract, _) = initialize_contracts(None).await?;
 
     let player_a = worker.dev_create_account().await?;
     let player_b = worker.dev_create_account().await?;
@@ -461,7 +464,7 @@ async fn test_reject_challenge() -> anyhow::Result<()> {
 
 #[tokio::test]
 async fn test_accept_reject_challenge_check_sender() -> anyhow::Result<()> {
-    let (worker, _, contract) = initialize_contracts(None).await?;
+    let (worker, _, contract, _) = initialize_contracts(None).await?;
 
     let player_a = worker.dev_create_account().await?;
     let player_b = worker.dev_create_account().await?;
@@ -506,7 +509,7 @@ async fn test_accept_reject_challenge_check_sender() -> anyhow::Result<()> {
 
 #[tokio::test]
 async fn test_challenge_check_duplicate() -> anyhow::Result<()> {
-    let (worker, _, contract) = initialize_contracts(None).await?;
+    let (worker, _, contract, _) = initialize_contracts(None).await?;
 
     let player_a = worker.dev_create_account().await?;
     let player_b = worker.dev_create_account().await?;
@@ -528,7 +531,7 @@ async fn test_challenge_check_duplicate() -> anyhow::Result<()> {
 
 #[tokio::test]
 async fn test_no_self_challenge() -> anyhow::Result<()> {
-    let (worker, _, contract) = initialize_contracts(None).await?;
+    let (worker, _, contract, _) = initialize_contracts(None).await?;
 
     let player_a = worker.dev_create_account().await?;
 
@@ -542,7 +545,7 @@ async fn test_no_self_challenge() -> anyhow::Result<()> {
 
 #[tokio::test]
 async fn test_max_open_games() -> anyhow::Result<()> {
-    let (worker, _, contract) = initialize_contracts(None).await?;
+    let (worker, _, contract, _) = initialize_contracts(None).await?;
 
     let player_a = worker.dev_create_account().await?;
     let player_b = worker.dev_create_account().await?;
@@ -576,7 +579,7 @@ async fn test_max_open_games() -> anyhow::Result<()> {
 
 #[tokio::test]
 async fn test_max_open_challenges() -> anyhow::Result<()> {
-    let (worker, _, contract) = initialize_contracts(None).await?;
+    let (worker, _, contract, _) = initialize_contracts(None).await?;
 
     let player_a = worker.dev_create_account().await?;
     let player_b = worker.dev_create_account().await?;
@@ -608,7 +611,7 @@ async fn test_max_open_challenges() -> anyhow::Result<()> {
 
 #[tokio::test]
 async fn test_finish_game() -> anyhow::Result<()> {
-    let (worker, _, contract) = initialize_contracts(None).await?;
+    let (worker, _, contract, _) = initialize_contracts(None).await?;
 
     let player_a = worker.dev_create_account().await?;
     let player_b = worker.dev_create_account().await?;
@@ -629,14 +632,14 @@ async fn test_finish_game() -> anyhow::Result<()> {
         Some(player_b.id().clone().parse()?),
     );
 
-    call::play_move(&contract, &player_a, &game_id, "e2e4".to_string()).await?;
-    call::play_move(&contract, &player_b, &game_id, "a7a6".to_string()).await?;
-    call::play_move(&contract, &player_a, &game_id, "d1f3".to_string()).await?;
-    call::play_move(&contract, &player_b, &game_id, "a6a5".to_string()).await?;
-    call::play_move(&contract, &player_a, &game_id, "f1c4".to_string()).await?;
-    call::play_move(&contract, &player_b, &game_id, "a5a4".to_string()).await?;
+    call::play_move(&contract, &player_a, &game_id, "e2e4".to_string(), None).await?;
+    call::play_move(&contract, &player_b, &game_id, "a7a6".to_string(), None).await?;
+    call::play_move(&contract, &player_a, &game_id, "d1f3".to_string(), None).await?;
+    call::play_move(&contract, &player_b, &game_id, "a6a5".to_string(), None).await?;
+    call::play_move(&contract, &player_a, &game_id, "f1c4".to_string(), None).await?;
+    call::play_move(&contract, &player_b, &game_id, "a5a4".to_string(), None).await?;
     let ((outcome, board), events) =
-        call::play_move(&contract, &player_a, &game_id, "f3f7".to_string()).await?;
+        call::play_move(&contract, &player_a, &game_id, "f3f7".to_string(), None).await?;
     let expected_board = [
         "RNB K NR".to_string(),
         "PPPP PPP".to_string(),
@@ -680,5 +683,136 @@ async fn test_finish_game() -> anyhow::Result<()> {
     let elo = view::get_elo(&contract, player_b.id()).await?;
     assert_eq!(elo, 984.);
 
+    Ok(())
+}
+#[tokio::test]
+async fn test_notify_success() -> anyhow::Result<()> {
+    let (worker, _, contract, social_contract) = initialize_contracts(None).await?;
+
+    let player_a = worker.dev_create_account().await?;
+    let player_b = worker.dev_create_account().await?;
+
+    tokio::try_join!(
+        call::storage_deposit(&contract, &player_a, None, None),
+        call::storage_deposit(&contract, &player_b, None, None)
+    )?;
+
+    call::challenge(&contract, &player_a, player_b.id()).await?;
+    let challenge_id = create_challenge_id(player_a.id(), player_b.id());
+
+    let (game_id, _) = call::accept_challenge(&contract, &player_b, &challenge_id).await?;
+    let block_height = game_id.0;
+    let game_id = GameId(
+        block_height,
+        player_a.id().clone().parse()?,
+        Some(player_b.id().clone().parse()?),
+    );
+
+    call::grant_write_permission(
+        &social_contract,
+        &player_a,
+        Some(contract.id().clone()),
+        None,
+        vec![format!("{}/index/notify", player_a.id().as_str()).to_string()],
+    )
+    .await?;
+    call::grant_write_permission(
+        &social_contract,
+        &player_b,
+        Some(contract.id().clone()),
+        None,
+        vec![format!("{}/index/notify", player_b.id().as_str()).to_string()],
+    )
+    .await?;
+
+    call::play_move(
+        &contract,
+        &player_a,
+        &game_id,
+        "e2e4".to_string(),
+        Some(true),
+    )
+    .await?;
+    assert_notification(
+        &contract,
+        &social_contract,
+        player_b.id(),
+        ChessNotification {
+            _type: "chess-game".to_string(),
+            item: ChessNotificationItem::YourTurn {
+                game_id: game_id.clone(),
+            },
+        },
+    )
+    .await?;
+
+    call::play_move(
+        &contract,
+        &player_b,
+        &game_id,
+        "a7a6".to_string(),
+        Some(true),
+    )
+    .await?;
+    assert_notification(
+        &contract,
+        &social_contract,
+        player_a.id(),
+        ChessNotification {
+            _type: "chess-game".to_string(),
+            item: ChessNotificationItem::YourTurn {
+                game_id: game_id.clone(),
+            },
+        },
+    )
+    .await?;
+
+    call::play_move(&contract, &player_a, &game_id, "d1f3".to_string(), None).await?;
+    call::play_move(&contract, &player_b, &game_id, "a6a5".to_string(), None).await?;
+    call::play_move(&contract, &player_a, &game_id, "f1c4".to_string(), None).await?;
+    call::play_move(&contract, &player_b, &game_id, "a5a4".to_string(), None).await?;
+    call::play_move(
+        &contract,
+        &player_a,
+        &game_id,
+        "f3f7".to_string(),
+        Some(true),
+    )
+    .await?;
+    assert_notification(
+        &contract,
+        &social_contract,
+        player_a.id(),
+        ChessNotification {
+            _type: "chess-game".to_string(),
+            item: ChessNotificationItem::Outcome {
+                game_id,
+                outcome: GameOutcome::Victory(Color::White),
+            },
+        },
+    )
+    .await?;
+
+    Ok(())
+}
+
+async fn assert_notification(
+    contract: &Contract,
+    social_contract: &Contract,
+    account_id: &AccountId,
+    notification: ChessNotification,
+) -> anyhow::Result<()> {
+    let expected_notification = view::get_social(
+        social_contract,
+        vec![format!("{}/index/notify", account_id).to_string()],
+    )
+    .await?;
+    assert_eq!(
+        &expected_notification.get(account_id).unwrap().index.notify,
+        &serde_json::to_string(&Notification {
+            key: contract.id().parse()?,
+            value: notification
+        })?
+    );
     Ok(())
 }

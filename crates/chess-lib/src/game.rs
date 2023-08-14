@@ -168,10 +168,11 @@ impl Game {
         false
     }
 
+    #[allow(clippy::type_complexity)]
     pub fn play_move(
         &mut self,
         mv: Move,
-    ) -> Result<Option<(GameOutcome, [String; 8])>, ContractError> {
+    ) -> Result<(Option<(GameOutcome, [String; 8])>, Color), ContractError> {
         let Game::V1(game) = self;
         let turn_color = game.board.get_turn_color();
         let event = ChessEvent::PlayMove {
@@ -259,7 +260,7 @@ impl Game {
             }
             GameResult::IllegalMove(_) => return Err(ContractError::IllegalMove),
         };
-        Ok(outcome_with_board)
+        Ok((outcome_with_board, game.board.get_turn_color()))
     }
 
     pub fn get_board_state(&self) -> [String; 8] {
