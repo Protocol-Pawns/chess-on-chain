@@ -87,7 +87,6 @@ impl Chess {
         account_id: AccountId,
         #[callback_unwrap] is_enabled: bool,
     ) -> Result<(), ContractError> {
-        near_sdk::log!("is_enabled {} {}", account_id.as_str(), is_enabled);
         let account = self
             .accounts
             .get_mut(&account_id)

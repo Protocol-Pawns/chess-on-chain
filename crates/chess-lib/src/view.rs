@@ -58,6 +58,13 @@ impl Chess {
         Ok(account.get_elo())
     }
 
+    #[handle_result]
+    pub fn are_notifications_enabled(&self, account_id: AccountId) -> Result<bool, ContractError> {
+        Ok(self
+            .internal_get_account(&account_id)?
+            .enabled_notifications())
+    }
+
     pub fn get_elo_ratings(
         &self,
         skip: Option<usize>,
