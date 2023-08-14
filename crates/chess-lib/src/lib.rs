@@ -27,7 +27,7 @@ use near_sdk::{
     near_bindgen,
     serde::{Deserialize, Serialize},
     store::{Lazy, UnorderedMap},
-    AccountId, Balance, BorshStorageKey, Gas, PanicOnDefault, PromiseOrValue,
+    AccountId, Balance, BorshStorageKey, PanicOnDefault, PromiseOrValue,
 };
 use std::collections::{HashMap, VecDeque};
 use witgen::witgen;
@@ -99,11 +99,19 @@ impl Chess {
 
     #[private]
     #[init(ignore_state)]
-    pub fn migrate(social_db: AccountId) -> Self {
-        let chess: OldChess = env::state_read().unwrap();
+    pub fn migrate() -> Self {
+        let mut chess: Chess = env::state_read().unwrap();
+
+        let mut accounts = vec![];
+        for (account_id, account) in chess.accounts.drain() {
+            accounts.push((account_id, account.migrate()));
+        }
+        for (account_id, account) in accounts {
+            chess.accounts.insert(account_id, account);
+        }
 
         Self {
-            social_db,
+            social_db: chess.social_db,
             accounts: chess.accounts,
             games: chess.games,
             challenges: chess.challenges,
@@ -202,6 +210,23 @@ impl Chess {
         let event = ChessEvent::RejectChallenge { challenge_id };
         event.emit();
 
+        if !is_challenger {
+            let mut notifications = HashMap::new();
+            notifications.insert(
+                challenger_id.clone(),
+                Notification {
+                    key: env::current_account_id(),
+                    value: ChessNotification {
+                        _type: "chess-game".to_string(),
+                        item: ChessNotificationItem::RejectedChallenge {
+                            challenged_id: challenged_id.clone(),
+                        },
+                    },
+                },
+            );
+            self.internal_send_notify(notifications);
+        }
+
         Ok(())
     }
 
@@ -213,7 +238,6 @@ impl Chess {
         &mut self,
         game_id: GameId,
         mv: MoveStr,
-        should_notify: Option<bool>,
     ) -> Result<(Option<GameOutcome>, [String; 8]), ContractError> {
         let account_id = env::signer_account_id();
 
@@ -229,33 +253,26 @@ impl Chess {
 
         let move_result = game.play_move(mv)?;
 
-        let mut notifications = if should_notify.unwrap_or_default() {
-            let player = match move_result.1 {
-                Color::White => game.get_white(),
-                Color::Black => game.get_black(),
-            };
+        let mut notifications = HashMap::new();
+        let player = match move_result.1 {
+            Color::White => game.get_white(),
+            Color::Black => game.get_black(),
+        };
 
-            if let Player::Human(account_id) = player.clone() {
-                let mut map = HashMap::new();
-                map.insert(
-                    account_id,
-                    Notification {
-                        key: env::current_account_id(),
-                        value: ChessNotification {
-                            _type: "chess-game".to_string(),
-                            item: ChessNotificationItem::YourTurn {
-                                game_id: game_id.clone(),
-                            },
+        if let Player::Human(account_id) = player.clone() {
+            notifications.insert(
+                account_id,
+                Notification {
+                    key: env::current_account_id(),
+                    value: ChessNotification {
+                        _type: "chess-game".to_string(),
+                        item: ChessNotificationItem::YourTurn {
+                            game_id: game_id.clone(),
                         },
                     },
-                );
-                Some(map)
-            } else {
-                None
-            }
-        } else {
-            None
-        };
+                },
+            );
+        }
 
         let (outcome, board) = if let Some((outcome, board_state)) = move_result.0 {
             let game = self.games.remove(&game_id).unwrap();
@@ -277,23 +294,21 @@ impl Chess {
                 self.internal_calculate_elo(&game, &outcome);
             }
 
-            if let Some(ref mut notifications) = notifications {
-                let notification = Notification {
-                    key: env::current_account_id(),
-                    value: ChessNotification {
-                        _type: "chess-game".to_string(),
-                        item: ChessNotificationItem::Outcome {
-                            game_id: game_id.clone(),
-                            outcome: outcome.clone(),
-                        },
+            let notification = Notification {
+                key: env::current_account_id(),
+                value: ChessNotification {
+                    _type: "chess-game".to_string(),
+                    item: ChessNotificationItem::Outcome {
+                        game_id: game_id.clone(),
+                        outcome: outcome.clone(),
                     },
-                };
-                if let Player::Human(account_id) = game.get_white() {
-                    notifications.insert(account_id.clone(), notification.clone());
-                }
-                if let Player::Human(account_id) = game.get_black() {
-                    notifications.insert(account_id.clone(), notification);
-                }
+                },
+            };
+            if let Player::Human(account_id) = game.get_white() {
+                notifications.insert(account_id.clone(), notification.clone());
+            }
+            if let Player::Human(account_id) = game.get_black() {
+                notifications.insert(account_id.clone(), notification);
             }
 
             (Some(outcome), board_state)
@@ -301,9 +316,7 @@ impl Chess {
             (None, self.games.get(&game_id).unwrap().get_board_state())
         };
 
-        if let Some(notifications) = notifications {
-            self.internal_send_notify(notifications);
-        }
+        self.internal_send_notify(notifications);
 
         Ok((outcome, board))
     }
@@ -453,6 +466,19 @@ impl Chess {
         let event = ChessEvent::Challenge(challenge);
         event.emit();
 
+        let mut notifications = HashMap::new();
+        notifications.insert(
+            challenged_id,
+            Notification {
+                key: env::current_account_id(),
+                value: ChessNotification {
+                    _type: "chess-game".to_string(),
+                    item: ChessNotificationItem::Challenged { challenger_id },
+                },
+            },
+        );
+        self.internal_send_notify(notifications);
+
         Ok(())
     }
 
@@ -476,7 +502,7 @@ impl Chess {
         let challenger_id = challenge.get_challenger();
         let game = Game::new(
             Player::Human(challenger_id.clone()),
-            Player::Human(challenged_id),
+            Player::Human(challenged_id.clone()),
         );
         let game_id = game.get_game_id().clone();
 
@@ -500,6 +526,19 @@ impl Chess {
         };
         event.emit();
         self.games.insert(game_id.clone(), game);
+
+        let mut notifications = HashMap::new();
+        notifications.insert(
+            challenger_id.clone(),
+            Notification {
+                key: env::current_account_id(),
+                value: ChessNotification {
+                    _type: "chess-game".to_string(),
+                    item: ChessNotificationItem::AcceptedChallenge { challenged_id },
+                },
+            },
+        );
+        self.internal_send_notify(notifications);
 
         Ok(game_id)
     }
@@ -546,19 +585,5 @@ impl Chess {
     pub(crate) fn internal_register_account(&mut self, account_id: AccountId, amount: Balance) {
         let account = Account::new(account_id.clone(), amount);
         self.accounts.insert(account_id, account);
-    }
-
-    pub(crate) fn internal_send_notify(&self, notifications: HashMap<AccountId, Notification>) {
-        for (account_id, notification) in notifications {
-            social_db::ext(self.social_db.clone())
-                .with_static_gas(Gas(20 * TGAS))
-                .set(serde_json::json!({
-                    account_id: IndexNotify {
-                        index: Notify {
-                            notify: serde_json::to_string(&notification).unwrap()
-                        }
-                    }
-                }));
-        }
     }
 }

@@ -2,7 +2,8 @@ pub mod call;
 pub mod event;
 pub mod view;
 
-use chess_lib::ChessEvent;
+use anyhow::{anyhow, ensure};
+use chess_lib::{ChessEvent, ChessNotification, Notification};
 use owo_colors::OwoColorize;
 use serde::Serialize;
 use std::fmt;
@@ -11,7 +12,7 @@ use workspaces::{
     network::Sandbox,
     result::{ExecutionFinalResult, ExecutionResult, Value, ViewResultDetails},
     types::{KeyType, SecretKey},
-    Account, Contract, Worker,
+    Account, AccountId, Contract, Worker,
 };
 
 #[macro_export]
@@ -190,6 +191,31 @@ where
         "actual and expected events did not match.\nActual: {:#?}\nExpected: {:#?}",
         &actual,
         &expected
+    );
+    Ok(())
+}
+
+pub async fn assert_notification(
+    contract: &Contract,
+    social_contract: &Contract,
+    account_id: &AccountId,
+    notification: ChessNotification,
+) -> anyhow::Result<()> {
+    let actual_notification = view::get_social(
+        social_contract,
+        vec![format!("{}/index/notify", account_id).to_string()],
+    )
+    .await?;
+    ensure!(
+        &actual_notification
+            .get(account_id)
+            .ok_or(anyhow!(""))?
+            .index
+            .notify
+            == &serde_json::to_string(&Notification {
+                key: contract.id().parse()?,
+                value: notification
+            })?
     );
     Ok(())
 }

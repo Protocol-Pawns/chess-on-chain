@@ -15,13 +15,11 @@ use workspaces::{
 pub async fn migrate(
     contract: &Contract,
     sender: &Account,
-    social_db: &AccountId,
 ) -> anyhow::Result<ExecutionResult<Value>> {
     let (res, _): (ExecutionResult<Value>, Vec<event::ContractEvent>) = log_tx_result(
         Some("migrate"),
         sender
             .call(contract.id(), "migrate")
-            .args_json((social_db,))
             .max_gas()
             .transact()
             .await?,
@@ -197,7 +195,6 @@ pub async fn play_move(
     sender: &Account,
     game_id: &GameId,
     mv: MoveStr,
-    should_notify: Option<bool>,
 ) -> anyhow::Result<(
     (Option<GameOutcome>, [String; 8]),
     Vec<event::ContractEvent>,
@@ -206,7 +203,7 @@ pub async fn play_move(
         Some("play_move"),
         sender
             .call(contract.id(), "play_move")
-            .args_json((game_id, mv, should_notify))
+            .args_json((game_id, mv))
             .max_gas()
             .transact()
             .await?,
@@ -224,6 +221,23 @@ pub async fn resign(
         sender
             .call(contract.id(), "resign")
             .args_json((game_id,))
+            .max_gas()
+            .transact()
+            .await?,
+    )?;
+    Ok((res, events))
+}
+
+pub async fn update_enabled_notifications(
+    contract: &Contract,
+    sender: &Account,
+    account_id: &AccountId,
+) -> anyhow::Result<(ExecutionResult<Value>, Vec<event::ContractEvent>)> {
+    let (res, events) = log_tx_result(
+        Some("update_enabled_notifications"),
+        sender
+            .call(contract.id(), "update_enabled_notifications")
+            .args_json((account_id,))
             .max_gas()
             .transact()
             .await?,
