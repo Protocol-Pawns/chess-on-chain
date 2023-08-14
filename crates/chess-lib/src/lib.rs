@@ -29,7 +29,7 @@ use near_sdk::{
     store::{Lazy, UnorderedMap},
     AccountId, Balance, BorshStorageKey, PanicOnDefault, PromiseOrValue,
 };
-use std::collections::{HashMap, VecDeque};
+use std::collections::VecDeque;
 use witgen::witgen;
 
 pub const MAX_OPEN_GAMES: u32 = 10;
@@ -211,20 +211,15 @@ impl Chess {
         event.emit();
 
         if !is_challenger {
-            let mut notifications = HashMap::new();
-            notifications.insert(
-                challenger_id.clone(),
-                Notification {
-                    key: env::current_account_id(),
-                    value: ChessNotification {
-                        _type: "chess-game".to_string(),
-                        item: ChessNotificationItem::RejectedChallenge {
-                            challenged_id: challenged_id.clone(),
-                        },
+            self.internal_send_notify(vec![Notification {
+                key: challenger_id.clone(),
+                value: ChessNotification {
+                    _type: "chess-game".to_string(),
+                    item: ChessNotificationItem::RejectedChallenge {
+                        challenged_id: challenged_id.clone(),
                     },
                 },
-            );
-            self.internal_send_notify(notifications);
+            }]);
         }
 
         Ok(())
@@ -253,25 +248,22 @@ impl Chess {
 
         let move_result = game.play_move(mv)?;
 
-        let mut notifications = HashMap::new();
+        let mut notifications = vec![];
         let player = match move_result.1 {
             Color::White => game.get_white(),
             Color::Black => game.get_black(),
         };
 
         if let Player::Human(account_id) = player.clone() {
-            notifications.insert(
-                account_id,
-                Notification {
-                    key: env::current_account_id(),
-                    value: ChessNotification {
-                        _type: "chess-game".to_string(),
-                        item: ChessNotificationItem::YourTurn {
-                            game_id: game_id.clone(),
-                        },
+            notifications.push(Notification {
+                key: account_id,
+                value: ChessNotification {
+                    _type: "chess-game".to_string(),
+                    item: ChessNotificationItem::YourTurn {
+                        game_id: game_id.clone(),
                     },
                 },
-            );
+            });
         }
 
         let (outcome, board) = if let Some((outcome, board_state)) = move_result.0 {
@@ -294,21 +286,30 @@ impl Chess {
                 self.internal_calculate_elo(&game, &outcome);
             }
 
-            let notification = Notification {
-                key: env::current_account_id(),
-                value: ChessNotification {
-                    _type: "chess-game".to_string(),
-                    item: ChessNotificationItem::Outcome {
-                        game_id: game_id.clone(),
-                        outcome: outcome.clone(),
-                    },
-                },
-            };
+            notifications = vec![];
             if let Player::Human(account_id) = game.get_white() {
-                notifications.insert(account_id.clone(), notification.clone());
+                notifications.push(Notification {
+                    key: account_id.clone(),
+                    value: ChessNotification {
+                        _type: "chess-game".to_string(),
+                        item: ChessNotificationItem::Outcome {
+                            game_id: game_id.clone(),
+                            outcome: outcome.clone(),
+                        },
+                    },
+                });
             }
             if let Player::Human(account_id) = game.get_black() {
-                notifications.insert(account_id.clone(), notification);
+                notifications.push(Notification {
+                    key: account_id.clone(),
+                    value: ChessNotification {
+                        _type: "chess-game".to_string(),
+                        item: ChessNotificationItem::Outcome {
+                            game_id,
+                            outcome: outcome.clone(),
+                        },
+                    },
+                });
             }
 
             (Some(outcome), board_state)
@@ -466,18 +467,13 @@ impl Chess {
         let event = ChessEvent::Challenge(challenge);
         event.emit();
 
-        let mut notifications = HashMap::new();
-        notifications.insert(
-            challenged_id,
-            Notification {
-                key: env::current_account_id(),
-                value: ChessNotification {
-                    _type: "chess-game".to_string(),
-                    item: ChessNotificationItem::Challenged { challenger_id },
-                },
+        self.internal_send_notify(vec![Notification {
+            key: challenged_id,
+            value: ChessNotification {
+                _type: "chess-game".to_string(),
+                item: ChessNotificationItem::Challenged { challenger_id },
             },
-        );
-        self.internal_send_notify(notifications);
+        }]);
 
         Ok(())
     }
@@ -527,18 +523,13 @@ impl Chess {
         event.emit();
         self.games.insert(game_id.clone(), game);
 
-        let mut notifications = HashMap::new();
-        notifications.insert(
-            challenger_id.clone(),
-            Notification {
-                key: env::current_account_id(),
-                value: ChessNotification {
-                    _type: "chess-game".to_string(),
-                    item: ChessNotificationItem::AcceptedChallenge { challenged_id },
-                },
+        self.internal_send_notify(vec![Notification {
+            key: challenger_id.clone(),
+            value: ChessNotification {
+                _type: "chess-game".to_string(),
+                item: ChessNotificationItem::AcceptedChallenge { challenged_id },
             },
-        );
-        self.internal_send_notify(notifications);
+        }]);
 
         Ok(game_id)
     }

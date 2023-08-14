@@ -93,10 +93,9 @@ impl Account {
                 .as_slice(),
         ]
         .concat();
-        Self::V4(AccountV4 {
+        Self::V3(AccountV3 {
             account_id,
             near_amount,
-            enabled_notifications: false,
             elo: 1_000.,
             game_ids: UnorderedSet::new(game_id_prefix),
             finished_games: UnorderedSet::new(finished_games_prefix),
@@ -106,7 +105,7 @@ impl Account {
     }
 
     pub fn migrate(self) -> Self {
-        if let Account::V3(AccountV3 {
+        if let Account::V4(AccountV4 {
             near_amount,
             account_id,
             elo,
@@ -114,12 +113,12 @@ impl Account {
             finished_games,
             challenger,
             challenged,
+            ..
         }) = self
         {
-            Account::V4(AccountV4 {
+            Account::V3(AccountV3 {
                 near_amount,
                 account_id,
-                enabled_notifications: false,
                 elo,
                 game_ids,
                 finished_games,
@@ -132,42 +131,28 @@ impl Account {
     }
 
     pub fn get_near_amount(&self) -> Balance {
-        let Account::V4(account) = self else {
+        let Account::V3(account) = self else {
             panic!("migration required");
         };
         account.near_amount
     }
 
-    pub fn enabled_notifications(&self) -> bool {
-        let Account::V4(account) = self else {
-            panic!("migration required");
-        };
-        account.enabled_notifications
-    }
-
-    pub fn set_enabled_notifications(&mut self, is_enabled: bool) {
-        let Account::V4(account) = self else {
-            panic!("migration required");
-        };
-        account.enabled_notifications = is_enabled;
-    }
-
     pub fn get_elo(&self) -> EloRating {
-        let Account::V4(account) = self else {
+        let Account::V3(account) = self else {
             panic!("migration required");
         };
         account.elo
     }
 
     pub fn set_elo(&mut self, elo: EloRating) {
-        let Account::V4(account) = self else {
+        let Account::V3(account) = self else {
             panic!("migration required");
         };
         account.elo = elo;
     }
 
     pub fn add_game_id(&mut self, game_id: GameId) -> Result<(), ContractError> {
-        let Account::V4(account) = self else {
+        let Account::V3(account) = self else {
             panic!("migration required");
         };
         if account.game_ids.len() >= MAX_OPEN_GAMES {
@@ -178,35 +163,35 @@ impl Account {
     }
 
     pub fn remove_game_id(&mut self, game_id: &GameId) -> bool {
-        let Account::V4(account) = self else {
+        let Account::V3(account) = self else {
             panic!("migration required");
         };
         account.game_ids.remove(game_id)
     }
 
     pub fn save_finished_game(&mut self, game_id: GameId) {
-        let Account::V4(account) = self else {
+        let Account::V3(account) = self else {
             panic!("migration required");
         };
         account.finished_games.insert(game_id);
     }
 
     pub fn is_playing(&self) -> bool {
-        let Account::V4(account) = self else {
+        let Account::V3(account) = self else {
             panic!("migration required");
         };
         !account.game_ids.is_empty()
     }
 
     pub fn get_game_ids(&self) -> Vec<GameId> {
-        let Account::V4(account) = self else {
+        let Account::V3(account) = self else {
             panic!("migration required");
         };
         account.game_ids.into_iter().cloned().collect()
     }
 
     pub fn get_finished_games(&self) -> Vec<GameId> {
-        let Account::V4(account) = self else {
+        let Account::V3(account) = self else {
             panic!("migration required");
         };
         account.finished_games.into_iter().cloned().collect()
@@ -219,7 +204,7 @@ impl Account {
         is_challenger: bool,
     ) -> Result<(), ContractError> {
         self.add_game_id(game_id)?;
-        let Account::V4(account) = self else {
+        let Account::V3(account) = self else {
             panic!("migration required");
         };
         if is_challenger {
@@ -235,7 +220,7 @@ impl Account {
         challenge_id: &ChallengeId,
         is_challenger: bool,
     ) -> Result<(), ContractError> {
-        let Account::V4(account) = self else {
+        let Account::V3(account) = self else {
             panic!("migration required");
         };
         if is_challenger {
@@ -251,7 +236,7 @@ impl Account {
         challenge_id: ChallengeId,
         is_challenger: bool,
     ) -> Result<(), ContractError> {
-        let Account::V4(account) = self else {
+        let Account::V3(account) = self else {
             panic!("migration required");
         };
         if account.challenger.len() + account.challenged.len() >= MAX_OPEN_CHALLENGES {
@@ -266,7 +251,7 @@ impl Account {
     }
 
     pub fn get_challenges(&self, is_challenger: bool) -> Vec<ChallengeId> {
-        let Account::V4(account) = self else {
+        let Account::V3(account) = self else {
             panic!("migration required");
         };
         if is_challenger {

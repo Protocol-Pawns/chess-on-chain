@@ -2,8 +2,7 @@ pub mod call;
 pub mod event;
 pub mod view;
 
-use anyhow::{anyhow, ensure};
-use chess_lib::{ChessEvent, ChessNotification, Notification};
+use chess_lib::{ChessEvent, Notification};
 use owo_colors::OwoColorize;
 use serde::Serialize;
 use std::fmt;
@@ -12,7 +11,7 @@ use workspaces::{
     network::Sandbox,
     result::{ExecutionFinalResult, ExecutionResult, Value, ViewResultDetails},
     types::{KeyType, SecretKey},
-    Account, AccountId, Contract, Worker,
+    Account, Contract, Worker,
 };
 
 #[macro_export]
@@ -82,6 +81,19 @@ pub async fn initialize_contracts(
         .call("new")
         .args_json((social_contract.id(),))
         .max_gas()
+        .transact()
+        .await?
+        .into_result()?;
+
+    contract
+        .as_account()
+        .call(social_contract.id(), "set")
+        .args_json(serde_json::json!({
+            "data": {
+                contract.id().as_str(): {}
+            }
+        }))
+        .deposit(2_000_000_000_000_000_000_000_000)
         .transact()
         .await?
         .into_result()?;
@@ -198,24 +210,23 @@ where
 pub async fn assert_notification(
     contract: &Contract,
     social_contract: &Contract,
-    account_id: &AccountId,
-    notification: ChessNotification,
+    notifications: Vec<Notification>,
 ) -> anyhow::Result<()> {
     let actual_notification = view::get_social(
         social_contract,
-        vec![format!("{}/index/notify", account_id).to_string()],
+        vec![format!("{}/index/notify", contract.id()).to_string()],
     )
     .await?;
-    ensure!(
-        &actual_notification
-            .get(account_id)
-            .ok_or(anyhow!(""))?
-            .index
-            .notify
-            == &serde_json::to_string(&Notification {
-                key: contract.id().parse()?,
-                value: notification
-            })?
-    );
+    if notifications.len() == 1 {
+        assert!(
+            actual_notification.get(contract.id()).unwrap().index.notify
+                == serde_json::to_string(&notifications.get(0).unwrap())?
+        );
+    } else {
+        assert!(
+            actual_notification.get(contract.id()).unwrap().index.notify
+                == serde_json::to_string(&notifications)?
+        );
+    }
     Ok(())
 }

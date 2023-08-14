@@ -3,7 +3,7 @@ use chess_lib::{
     AcceptChallengeMsg, ChallengeId, ChallengeMsg, Difficulty, FtReceiverMsg, GameId, GameOutcome,
     MoveStr,
 };
-use near_sdk::{json_types::U128, PublicKey};
+use near_sdk::json_types::U128;
 use serde::Serialize;
 use serde_json::json;
 use workspaces::{
@@ -222,43 +222,6 @@ pub async fn resign(
             .call(contract.id(), "resign")
             .args_json((game_id,))
             .max_gas()
-            .transact()
-            .await?,
-    )?;
-    Ok((res, events))
-}
-
-pub async fn update_enabled_notifications(
-    contract: &Contract,
-    sender: &Account,
-    account_id: &AccountId,
-) -> anyhow::Result<(ExecutionResult<Value>, Vec<event::ContractEvent>)> {
-    let (res, events) = log_tx_result(
-        Some("update_enabled_notifications"),
-        sender
-            .call(contract.id(), "update_enabled_notifications")
-            .args_json((account_id,))
-            .max_gas()
-            .transact()
-            .await?,
-    )?;
-    Ok((res, events))
-}
-
-pub async fn grant_write_permission(
-    contract: &Contract,
-    sender: &Account,
-    predecessor_id: Option<AccountId>,
-    public_key: Option<PublicKey>,
-    keys: Vec<String>,
-) -> anyhow::Result<(ExecutionResult<Value>, Vec<event::ContractEvent>)> {
-    let (res, events) = log_tx_result(
-        Some("grant_write_permission"),
-        sender
-            .call(contract.id(), "grant_write_permission")
-            .args_json((predecessor_id, public_key, keys))
-            .max_gas()
-            .deposit(100_000_000_000_000_000_000_000)
             .transact()
             .await?,
     )?;

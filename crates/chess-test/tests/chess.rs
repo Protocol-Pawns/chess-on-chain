@@ -3,7 +3,8 @@ mod util;
 use chess_engine::Color;
 use chess_lib::{
     create_challenge_id, AcceptChallengeMsg, Challenge, ChallengeMsg, ChessEvent,
-    ChessNotification, ChessNotificationItem, Difficulty, GameId, GameOutcome, Player,
+    ChessNotification, ChessNotificationItem, Difficulty, GameId, GameOutcome, Notification,
+    Player,
 };
 use futures::future::try_join_all;
 use tokio::fs;
@@ -684,7 +685,7 @@ async fn test_finish_game() -> anyhow::Result<()> {
 }
 
 #[tokio::test]
-async fn test_notify_success() -> anyhow::Result<()> {
+async fn test_notify() -> anyhow::Result<()> {
     let (worker, _, contract, social_contract) = initialize_contracts(None).await?;
 
     let player_a = worker.dev_create_account().await?;
@@ -695,36 +696,19 @@ async fn test_notify_success() -> anyhow::Result<()> {
         call::storage_deposit(&contract, &player_b, None, None)
     )?;
 
-    call::grant_write_permission(
-        &social_contract,
-        &player_a,
-        Some(contract.id().clone()),
-        None,
-        vec![format!("{}/index/notify", player_a.id().as_str()).to_string()],
-    )
-    .await?;
-    call::grant_write_permission(
-        &social_contract,
-        &player_b,
-        Some(contract.id().clone()),
-        None,
-        vec![format!("{}/index/notify", player_b.id().as_str()).to_string()],
-    )
-    .await?;
-    call::update_enabled_notifications(&contract, &player_a, player_a.id()).await?;
-    call::update_enabled_notifications(&contract, &player_b, player_b.id()).await?;
-
     call::challenge(&contract, &player_a, player_b.id()).await?;
     assert_notification(
         &contract,
         &social_contract,
-        player_b.id(),
-        ChessNotification {
-            _type: "chess-game".to_string(),
-            item: ChessNotificationItem::Challenged {
-                challenger_id: player_a.id().parse()?,
+        vec![Notification {
+            key: player_b.id().parse()?,
+            value: ChessNotification {
+                _type: "chess-game".to_string(),
+                item: ChessNotificationItem::Challenged {
+                    challenger_id: player_a.id().parse()?,
+                },
             },
-        },
+        }],
     )
     .await?;
     let challenge_id = create_challenge_id(player_a.id(), player_b.id());
@@ -733,13 +717,15 @@ async fn test_notify_success() -> anyhow::Result<()> {
     assert_notification(
         &contract,
         &social_contract,
-        player_a.id(),
-        ChessNotification {
-            _type: "chess-game".to_string(),
-            item: ChessNotificationItem::RejectedChallenge {
-                challenged_id: player_b.id().parse()?,
+        vec![Notification {
+            key: player_a.id().parse()?,
+            value: ChessNotification {
+                _type: "chess-game".to_string(),
+                item: ChessNotificationItem::RejectedChallenge {
+                    challenged_id: player_b.id().parse()?,
+                },
             },
-        },
+        }],
     )
     .await?;
 
@@ -748,13 +734,15 @@ async fn test_notify_success() -> anyhow::Result<()> {
     assert_notification(
         &contract,
         &social_contract,
-        player_a.id(),
-        ChessNotification {
-            _type: "chess-game".to_string(),
-            item: ChessNotificationItem::AcceptedChallenge {
-                challenged_id: player_b.id().parse()?,
+        vec![Notification {
+            key: player_a.id().parse()?,
+            value: ChessNotification {
+                _type: "chess-game".to_string(),
+                item: ChessNotificationItem::AcceptedChallenge {
+                    challenged_id: player_b.id().parse()?,
+                },
             },
-        },
+        }],
     )
     .await?;
     let block_height = game_id.0;
@@ -768,13 +756,15 @@ async fn test_notify_success() -> anyhow::Result<()> {
     assert_notification(
         &contract,
         &social_contract,
-        player_b.id(),
-        ChessNotification {
-            _type: "chess-game".to_string(),
-            item: ChessNotificationItem::YourTurn {
-                game_id: game_id.clone(),
+        vec![Notification {
+            key: player_b.id().parse()?,
+            value: ChessNotification {
+                _type: "chess-game".to_string(),
+                item: ChessNotificationItem::YourTurn {
+                    game_id: game_id.clone(),
+                },
             },
-        },
+        }],
     )
     .await?;
 
@@ -782,13 +772,15 @@ async fn test_notify_success() -> anyhow::Result<()> {
     assert_notification(
         &contract,
         &social_contract,
-        player_a.id(),
-        ChessNotification {
-            _type: "chess-game".to_string(),
-            item: ChessNotificationItem::YourTurn {
-                game_id: game_id.clone(),
+        vec![Notification {
+            key: player_a.id().parse()?,
+            value: ChessNotification {
+                _type: "chess-game".to_string(),
+                item: ChessNotificationItem::YourTurn {
+                    game_id: game_id.clone(),
+                },
             },
-        },
+        }],
     )
     .await?;
 
@@ -800,98 +792,30 @@ async fn test_notify_success() -> anyhow::Result<()> {
     assert_notification(
         &contract,
         &social_contract,
-        player_a.id(),
-        ChessNotification {
-            _type: "chess-game".to_string(),
-            item: ChessNotificationItem::Outcome {
-                game_id,
-                outcome: GameOutcome::Victory(Color::White),
+        vec![
+            Notification {
+                key: player_a.id().parse()?,
+                value: ChessNotification {
+                    _type: "chess-game".to_string(),
+                    item: ChessNotificationItem::Outcome {
+                        game_id: game_id.clone(),
+                        outcome: GameOutcome::Victory(Color::White),
+                    },
+                },
             },
-        },
+            Notification {
+                key: player_b.id().parse()?,
+                value: ChessNotification {
+                    _type: "chess-game".to_string(),
+                    item: ChessNotificationItem::Outcome {
+                        game_id,
+                        outcome: GameOutcome::Victory(Color::White),
+                    },
+                },
+            },
+        ],
     )
     .await?;
-
-    Ok(())
-}
-
-#[tokio::test]
-async fn test_notify_fail_missing_permission() -> anyhow::Result<()> {
-    let (worker, _, contract, social_contract) = initialize_contracts(None).await?;
-
-    let player_a = worker.dev_create_account().await?;
-    let player_b = worker.dev_create_account().await?;
-
-    tokio::try_join!(
-        call::storage_deposit(&contract, &player_a, None, None),
-        call::storage_deposit(&contract, &player_b, None, None)
-    )?;
-
-    call::challenge(&contract, &player_a, player_b.id()).await?;
-    assert!(assert_notification(
-        &contract,
-        &social_contract,
-        player_b.id(),
-        ChessNotification {
-            _type: "chess-game".to_string(),
-            item: ChessNotificationItem::Challenged {
-                challenger_id: player_a.id().parse()?,
-            },
-        },
-    )
-    .await
-    .is_err());
-    let challenge_id = create_challenge_id(player_a.id(), player_b.id());
-
-    let (game_id, _) = call::accept_challenge(&contract, &player_b, &challenge_id).await?;
-    assert!(assert_notification(
-        &contract,
-        &social_contract,
-        player_a.id(),
-        ChessNotification {
-            _type: "chess-game".to_string(),
-            item: ChessNotificationItem::AcceptedChallenge {
-                challenged_id: player_b.id().parse()?,
-            },
-        },
-    )
-    .await
-    .is_err());
-    let block_height = game_id.0;
-    let game_id = GameId(
-        block_height,
-        player_a.id().clone().parse()?,
-        Some(player_b.id().clone().parse()?),
-    );
-
-    call::play_move(&contract, &player_a, &game_id, "e2e4".to_string()).await?;
-    assert!(assert_notification(
-        &contract,
-        &social_contract,
-        player_b.id(),
-        ChessNotification {
-            _type: "chess-game".to_string(),
-            item: ChessNotificationItem::YourTurn {
-                game_id: game_id.clone(),
-            },
-        },
-    )
-    .await
-    .is_err());
-
-    call::play_move(&contract, &player_b, &game_id, "a7a6".to_string()).await?;
-    assert!(assert_notification(
-        &contract,
-        &social_contract,
-        player_a.id(),
-        ChessNotification {
-            _type: "chess-game".to_string(),
-            item: ChessNotificationItem::YourTurn {
-                game_id: game_id.clone(),
-            },
-        },
-    )
-    .await
-    .is_err());
 
     Ok(())
 }

@@ -1,11 +1,10 @@
-use crate::{Chess, ChessExt, ContractError, GameId, GameOutcome, TGAS};
+use crate::{Chess, GameId, GameOutcome, TGAS};
 use near_sdk::{
-    env, ext_contract, near_bindgen,
+    env, ext_contract,
     serde::{Deserialize, Serialize},
-    AccountId, Gas, Promise, PublicKey,
+    AccountId, Gas, PublicKey,
 };
 use serde_json::Value;
-use std::collections::HashMap;
 
 #[ext_contract(social_db)]
 trait SocialDb {
@@ -67,49 +66,25 @@ pub enum ChessNotificationItem {
     },
 }
 
-#[near_bindgen]
 impl Chess {
-    pub fn update_enabled_notifications(&mut self, account_id: AccountId) -> Promise {
-        social_db::ext(self.social_db.clone())
-            .with_static_gas(Gas(20 * TGAS))
-            .is_write_permission_granted(
-                Some(env::current_account_id()),
-                None,
-                format!("{}/index/notify", account_id),
-            )
-            .then(Self::ext(env::current_account_id()).set_enabled_notifications(account_id))
-    }
-
-    #[private]
-    #[handle_result]
-    pub fn set_enabled_notifications(
-        &mut self,
-        account_id: AccountId,
-        #[callback_unwrap] is_enabled: bool,
-    ) -> Result<(), ContractError> {
-        let account = self
-            .accounts
-            .get_mut(&account_id)
-            .ok_or_else(|| ContractError::AccountNotRegistered(account_id.clone()))?;
-        account.set_enabled_notifications(is_enabled);
-
-        Ok(())
-    }
-}
-
-impl Chess {
-    pub(crate) fn internal_send_notify(&self, notifications: HashMap<AccountId, Notification>) {
-        for (account_id, notification) in notifications {
-            let account = self.internal_get_account(&account_id).unwrap();
-            if !account.enabled_notifications() {
-                continue;
-            }
+    pub(crate) fn internal_send_notify(&self, notifications: Vec<Notification>) {
+        if notifications.len() == 1 {
             social_db::ext(self.social_db.clone())
                 .with_static_gas(Gas(20 * TGAS))
                 .set(serde_json::json!({
-                    account_id: IndexNotify {
+                    env::current_account_id(): IndexNotify {
                         index: Notify {
-                            notify: serde_json::to_string(&notification).unwrap()
+                            notify: serde_json::to_string(notifications.get(0).unwrap()).unwrap()
+                        }
+                    }
+                }));
+        } else {
+            social_db::ext(self.social_db.clone())
+                .with_static_gas(Gas(20 * TGAS))
+                .set(serde_json::json!({
+                    env::current_account_id(): IndexNotify {
+                        index: Notify {
+                            notify: serde_json::to_string(&notifications).unwrap()
                         }
                     }
                 }));
