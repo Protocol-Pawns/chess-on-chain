@@ -1,4 +1,4 @@
-use crate::{Chess, GameId, GameOutcome, TGAS};
+use crate::{ChallengeId, Chess, GameId, GameOutcome, TGAS};
 use near_sdk::{
     env, ext_contract,
     serde::{Deserialize, Serialize},
@@ -47,11 +47,15 @@ pub struct ChessNotification {
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(crate = "near_sdk::serde")]
+#[serde(tag = "type", content = "data")]
+#[serde(rename_all = "kebab-case")]
 pub enum ChessNotificationItem {
     Challenged {
+        challenge_id: ChallengeId,
         challenger_id: AccountId,
     },
     AcceptedChallenge {
+        game_id: GameId,
         challenged_id: AccountId,
     },
     RejectedChallenge {

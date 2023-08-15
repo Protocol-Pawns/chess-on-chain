@@ -705,6 +705,7 @@ async fn test_notify() -> anyhow::Result<()> {
             value: ChessNotification {
                 _type: "chess-game".to_string(),
                 item: ChessNotificationItem::Challenged {
+                    challenge_id: create_challenge_id(player_a.id(), player_b.id()),
                     challenger_id: player_a.id().parse()?,
                 },
             },
@@ -739,6 +740,7 @@ async fn test_notify() -> anyhow::Result<()> {
             value: ChessNotification {
                 _type: "chess-game".to_string(),
                 item: ChessNotificationItem::AcceptedChallenge {
+                    game_id: game_id.clone(),
                     challenged_id: player_b.id().parse()?,
                 },
             },

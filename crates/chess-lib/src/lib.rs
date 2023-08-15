@@ -463,6 +463,7 @@ impl Chess {
 
         self.challenges
             .insert(challenge.id().clone(), challenge.clone());
+        let challenge_id = challenge.id().clone();
 
         let event = ChessEvent::Challenge(challenge);
         event.emit();
@@ -471,7 +472,10 @@ impl Chess {
             key: challenged_id,
             value: ChessNotification {
                 _type: "chess-game".to_string(),
-                item: ChessNotificationItem::Challenged { challenger_id },
+                item: ChessNotificationItem::Challenged {
+                    challenge_id,
+                    challenger_id,
+                },
             },
         }]);
 
@@ -527,7 +531,10 @@ impl Chess {
             key: challenger_id.clone(),
             value: ChessNotification {
                 _type: "chess-game".to_string(),
-                item: ChessNotificationItem::AcceptedChallenge { challenged_id },
+                item: ChessNotificationItem::AcceptedChallenge {
+                    game_id: game_id.clone(),
+                    challenged_id,
+                },
             },
         }]);
 
