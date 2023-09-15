@@ -138,6 +138,8 @@ async fn test_ai_game() -> anyhow::Result<()> {
             resigner: player_a.id().parse()?,
         }],
     )?;
+    let game_ids = view::get_game_ids(&contract, player_a.id()).await?;
+    assert!(game_ids.is_empty());
 
     Ok(())
 }
@@ -231,15 +233,6 @@ async fn test_accept_challenge() -> anyhow::Result<()> {
                 ],
             },
         ],
-    )?;
-
-    let (_res, events) = call::resign(&contract, &player_a, &game_id).await?;
-    assert_event_emits(
-        events,
-        vec![ChessEvent::ResignGame {
-            game_id,
-            resigner: player_a.id().parse()?,
-        }],
     )?;
 
     Ok(())
@@ -528,6 +521,72 @@ async fn test_challenge_check_duplicate() -> anyhow::Result<()> {
 }
 
 #[tokio::test]
+async fn test_resign() -> anyhow::Result<()> {
+    let (worker, _, contract, _) = initialize_contracts(None).await?;
+
+    let player_a = worker.dev_create_account().await?;
+    let player_b = worker.dev_create_account().await?;
+
+    tokio::try_join!(
+        call::storage_deposit(&contract, &player_a, None, None),
+        call::storage_deposit(&contract, &player_b, None, None)
+    )?;
+
+    let (_res, events) = call::challenge(&contract, &player_a, player_b.id()).await?;
+    let challenge_id = create_challenge_id(player_a.id(), player_b.id());
+    let challenge_ids = view::get_challenges(&contract, player_a.id(), true).await?;
+    assert_eq!(challenge_ids, vec![challenge_id.clone()]);
+    let challenge_ids = view::get_challenges(&contract, player_a.id(), false).await?;
+    assert!(challenge_ids.is_empty());
+    let challenge_ids = view::get_challenges(&contract, player_b.id(), true).await?;
+    assert!(challenge_ids.is_empty());
+    let challenge_ids = view::get_challenges(&contract, player_b.id(), false).await?;
+    assert_eq!(challenge_ids, vec![challenge_id.clone()]);
+    let challenge = view::get_challenge(&contract, &challenge_id).await?;
+    let expected_challenge = Challenge::new(player_a.id().parse()?, player_b.id().parse()?, None);
+    assert_eq!(&challenge, &expected_challenge);
+    assert_event_emits(events, vec![ChessEvent::Challenge(expected_challenge)])?;
+
+    let (game_id, _) = call::accept_challenge(&contract, &player_b, &challenge_id).await?;
+    let block_height = game_id.0;
+    let game_id = GameId(
+        block_height,
+        player_a.id().clone().parse()?,
+        Some(player_b.id().clone().parse()?),
+    );
+
+    let game_ids = view::get_game_ids(&contract, player_a.id()).await?;
+    assert_eq!(game_ids, vec![game_id.clone()]);
+    let game_ids = view::get_game_ids(&contract, player_b.id()).await?;
+    assert_eq!(game_ids, vec![game_id.clone()]);
+
+    let (_res, events) = call::resign(&contract, &player_a, &game_id).await?;
+    assert_event_emits(
+        events,
+        vec![ChessEvent::ResignGame {
+            game_id: game_id.clone(),
+            resigner: player_a.id().parse()?,
+        }],
+    )?;
+    let game_ids = view::get_game_ids(&contract, player_a.id()).await?;
+    assert!(game_ids.is_empty());
+    let game_ids = view::get_game_ids(&contract, player_b.id()).await?;
+    assert!(game_ids.is_empty());
+    let elo = view::get_elo(&contract, player_a.id()).await?;
+    assert_eq!(elo, 984.);
+    let elo = view::get_elo(&contract, player_b.id()).await?;
+    assert_eq!(elo, 1016.);
+    let games = view::recent_finished_games(&contract).await?;
+    assert_eq!(games, vec![game_id.clone()]);
+    let games = view::finished_games(&contract, player_a.id()).await?;
+    assert_eq!(games, vec![game_id.clone()]);
+    let games = view::finished_games(&contract, player_b.id()).await?;
+    assert_eq!(games, vec![game_id.clone()]);
+
+    Ok(())
+}
+
+#[tokio::test]
 async fn test_no_self_challenge() -> anyhow::Result<()> {
     let (worker, _, contract, _) = initialize_contracts(None).await?;
 
@@ -810,8 +869,39 @@ async fn test_notify() -> anyhow::Result<()> {
                 value: ChessNotification {
                     _type: "chess-game".to_string(),
                     item: ChessNotificationItem::Outcome {
-                        game_id,
+                        game_id: game_id.clone(),
                         outcome: GameOutcome::Victory(Color::White),
+                    },
+                },
+            },
+        ],
+    )
+    .await?;
+
+    call::challenge(&contract, &player_a, player_b.id()).await?;
+    let (game_id, _) = call::accept_challenge(&contract, &player_b, &challenge_id).await?;
+    call::resign(&contract, &player_a, &game_id).await?;
+    assert_notification(
+        &contract,
+        &social_contract,
+        vec![
+            Notification {
+                key: player_a.id().parse()?,
+                value: ChessNotification {
+                    _type: "chess-game".to_string(),
+                    item: ChessNotificationItem::Outcome {
+                        game_id: game_id.clone(),
+                        outcome: GameOutcome::Victory(Color::Black),
+                    },
+                },
+            },
+            Notification {
+                key: player_b.id().parse()?,
+                value: ChessNotification {
+                    _type: "chess-game".to_string(),
+                    item: ChessNotificationItem::Outcome {
+                        game_id: game_id.clone(),
+                        outcome: GameOutcome::Victory(Color::Black),
                     },
                 },
             },

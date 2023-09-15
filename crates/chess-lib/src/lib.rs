@@ -267,51 +267,8 @@ impl Chess {
         }
 
         let (outcome, board) = if let Some((outcome, board_state)) = move_result.0 {
-            let game = self.games.remove(&game_id).unwrap();
-            if let Some(account) = game.get_white().as_account_mut(self) {
-                account.remove_game_id(&game_id);
-                account.save_finished_game(game_id.clone());
-            }
-            if let Some(account) = game.get_black().as_account_mut(self) {
-                account.remove_game_id(&game_id);
-                account.save_finished_game(game_id.clone());
-            }
-            let recent_finished_games = self.recent_finished_games.get_mut();
-            recent_finished_games.push_front(game_id.clone());
-            if recent_finished_games.len() > 100 {
-                recent_finished_games.pop_back();
-            }
-
-            if let Player::Human(_) = game.get_black() {
-                self.internal_calculate_elo(&game, &outcome);
-            }
-
             notifications = vec![];
-            if let Player::Human(account_id) = game.get_white() {
-                notifications.push(Notification {
-                    key: account_id.clone(),
-                    value: ChessNotification {
-                        _type: "chess-game".to_string(),
-                        item: ChessNotificationItem::Outcome {
-                            game_id: game_id.clone(),
-                            outcome: outcome.clone(),
-                        },
-                    },
-                });
-            }
-            if let Player::Human(account_id) = game.get_black() {
-                notifications.push(Notification {
-                    key: account_id.clone(),
-                    value: ChessNotification {
-                        _type: "chess-game".to_string(),
-                        item: ChessNotificationItem::Outcome {
-                            game_id,
-                            outcome: outcome.clone(),
-                        },
-                    },
-                });
-            }
-
+            self.internal_handle_outcome(game_id, &outcome, &mut notifications);
             (Some(outcome), board_state)
         } else {
             (None, self.games.get(&game_id).unwrap().get_board_state())
@@ -326,39 +283,38 @@ impl Chess {
     ///
     /// Can be called even if it is not your turn.
     /// You might need to call this if a game is stuck and the AI refuses to work.
-    /// You can also only have 5 open games due to storage limitations.
+    /// You can also only have 10 open games due to storage limitations.
     #[handle_result]
     pub fn resign(&mut self, game_id: GameId) -> Result<(), ContractError> {
         let account_id = env::signer_account_id();
-        let account = self
-            .accounts
-            .get_mut(&account_id)
-            .ok_or_else(|| ContractError::AccountNotRegistered(account_id.clone()))?;
+        let game = self
+            .games
+            .get_mut(&game_id)
+            .ok_or(ContractError::GameNotExists)?;
 
-        if let Some(game) = self.games.get_mut(&game_id) {
-            if !game.is_player(&account_id) {
-                return Err(ContractError::NotPlaying);
-            }
-            let game = self.games.remove(&game_id).unwrap();
-            account.remove_game_id(&game_id);
-
-            if let Player::Human(black_id) = game.get_black() {
-                let outcome = if black_id == &account_id {
-                    GameOutcome::Victory(Color::White)
-                } else {
-                    GameOutcome::Victory(Color::Black)
-                };
-                self.internal_calculate_elo(&game, &outcome);
-            }
-
-            let event = ChessEvent::ResignGame {
-                game_id,
-                resigner: account_id,
-            };
-            event.emit();
-        } else {
-            account.remove_game_id(&game_id);
+        if !game.is_player(&account_id) {
+            return Err(ContractError::NotPlaying);
         }
+
+        let outcome = if let Player::Human(black_id) = game.get_black() {
+            if black_id == &account_id {
+                GameOutcome::Victory(Color::White)
+            } else {
+                GameOutcome::Victory(Color::Black)
+            }
+        } else {
+            GameOutcome::Victory(Color::Black)
+        };
+
+        let mut notifications = vec![];
+        self.internal_handle_outcome(game_id.clone(), &outcome, &mut notifications);
+        self.internal_send_notify(notifications);
+
+        let event = ChessEvent::ResignGame {
+            game_id,
+            resigner: account_id,
+        };
+        event.emit();
 
         Ok(())
     }
@@ -539,6 +495,57 @@ impl Chess {
         }]);
 
         Ok(game_id)
+    }
+
+    fn internal_handle_outcome(
+        &mut self,
+        game_id: GameId,
+        outcome: &GameOutcome,
+        notifications: &mut Vec<Notification>,
+    ) {
+        let game = self.games.remove(&game_id).unwrap();
+        if let Some(account) = game.get_white().as_account_mut(self) {
+            account.remove_game_id(&game_id);
+            account.save_finished_game(game_id.clone());
+        }
+        if let Some(account) = game.get_black().as_account_mut(self) {
+            account.remove_game_id(&game_id);
+            account.save_finished_game(game_id.clone());
+        }
+        let recent_finished_games = self.recent_finished_games.get_mut();
+        recent_finished_games.push_front(game_id.clone());
+        if recent_finished_games.len() > 100 {
+            recent_finished_games.pop_back();
+        }
+
+        if let Player::Human(_) = game.get_black() {
+            self.internal_calculate_elo(&game, outcome);
+        }
+
+        if let Player::Human(account_id) = game.get_white() {
+            notifications.push(Notification {
+                key: account_id.clone(),
+                value: ChessNotification {
+                    _type: "chess-game".to_string(),
+                    item: ChessNotificationItem::Outcome {
+                        game_id: game_id.clone(),
+                        outcome: outcome.clone(),
+                    },
+                },
+            });
+        }
+        if let Player::Human(account_id) = game.get_black() {
+            notifications.push(Notification {
+                key: account_id.clone(),
+                value: ChessNotification {
+                    _type: "chess-game".to_string(),
+                    item: ChessNotificationItem::Outcome {
+                        game_id,
+                        outcome: outcome.clone(),
+                    },
+                },
+            });
+        }
     }
 
     pub(crate) fn internal_calculate_elo(&mut self, game: &Game, outcome: &GameOutcome) {
