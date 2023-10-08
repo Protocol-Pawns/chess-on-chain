@@ -35,6 +35,11 @@ pub enum ChessEvent {
         resigner: AccountId,
     },
     #[event_version("1.0.0")]
+    CancelGame {
+        game_id: GameId,
+        cancelled_by: AccountId,
+    },
+    #[event_version("1.0.0")]
     FinishGame {
         game_id: GameId,
         outcome: GameOutcome,

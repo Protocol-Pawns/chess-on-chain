@@ -48,4 +48,8 @@ pub enum ContractError {
     SelfChallenge,
     #[error("Challenge alread exists")]
     ChallengeExists,
+    #[error("Game not yet cancellable. You still need to wait {} blocks", _0)]
+    GameNotCancellable(u64),
+    #[error("Game can only be cancelled, if it's not your turn")]
+    CancelOnOpponentsTurn,
 }

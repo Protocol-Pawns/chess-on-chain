@@ -36,6 +36,11 @@ pub const MAX_OPEN_GAMES: u32 = 10;
 pub const MAX_OPEN_CHALLENGES: u32 = 50;
 pub const TGAS: u64 = 1_000_000_000_000;
 
+#[cfg(not(feature = "integration-test"))]
+pub const MIN_BLOCK_DIFF_CANCEL: u64 = 60 * 60 * 24 * 3; // ~3 days
+#[cfg(feature = "integration-test")]
+pub const MIN_BLOCK_DIFF_CANCEL: u64 = 100;
+
 #[derive(BorshStorageKey, BorshSerialize)]
 pub enum StorageKey {
     Accounts,
@@ -102,12 +107,12 @@ impl Chess {
     pub fn migrate() -> Self {
         let mut chess: Chess = env::state_read().unwrap();
 
-        let mut accounts = vec![];
-        for (account_id, account) in chess.accounts.drain() {
-            accounts.push((account_id, account.migrate()));
+        let mut games = vec![];
+        for (game_id, game) in chess.games.drain() {
+            games.push((game_id, game.migrate()));
         }
-        for (account_id, account) in accounts {
-            chess.accounts.insert(account_id, account);
+        for (game_id, game) in games {
+            chess.games.insert(game_id, game);
         }
 
         Self {
@@ -318,6 +323,53 @@ impl Chess {
 
         Ok(())
     }
+
+    /// Cancel a game, resulting in no player winning or loosing.
+    ///
+    /// Players can only cancel a game, if the opponent is human
+    /// and hasn't been doing a move for the last approx. 3days (measured in block height)
+    #[handle_result]
+    pub fn cancel(&mut self, game_id: GameId) -> Result<(), ContractError> {
+        if env::block_height() - game_id.0 < MIN_BLOCK_DIFF_CANCEL {
+            return Err(ContractError::GameNotCancellable(
+                MIN_BLOCK_DIFF_CANCEL + game_id.0 - env::block_height(),
+            ));
+        }
+
+        let account_id = env::signer_account_id();
+        let game = self
+            .games
+            .get_mut(&game_id)
+            .ok_or(ContractError::GameNotExists)?;
+
+        if !game.is_player(&account_id) {
+            return Err(ContractError::NotPlaying);
+        }
+        if game.is_turn(&account_id) {
+            return Err(ContractError::CancelOnOpponentsTurn);
+        }
+        if env::block_height() - game.get_last_block_height() < MIN_BLOCK_DIFF_CANCEL {
+            return Err(ContractError::GameNotCancellable(
+                MIN_BLOCK_DIFF_CANCEL + game.get_last_block_height() - env::block_height(),
+            ));
+        }
+
+        let game = self.games.remove(&game_id).unwrap();
+        if let Some(account) = game.get_white().as_account_mut(self) {
+            account.remove_game_id(&game_id);
+        }
+        if let Some(account) = game.get_black().as_account_mut(self) {
+            account.remove_game_id(&game_id);
+        }
+
+        let event = ChessEvent::CancelGame {
+            game_id,
+            cancelled_by: account_id,
+        };
+        event.emit();
+
+        Ok(())
+    }
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -518,7 +570,7 @@ impl Chess {
             recent_finished_games.pop_back();
         }
 
-        if let Player::Human(_) = game.get_black() {
+        if game.get_black().is_human() {
             self.internal_calculate_elo(&game, outcome);
         }
 

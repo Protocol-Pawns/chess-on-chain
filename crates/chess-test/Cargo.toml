@@ -13,6 +13,7 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 test-token = { path = "../test-token" }
 tokio = { version = "1", features = ["full"] }
+toml = "0.8"
 workspaces = "0.7"
 
 [dependencies.chess-engine]

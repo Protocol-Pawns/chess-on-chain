@@ -30,5 +30,8 @@ rev = "89f8c2d776c8d00feb45239fdb15725527f1894b"
 default-features = false
 features = ["unit-testing", "unstable"]
 
+[features]
+integration-test = []
+
 [package.metadata.witgen]
 export = true

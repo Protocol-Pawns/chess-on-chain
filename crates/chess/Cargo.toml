@@ -9,3 +9,6 @@ crate-type = ["cdylib"]
 
 [dependencies]
 chess-lib = { path = "../chess-lib" }
+
+[features]
+integration-test = ["chess-lib/integration-test"]

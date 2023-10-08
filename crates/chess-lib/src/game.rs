@@ -52,6 +52,10 @@ impl Player {
             Player::Ai(_) => None,
         }
     }
+
+    pub fn is_human(&self) -> bool {
+        matches!(self, Self::Human(_))
+    }
 }
 
 /// AI difficulty setting.
@@ -76,6 +80,17 @@ pub enum Difficulty {
 #[derive(BorshDeserialize, BorshSerialize)]
 pub enum Game {
     V1(GameV1),
+    V2(GameV2),
+}
+
+#[near_bindgen]
+#[derive(BorshDeserialize, BorshSerialize)]
+pub struct GameV2 {
+    game_id: GameId,
+    white: Player,
+    black: Player,
+    board: Board,
+    last_move_block_height: u64,
 }
 
 #[near_bindgen]
@@ -87,13 +102,14 @@ pub struct GameV1 {
     board: Board,
 }
 
-#[derive(Serialize)]
+#[derive(Deserialize, Serialize)]
 #[serde(crate = "near_sdk::serde")]
 #[witgen]
 pub struct GameInfo {
     pub white: Player,
     pub black: Player,
     pub turn_color: Color,
+    pub last_block_height: u64,
 }
 
 #[derive(BorshDeserialize, BorshSerialize, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
@@ -112,7 +128,8 @@ impl Game {
             white.get_account_id().unwrap(),
             black.get_account_id(),
         );
-        Game::V1(GameV1 {
+        Game::V2(GameV2 {
+            last_move_block_height: env::block_height(),
             game_id,
             white,
             black,
@@ -120,28 +137,65 @@ impl Game {
         })
     }
 
+    pub fn migrate(self) -> Self {
+        if let Self::V1(GameV1 {
+            game_id,
+            white,
+            black,
+            board,
+        }) = self
+        {
+            Self::V2(GameV2 {
+                last_move_block_height: env::block_height(),
+                game_id,
+                white,
+                black,
+                board,
+            })
+        } else {
+            self
+        }
+    }
+
     pub fn get_game_id(&self) -> &GameId {
-        let Game::V1(game) = self;
+        let Game::V2(game) = self else {
+            panic!("migration required")
+        };
         &game.game_id
     }
 
     pub fn get_white(&self) -> &Player {
-        let Game::V1(game) = self;
+        let Game::V2(game) = self else {
+            panic!("migration required")
+        };
         &game.white
     }
 
     pub fn get_black(&self) -> &Player {
-        let Game::V1(game) = self;
+        let Game::V2(game) = self else {
+            panic!("migration required")
+        };
         &game.black
     }
 
     pub fn get_board(&self) -> &Board {
-        let Game::V1(game) = self;
+        let Game::V2(game) = self else {
+            panic!("migration required")
+        };
         &game.board
     }
 
+    pub fn get_last_block_height(&self) -> u64 {
+        let Game::V2(game) = self else {
+            panic!("migration required")
+        };
+        game.last_move_block_height
+    }
+
     pub fn is_turn(&self, account_id: &AccountId) -> bool {
-        let Game::V1(game) = self;
+        let Game::V2(game) = self else {
+            panic!("migration required")
+        };
         let player = match game.board.get_turn_color() {
             Color::White => &game.white,
             Color::Black => &game.black,
@@ -154,7 +208,9 @@ impl Game {
     }
 
     pub fn is_player(&self, account_id: &AccountId) -> bool {
-        let Game::V1(game) = self;
+        let Game::V2(game) = self else {
+            panic!("migration required")
+        };
         if let Player::Human(id) = &game.white {
             if id == account_id {
                 return true;
@@ -173,7 +229,9 @@ impl Game {
         &mut self,
         mv: Move,
     ) -> Result<(Option<(GameOutcome, [String; 8])>, Color), ContractError> {
-        let Game::V1(game) = self;
+        let Game::V2(game) = self else {
+            panic!("migration required")
+        };
         let turn_color = game.board.get_turn_color();
         let event = ChessEvent::PlayMove {
             game_id: game.game_id.clone(),
@@ -260,11 +318,14 @@ impl Game {
             }
             GameResult::IllegalMove(_) => return Err(ContractError::IllegalMove),
         };
+        game.last_move_block_height = env::block_height();
         Ok((outcome_with_board, game.board.get_turn_color()))
     }
 
     pub fn get_board_state(&self) -> [String; 8] {
-        let Game::V1(game) = self;
+        let Game::V2(game) = self else {
+            panic!("migration required")
+        };
         Self::_get_board_state(&game.board)
     }
 
@@ -300,7 +361,9 @@ impl Game {
     }
 
     pub fn render_board(&self) -> String {
-        let Game::V1(game) = self;
+        let Game::V2(game) = self else {
+            panic!("migration required")
+        };
         (-1..8)
             .rev()
             .flat_map(|row| {

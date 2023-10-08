@@ -1,5 +1,5 @@
 use super::log_view_result;
-use chess_lib::{Challenge, ChallengeId, EloRating, GameId, IndexNotify};
+use chess_lib::{Challenge, ChallengeId, EloRating, GameId, GameInfo, IndexNotify};
 use std::collections::HashMap;
 use workspaces::{AccountId, Contract};
 
@@ -11,6 +11,18 @@ pub async fn get_game_ids(
         contract
             .call("get_game_ids")
             .args_json((account_id,))
+            .max_gas()
+            .view()
+            .await?,
+    )?;
+    Ok(res.json()?)
+}
+
+pub async fn get_game_info(contract: &Contract, game_id: &GameId) -> anyhow::Result<GameInfo> {
+    let res = log_view_result(
+        contract
+            .call("game_info")
+            .args_json((game_id,))
             .max_gas()
             .view()
             .await?,

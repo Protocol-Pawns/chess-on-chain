@@ -35,6 +35,7 @@ impl Chess {
             white: game.get_white().clone(),
             black: game.get_black().clone(),
             turn_color: game.get_board().get_turn_color(),
+            last_block_height: game.get_last_block_height(),
         })
     }
 

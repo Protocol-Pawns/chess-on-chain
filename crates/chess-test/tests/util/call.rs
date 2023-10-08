@@ -228,6 +228,23 @@ pub async fn resign(
     Ok((res, events))
 }
 
+pub async fn cancel(
+    contract: &Contract,
+    sender: &Account,
+    game_id: &GameId,
+) -> anyhow::Result<(ExecutionResult<Value>, Vec<event::ContractEvent>)> {
+    let (res, events) = log_tx_result(
+        Some("cancel"),
+        sender
+            .call(contract.id(), "cancel")
+            .args_json((game_id,))
+            .max_gas()
+            .transact()
+            .await?,
+    )?;
+    Ok((res, events))
+}
+
 async fn ft_transfer_call<T: Serialize>(
     sender: &Account,
     token_id: &AccountId,
