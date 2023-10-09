@@ -3,17 +3,16 @@ mod util;
 use chess_engine::Color;
 use chess_lib::{
     create_challenge_id, AcceptChallengeMsg, Challenge, ChallengeMsg, ChessEvent,
-    ChessNotification, ChessNotificationItem, Difficulty, GameId, GameInfo, GameOutcome,
-    Notification, Player,
+    ChessNotification, Difficulty, GameId, GameInfo, GameOutcome, Player,
 };
 use futures::future::try_join_all;
+use maplit::hashmap;
 use tokio::fs;
 use util::*;
 
 #[tokio::test]
 async fn test_migrate() -> anyhow::Result<()> {
-    let (worker, _, contract, _) =
-        initialize_contracts(Some("../../res/chess_old.wasm"), false).await?;
+    let (worker, _, contract, _) = initialize_contracts(Some("../../res/chess_old.wasm")).await?;
 
     let player_a = worker.dev_create_account().await?;
     let player_b = worker.dev_create_account().await?;
@@ -39,7 +38,7 @@ async fn test_migrate() -> anyhow::Result<()> {
 
     contract
         .as_account()
-        .deploy(&fs::read("../../res/chess.wasm").await?)
+        .deploy(&fs::read("../../res/chess_testing.wasm").await?)
         .await?
         .into_result()?;
     call::migrate(&contract, contract.as_account()).await?;
@@ -71,7 +70,7 @@ async fn test_migrate() -> anyhow::Result<()> {
 
 #[tokio::test]
 async fn test_ai_game() -> anyhow::Result<()> {
-    let (worker, _, contract, _) = initialize_contracts(None, false).await?;
+    let (worker, _, contract, _) = initialize_contracts(None).await?;
 
     let player_a = worker.dev_create_account().await?;
 
@@ -162,7 +161,7 @@ async fn test_ai_game() -> anyhow::Result<()> {
 
 #[tokio::test]
 async fn test_accept_challenge() -> anyhow::Result<()> {
-    let (worker, _, contract, _) = initialize_contracts(None, false).await?;
+    let (worker, _, contract, _) = initialize_contracts(None).await?;
 
     let player_a = worker.dev_create_account().await?;
     let player_b = worker.dev_create_account().await?;
@@ -256,7 +255,7 @@ async fn test_accept_challenge() -> anyhow::Result<()> {
 
 #[tokio::test]
 async fn test_accept_challenge_with_wager() -> anyhow::Result<()> {
-    let (worker, _, contract, _) = initialize_contracts(None, false).await?;
+    let (worker, _, contract, _) = initialize_contracts(None).await?;
     let test_token = initialize_token(&worker, "wrapped Near", "wNEAR", None, 24).await?;
     let wager_amount = 10_000_000_000_000_000_000_000_000; // 10 NEAR
 
@@ -426,7 +425,7 @@ async fn test_accept_challenge_with_wager() -> anyhow::Result<()> {
 
 #[tokio::test]
 async fn test_reject_challenge() -> anyhow::Result<()> {
-    let (worker, _, contract, _) = initialize_contracts(None, false).await?;
+    let (worker, _, contract, _) = initialize_contracts(None).await?;
 
     let player_a = worker.dev_create_account().await?;
     let player_b = worker.dev_create_account().await?;
@@ -471,7 +470,7 @@ async fn test_reject_challenge() -> anyhow::Result<()> {
 
 #[tokio::test]
 async fn test_accept_reject_challenge_check_sender() -> anyhow::Result<()> {
-    let (worker, _, contract, _) = initialize_contracts(None, false).await?;
+    let (worker, _, contract, _) = initialize_contracts(None).await?;
 
     let player_a = worker.dev_create_account().await?;
     let player_b = worker.dev_create_account().await?;
@@ -516,7 +515,7 @@ async fn test_accept_reject_challenge_check_sender() -> anyhow::Result<()> {
 
 #[tokio::test]
 async fn test_challenge_check_duplicate() -> anyhow::Result<()> {
-    let (worker, _, contract, _) = initialize_contracts(None, false).await?;
+    let (worker, _, contract, _) = initialize_contracts(None).await?;
 
     let player_a = worker.dev_create_account().await?;
     let player_b = worker.dev_create_account().await?;
@@ -538,7 +537,7 @@ async fn test_challenge_check_duplicate() -> anyhow::Result<()> {
 
 #[tokio::test]
 async fn test_resign() -> anyhow::Result<()> {
-    let (worker, _, contract, _) = initialize_contracts(None, false).await?;
+    let (worker, _, contract, _) = initialize_contracts(None).await?;
 
     let player_a = worker.dev_create_account().await?;
     let player_b = worker.dev_create_account().await?;
@@ -587,7 +586,7 @@ async fn test_resign() -> anyhow::Result<()> {
 
 #[tokio::test]
 async fn test_cancel_success() -> anyhow::Result<()> {
-    let (worker, _, contract, _) = initialize_contracts(None, true).await?;
+    let (worker, _, contract, _) = initialize_contracts(None).await?;
 
     let player_a = worker.dev_create_account().await?;
     let player_b = worker.dev_create_account().await?;
@@ -638,7 +637,7 @@ async fn test_cancel_success() -> anyhow::Result<()> {
 
 #[tokio::test]
 async fn test_cancel_not_enough_blocks() -> anyhow::Result<()> {
-    let (worker, _, contract, _) = initialize_contracts(None, true).await?;
+    let (worker, _, contract, _) = initialize_contracts(None).await?;
 
     let player_a = worker.dev_create_account().await?;
     let player_b = worker.dev_create_account().await?;
@@ -669,7 +668,7 @@ async fn test_cancel_not_enough_blocks() -> anyhow::Result<()> {
 
 #[tokio::test]
 async fn test_cancel_update_last_block_height() -> anyhow::Result<()> {
-    let (worker, _, contract, _) = initialize_contracts(None, true).await?;
+    let (worker, _, contract, _) = initialize_contracts(None).await?;
 
     let player_a = worker.dev_create_account().await?;
     let player_b = worker.dev_create_account().await?;
@@ -705,7 +704,7 @@ async fn test_cancel_update_last_block_height() -> anyhow::Result<()> {
 
 #[tokio::test]
 async fn test_cancel_check_opponent() -> anyhow::Result<()> {
-    let (worker, _, contract, _) = initialize_contracts(None, true).await?;
+    let (worker, _, contract, _) = initialize_contracts(None).await?;
 
     let player_a = worker.dev_create_account().await?;
     let player_b = worker.dev_create_account().await?;
@@ -736,7 +735,7 @@ async fn test_cancel_check_opponent() -> anyhow::Result<()> {
 
 #[tokio::test]
 async fn test_no_self_challenge() -> anyhow::Result<()> {
-    let (worker, _, contract, _) = initialize_contracts(None, false).await?;
+    let (worker, _, contract, _) = initialize_contracts(None).await?;
 
     let player_a = worker.dev_create_account().await?;
 
@@ -750,7 +749,7 @@ async fn test_no_self_challenge() -> anyhow::Result<()> {
 
 #[tokio::test]
 async fn test_max_open_games() -> anyhow::Result<()> {
-    let (worker, _, contract, _) = initialize_contracts(None, false).await?;
+    let (worker, _, contract, _) = initialize_contracts(None).await?;
 
     let player_a = worker.dev_create_account().await?;
     let player_b = worker.dev_create_account().await?;
@@ -784,7 +783,7 @@ async fn test_max_open_games() -> anyhow::Result<()> {
 
 #[tokio::test]
 async fn test_max_open_challenges() -> anyhow::Result<()> {
-    let (worker, _, contract, _) = initialize_contracts(None, false).await?;
+    let (worker, _, contract, _) = initialize_contracts(None).await?;
 
     let player_a = worker.dev_create_account().await?;
     let player_b = worker.dev_create_account().await?;
@@ -816,7 +815,7 @@ async fn test_max_open_challenges() -> anyhow::Result<()> {
 
 #[tokio::test]
 async fn test_finish_game() -> anyhow::Result<()> {
-    let (worker, _, contract, _) = initialize_contracts(None, false).await?;
+    let (worker, _, contract, _) = initialize_contracts(None).await?;
 
     let player_a = worker.dev_create_account().await?;
     let player_b = worker.dev_create_account().await?;
@@ -893,7 +892,7 @@ async fn test_finish_game() -> anyhow::Result<()> {
 
 #[tokio::test]
 async fn test_notify() -> anyhow::Result<()> {
-    let (worker, _, contract, social_contract) = initialize_contracts(None, false).await?;
+    let (worker, _, contract, social_contract) = initialize_contracts(None).await?;
 
     let player_a = worker.dev_create_account().await?;
     let player_b = worker.dev_create_account().await?;
@@ -907,16 +906,12 @@ async fn test_notify() -> anyhow::Result<()> {
     assert_notification(
         &contract,
         &social_contract,
-        vec![Notification {
-            key: player_b.id().parse()?,
-            value: ChessNotification {
-                _type: "chess-game".to_string(),
-                item: ChessNotificationItem::Challenged {
-                    challenge_id: create_challenge_id(player_a.id(), player_b.id()),
-                    challenger_id: player_a.id().parse()?,
-                },
-            },
-        }],
+        hashmap! {
+            player_b.id().parse()? => vec![ChessNotification::Challenged {
+                challenge_id: create_challenge_id(player_a.id(), player_b.id()),
+                challenger_id: player_a.id().parse()?,
+            }],
+        },
     )
     .await?;
     let challenge_id = create_challenge_id(player_a.id(), player_b.id());
@@ -925,15 +920,11 @@ async fn test_notify() -> anyhow::Result<()> {
     assert_notification(
         &contract,
         &social_contract,
-        vec![Notification {
-            key: player_a.id().parse()?,
-            value: ChessNotification {
-                _type: "chess-game".to_string(),
-                item: ChessNotificationItem::RejectedChallenge {
-                    challenged_id: player_b.id().parse()?,
-                },
-            },
-        }],
+        hashmap! {
+            player_a.id().parse()? => vec![ChessNotification::RejectedChallenge {
+                challenged_id: player_b.id().parse()?,
+            }],
+        },
     )
     .await?;
 
@@ -942,16 +933,12 @@ async fn test_notify() -> anyhow::Result<()> {
     assert_notification(
         &contract,
         &social_contract,
-        vec![Notification {
-            key: player_a.id().parse()?,
-            value: ChessNotification {
-                _type: "chess-game".to_string(),
-                item: ChessNotificationItem::AcceptedChallenge {
-                    game_id: game_id.clone(),
-                    challenged_id: player_b.id().parse()?,
-                },
-            },
-        }],
+        hashmap! {
+            player_a.id().parse()? => vec![ChessNotification::AcceptedChallenge {
+                game_id: game_id.clone(),
+                challenged_id: player_b.id().parse()?,
+            }]
+        },
     )
     .await?;
     let block_height = game_id.0;
@@ -965,15 +952,11 @@ async fn test_notify() -> anyhow::Result<()> {
     assert_notification(
         &contract,
         &social_contract,
-        vec![Notification {
-            key: player_b.id().parse()?,
-            value: ChessNotification {
-                _type: "chess-game".to_string(),
-                item: ChessNotificationItem::YourTurn {
-                    game_id: game_id.clone(),
-                },
-            },
-        }],
+        hashmap! {
+            player_b.id().parse()? => vec![ChessNotification::YourTurn {
+                game_id: game_id.clone(),
+            }]
+        },
     )
     .await?;
 
@@ -981,15 +964,11 @@ async fn test_notify() -> anyhow::Result<()> {
     assert_notification(
         &contract,
         &social_contract,
-        vec![Notification {
-            key: player_a.id().parse()?,
-            value: ChessNotification {
-                _type: "chess-game".to_string(),
-                item: ChessNotificationItem::YourTurn {
-                    game_id: game_id.clone(),
-                },
-            },
-        }],
+        hashmap! {
+            player_a.id().parse()? => vec![ChessNotification::YourTurn {
+                game_id: game_id.clone(),
+            }]
+        },
     )
     .await?;
 
@@ -1001,28 +980,16 @@ async fn test_notify() -> anyhow::Result<()> {
     assert_notification(
         &contract,
         &social_contract,
-        vec![
-            Notification {
-                key: player_a.id().parse()?,
-                value: ChessNotification {
-                    _type: "chess-game".to_string(),
-                    item: ChessNotificationItem::Outcome {
-                        game_id: game_id.clone(),
-                        outcome: GameOutcome::Victory(Color::White),
-                    },
-                },
-            },
-            Notification {
-                key: player_b.id().parse()?,
-                value: ChessNotification {
-                    _type: "chess-game".to_string(),
-                    item: ChessNotificationItem::Outcome {
-                        game_id: game_id.clone(),
-                        outcome: GameOutcome::Victory(Color::White),
-                    },
-                },
-            },
-        ],
+        hashmap! {
+            player_a.id().parse()? => vec![ChessNotification::Outcome {
+                game_id: game_id.clone(),
+                outcome: GameOutcome::Victory(Color::White),
+            }],
+            player_b.id().parse()? => vec![ChessNotification::Outcome {
+                game_id: game_id.clone(),
+                outcome: GameOutcome::Victory(Color::White),
+            }]
+        },
     )
     .await?;
 
@@ -1032,28 +999,16 @@ async fn test_notify() -> anyhow::Result<()> {
     assert_notification(
         &contract,
         &social_contract,
-        vec![
-            Notification {
-                key: player_a.id().parse()?,
-                value: ChessNotification {
-                    _type: "chess-game".to_string(),
-                    item: ChessNotificationItem::Outcome {
-                        game_id: game_id.clone(),
-                        outcome: GameOutcome::Victory(Color::Black),
-                    },
-                },
-            },
-            Notification {
-                key: player_b.id().parse()?,
-                value: ChessNotification {
-                    _type: "chess-game".to_string(),
-                    item: ChessNotificationItem::Outcome {
-                        game_id: game_id.clone(),
-                        outcome: GameOutcome::Victory(Color::Black),
-                    },
-                },
-            },
-        ],
+        hashmap! {
+            player_a.id().parse()? => vec![ChessNotification::Outcome {
+                game_id: game_id.clone(),
+                outcome: GameOutcome::Victory(Color::Black),
+            }],
+            player_b.id().parse()? => vec![ChessNotification::Outcome {
+                game_id: game_id.clone(),
+                outcome: GameOutcome::Victory(Color::Black),
+            }]
+        },
     )
     .await?;
 

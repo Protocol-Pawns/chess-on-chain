@@ -460,10 +460,12 @@ version = "1.0.0"
 dependencies = [
  "chess-engine",
  "getrandom 0.2.10",
+ "maplit",
  "near-contract-standards",
  "near-sdk",
  "serde_json",
  "thiserror",
+ "urlencoding",
  "witgen",
 ]
 
@@ -475,6 +477,7 @@ dependencies = [
  "chess-engine",
  "chess-lib",
  "futures",
+ "maplit",
  "near-contract-standards",
  "near-sdk",
  "owo-colors",
@@ -1407,6 +1410,12 @@ name = "log"
 version = "0.4.19"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b06a4cde4c0f271a446782e3eff8de789548ce57dbc8eca9292c27f4a42004b4"
+
+[[package]]
+name = "maplit"
+version = "1.0.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3e2e65a1a2e43cfcb47a895c4c8b10d1f4a61097f9f254f183aee60cad9c651d"
 
 [[package]]
 name = "memchr"
@@ -3103,6 +3112,12 @@ dependencies = [
  "percent-encoding",
  "serde",
 ]
+
+[[package]]
+name = "urlencoding"
+version = "2.1.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "daf8dba3b7eb870caf1ddeed7bc9d2a049f3cfdfae7cb521b087cc33ae4c49da"
 
 [[package]]
 name = "uuid"

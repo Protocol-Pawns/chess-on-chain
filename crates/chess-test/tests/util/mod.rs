@@ -2,14 +2,12 @@ pub mod call;
 pub mod event;
 pub mod view;
 
-use chess_lib::{ChessEvent, Notification};
+use chess_lib::{chess_notification_to_value, ChessEvent, ChessNotification};
+use near_sdk::AccountId;
 use owo_colors::OwoColorize;
 use serde::Serialize;
-use std::{
-    fmt,
-    path::{Path, PathBuf},
-    process::Output,
-};
+use serde_json::json;
+use std::{collections::HashMap, fmt};
 use tokio::fs;
 use workspaces::{
     network::Sandbox,
@@ -43,52 +41,12 @@ macro_rules! print_log {
 
 pub async fn initialize_contracts(
     path: Option<&'static str>,
-    compile: bool,
 ) -> anyhow::Result<(Worker<Sandbox>, Account, Contract, Contract)> {
     let worker = workspaces::sandbox().await?;
 
     let owner = worker.dev_create_account().await?;
 
-    let wasm = if compile {
-        let workdir_path = PathBuf::from("../..");
-        let toolchain = read_toolchain(&workdir_path).await?;
-        add_wasm_target(&workdir_path, &toolchain).await?;
-        let output = tokio::process::Command::new("cargo")
-            .env("RUSTUP_TOOLCHAIN", &toolchain)
-            .current_dir(&workdir_path)
-            .args([
-                "build",
-                "--target",
-                "wasm32-unknown-unknown",
-                "--release",
-                "--features=integration-test",
-                "-p",
-                "chess",
-            ])
-            .output()
-            .await?;
-        require_success(&output)?;
-        let binary_path = workdir_path.join(
-            ["target", "wasm32-unknown-unknown", "release", "chess.wasm"]
-                .iter()
-                .collect::<PathBuf>(),
-        );
-        let output = tokio::process::Command::new("wasm-opt")
-            .args([
-                "-O4",
-                binary_path.to_str().unwrap(),
-                "-o",
-                binary_path.to_str().unwrap(),
-                "--strip-debug",
-                "--vacuum",
-            ])
-            .output()
-            .await?;
-        require_success(&output)?;
-        fs::read(binary_path).await?
-    } else {
-        fs::read(path.unwrap_or("../../res/chess.wasm")).await?
-    };
+    let wasm = fs::read(path.unwrap_or("../../res/chess_testing.wasm")).await?;
 
     let key = SecretKey::from_random(KeyType::ED25519);
     let social_contract = worker
@@ -252,56 +210,49 @@ where
 pub async fn assert_notification(
     contract: &Contract,
     social_contract: &Contract,
-    notifications: Vec<Notification>,
+    notifications: HashMap<AccountId, Vec<ChessNotification>>,
 ) -> anyhow::Result<()> {
     let actual_notification = view::get_social(
         social_contract,
         vec![format!("{}/index/notify", contract.id()).to_string()],
     )
     .await?;
-    if notifications.len() == 1 {
-        assert!(
-            actual_notification.get(contract.id()).unwrap().index.notify
-                == serde_json::to_string(&notifications.get(0).unwrap())?
-        );
-    } else {
-        assert!(
-            actual_notification.get(contract.id()).unwrap().index.notify
-                == serde_json::to_string(&notifications)?
-        );
-    }
+    let mut actual: serde_json::Value = serde_json::from_str(
+        actual_notification
+            .get(contract.id())
+            .unwrap()
+            .get("index")
+            .unwrap()
+            .get("notify")
+            .unwrap()
+            .as_str()
+            .unwrap(),
+    )?;
+    let sorting = |a: &serde_json::Value, b: &serde_json::Value| {
+        a.get("key")
+            .unwrap()
+            .as_str()
+            .unwrap()
+            .cmp(b.get("key").unwrap().as_str().unwrap())
+    };
+    actual.as_array_mut().unwrap().sort_by(sorting);
+    let mut expected = json!(&notifications
+        .iter()
+        .flat_map(|(account_id, notifications)| {
+            let mut notifications: Vec<_> = notifications
+                .iter()
+                .map(|notification| chess_notification_to_value(account_id, notification))
+                .collect();
+            notifications.push(json!({
+                "key": account_id,
+                "value": {
+                    "type": "poke"
+                }
+            }));
+            notifications
+        })
+        .collect::<Vec<_>>());
+    expected.as_array_mut().unwrap().sort_by(sorting);
+    assert_eq!(actual, expected);
     Ok(())
-}
-
-async fn read_toolchain(workdir_path: &Path) -> anyhow::Result<String> {
-    let bytes = fs::read(workdir_path.join("rust-toolchain.toml")).await?;
-    let value: toml::Value = toml::from_str(std::str::from_utf8(&bytes)?)?;
-    let result = value
-        .as_table()
-        .and_then(|t| t.get("toolchain"))
-        .and_then(|v| v.as_table())
-        .and_then(|t| t.get("channel"))
-        .and_then(|v| v.as_str())
-        .ok_or_else(|| anyhow::Error::msg("Failed to parse rust-toolchain toml"))?
-        .to_string();
-    Ok(result)
-}
-
-async fn add_wasm_target(workdir_path: &Path, toolchain: &str) -> anyhow::Result<()> {
-    let output = tokio::process::Command::new("rustup")
-        .env("RUSTUP_TOOLCHAIN", toolchain)
-        .current_dir(workdir_path)
-        .args(["target", "add", "wasm32-unknown-unknown"])
-        .output()
-        .await?;
-    require_success(&output)?;
-    Ok(())
-}
-
-fn require_success(output: &Output) -> Result<(), anyhow::Error> {
-    if output.status.success() {
-        Ok(())
-    } else {
-        Err(anyhow::Error::msg(format!("Command failed: {:?}", output)))
-    }
 }

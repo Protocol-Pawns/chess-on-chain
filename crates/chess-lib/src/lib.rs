@@ -14,6 +14,7 @@ pub use elo::*;
 pub use error::*;
 pub use event::*;
 pub use game::*;
+use maplit::hashmap;
 pub use social::*;
 pub use storage::*;
 pub use view::*;
@@ -29,7 +30,7 @@ use near_sdk::{
     store::{Lazy, UnorderedMap},
     AccountId, Balance, BorshStorageKey, PanicOnDefault, PromiseOrValue,
 };
-use std::collections::VecDeque;
+use std::collections::{HashMap, VecDeque};
 use witgen::witgen;
 
 pub const MAX_OPEN_GAMES: u32 = 10;
@@ -216,15 +217,11 @@ impl Chess {
         event.emit();
 
         if !is_challenger {
-            self.internal_send_notify(vec![Notification {
-                key: challenger_id.clone(),
-                value: ChessNotification {
-                    _type: "chess-game".to_string(),
-                    item: ChessNotificationItem::RejectedChallenge {
-                        challenged_id: challenged_id.clone(),
-                    },
-                },
-            }]);
+            self.internal_send_notify(hashmap! {
+                challenger_id.clone() => vec![ChessNotification::RejectedChallenge {
+                    challenged_id: challenged_id.clone(),
+                }]
+            });
         }
 
         Ok(())
@@ -253,26 +250,24 @@ impl Chess {
 
         let move_result = game.play_move(mv)?;
 
-        let mut notifications = vec![];
+        let mut notifications = HashMap::new();
         let player = match move_result.1 {
             Color::White => game.get_white(),
             Color::Black => game.get_black(),
         };
 
-        if let Player::Human(account_id) = player.clone() {
-            notifications.push(Notification {
-                key: account_id,
-                value: ChessNotification {
-                    _type: "chess-game".to_string(),
-                    item: ChessNotificationItem::YourTurn {
+        if game.get_black().is_human() {
+            if let Player::Human(account_id) = player.clone() {
+                notifications.insert(
+                    account_id,
+                    vec![ChessNotification::YourTurn {
                         game_id: game_id.clone(),
-                    },
-                },
-            });
+                    }],
+                );
+            }
         }
 
         let (outcome, board) = if let Some((outcome, board_state)) = move_result.0 {
-            notifications = vec![];
             self.internal_handle_outcome(game_id, &outcome, &mut notifications);
             (Some(outcome), board_state)
         } else {
@@ -311,7 +306,7 @@ impl Chess {
             GameOutcome::Victory(Color::Black)
         };
 
-        let mut notifications = vec![];
+        let mut notifications = HashMap::new();
         self.internal_handle_outcome(game_id.clone(), &outcome, &mut notifications);
         self.internal_send_notify(notifications);
 
@@ -476,16 +471,12 @@ impl Chess {
         let event = ChessEvent::Challenge(challenge);
         event.emit();
 
-        self.internal_send_notify(vec![Notification {
-            key: challenged_id,
-            value: ChessNotification {
-                _type: "chess-game".to_string(),
-                item: ChessNotificationItem::Challenged {
-                    challenge_id,
-                    challenger_id,
-                },
-            },
-        }]);
+        self.internal_send_notify(hashmap! {
+            challenged_id =>  vec![ChessNotification::Challenged {
+                challenge_id,
+                challenger_id,
+            }]
+        });
 
         Ok(())
     }
@@ -535,16 +526,12 @@ impl Chess {
         event.emit();
         self.games.insert(game_id.clone(), game);
 
-        self.internal_send_notify(vec![Notification {
-            key: challenger_id.clone(),
-            value: ChessNotification {
-                _type: "chess-game".to_string(),
-                item: ChessNotificationItem::AcceptedChallenge {
-                    game_id: game_id.clone(),
-                    challenged_id,
-                },
-            },
-        }]);
+        self.internal_send_notify(hashmap! {
+            challenger_id.clone() => vec![ChessNotification::AcceptedChallenge {
+                game_id: game_id.clone(),
+                challenged_id,
+            }]
+        });
 
         Ok(game_id)
     }
@@ -553,7 +540,7 @@ impl Chess {
         &mut self,
         game_id: GameId,
         outcome: &GameOutcome,
-        notifications: &mut Vec<Notification>,
+        notifications: &mut HashMap<AccountId, Vec<ChessNotification>>,
     ) {
         let game = self.games.remove(&game_id).unwrap();
         if let Some(account) = game.get_white().as_account_mut(self) {
@@ -575,28 +562,22 @@ impl Chess {
         }
 
         if let Player::Human(account_id) = game.get_white() {
-            notifications.push(Notification {
-                key: account_id.clone(),
-                value: ChessNotification {
-                    _type: "chess-game".to_string(),
-                    item: ChessNotificationItem::Outcome {
-                        game_id: game_id.clone(),
-                        outcome: outcome.clone(),
-                    },
-                },
-            });
+            notifications.insert(
+                account_id.clone(),
+                vec![ChessNotification::Outcome {
+                    game_id: game_id.clone(),
+                    outcome: outcome.clone(),
+                }],
+            );
         }
         if let Player::Human(account_id) = game.get_black() {
-            notifications.push(Notification {
-                key: account_id.clone(),
-                value: ChessNotification {
-                    _type: "chess-game".to_string(),
-                    item: ChessNotificationItem::Outcome {
-                        game_id,
-                        outcome: outcome.clone(),
-                    },
-                },
-            });
+            notifications.insert(
+                account_id.clone(),
+                vec![ChessNotification::Outcome {
+                    game_id,
+                    outcome: outcome.clone(),
+                }],
+            );
         }
     }
 

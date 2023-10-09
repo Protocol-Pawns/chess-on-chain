@@ -1,5 +1,6 @@
 use super::log_view_result;
-use chess_lib::{Challenge, ChallengeId, EloRating, GameId, GameInfo, IndexNotify};
+use chess_lib::{Challenge, ChallengeId, EloRating, GameId, GameInfo};
+use serde_json::Value;
 use std::collections::HashMap;
 use workspaces::{AccountId, Contract};
 
@@ -102,7 +103,7 @@ pub async fn finished_games(
 pub async fn get_social(
     contract: &Contract,
     keys: Vec<String>,
-) -> anyhow::Result<HashMap<AccountId, IndexNotify>> {
+) -> anyhow::Result<HashMap<AccountId, Value>> {
     let res = log_view_result(
         contract
             .call("get")
