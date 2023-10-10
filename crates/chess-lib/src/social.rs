@@ -78,6 +78,9 @@ impl Chess {
                 notifications
             })
             .collect();
+        if notifications.is_empty() {
+            return;
+        }
         social_db::ext(self.social_db.clone())
             .with_static_gas(Gas(20 * TGAS))
             .set(json!({
