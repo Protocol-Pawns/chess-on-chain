@@ -325,12 +325,6 @@ impl Chess {
     /// and hasn't been doing a move for the last approx. 3days (measured in block height)
     #[handle_result]
     pub fn cancel(&mut self, game_id: GameId) -> Result<(), ContractError> {
-        if env::block_height() - game_id.0 < MIN_BLOCK_DIFF_CANCEL {
-            return Err(ContractError::GameNotCancellable(
-                MIN_BLOCK_DIFF_CANCEL + game_id.0 - env::block_height(),
-            ));
-        }
-
         let account_id = env::signer_account_id();
         let game = self
             .games
