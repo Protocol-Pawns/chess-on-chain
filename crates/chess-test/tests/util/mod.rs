@@ -4,17 +4,17 @@ pub mod view;
 
 use chess_lib::{chess_notification_to_value, ChessEvent, ChessNotification};
 use near_sdk::AccountId;
-use owo_colors::OwoColorize;
-use serde::Serialize;
-use serde_json::json;
-use std::{collections::HashMap, fmt};
-use tokio::fs;
-use workspaces::{
+use near_workspaces::{
     network::Sandbox,
     result::{ExecutionFinalResult, ExecutionResult, Value, ViewResultDetails},
     types::{KeyType, SecretKey},
     Account, Contract, Worker,
 };
+use owo_colors::OwoColorize;
+use serde::Serialize;
+use serde_json::json;
+use std::{collections::HashMap, fmt};
+use tokio::fs;
 
 #[macro_export]
 macro_rules! print_log {
@@ -41,8 +41,8 @@ macro_rules! print_log {
 
 pub async fn initialize_contracts(
     path: Option<&'static str>,
-) -> anyhow::Result<(Worker<Sandbox>, Account, Contract, Contract)> {
-    let worker = workspaces::sandbox().await?;
+) -> anyhow::Result<(Worker<Sandbox>, Account, Contract, Contract, Contract)> {
+    let worker = near_workspaces::sandbox().await?;
 
     let owner = worker.dev_create_account().await?;
 
@@ -72,18 +72,44 @@ pub async fn initialize_contracts(
         .into_result()?;
 
     let key = SecretKey::from_random(KeyType::ED25519);
+    let iah_contract = worker
+        .create_tla_and_deploy(
+            "iah-registry.test.near".parse()?,
+            key,
+            &fs::read("../../res/iah_registry_stub.wasm").await?,
+        )
+        .await?
+        .into_result()?;
+    iah_contract
+        .call("new")
+        .max_gas()
+        .transact()
+        .await?
+        .into_result()?;
+
+    let key = SecretKey::from_random(KeyType::ED25519);
     let contract = worker
         .create_tla_and_deploy("chess.test.near".parse()?, key, &wasm)
         .await?
         .into_result()?;
 
-    contract
-        .call("new")
-        .args_json((social_contract.id(),))
-        .max_gas()
-        .transact()
-        .await?
-        .into_result()?;
+    if path.is_some() {
+        contract
+            .call("new")
+            .args_json((social_contract.id(),))
+            .max_gas()
+            .transact()
+            .await?
+            .into_result()?;
+    } else {
+        contract
+            .call("new")
+            .args_json((social_contract.id(), iah_contract.id()))
+            .max_gas()
+            .transact()
+            .await?
+            .into_result()?;
+    }
 
     contract
         .as_account()
@@ -98,7 +124,7 @@ pub async fn initialize_contracts(
         .await?
         .into_result()?;
 
-    Ok((worker, owner, contract, social_contract))
+    Ok((worker, owner, contract, social_contract, iah_contract))
 }
 
 pub async fn initialize_token(
@@ -152,9 +178,7 @@ pub fn log_tx_result(
         print_log!(
             "{} gas burnt: {:.3} {}",
             ident.italic(),
-            (res.total_gas_burnt as f64 / 1_000_000_000_000.)
-                .bright_magenta()
-                .bold(),
+            res.total_gas_burnt.as_tgas().bright_magenta().bold(),
             "TGas".bright_magenta().bold()
         );
     }

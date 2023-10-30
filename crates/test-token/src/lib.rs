@@ -1,15 +1,18 @@
+#![allow(deprecated)]
+
 use near_contract_standards::fungible_token::{
     metadata::{FungibleTokenMetadata, FungibleTokenMetadataProvider},
     FungibleToken,
 };
 use near_sdk::{
-    borsh::{self, BorshDeserialize, BorshSerialize},
+    borsh::{BorshDeserialize, BorshSerialize},
     json_types::U128,
     near_bindgen, AccountId, PanicOnDefault, PromiseOrValue,
 };
 
 #[near_bindgen]
 #[derive(BorshSerialize, BorshDeserialize, PanicOnDefault)]
+#[borsh(crate = "near_sdk::borsh")]
 pub struct Contract {
     name: String,
     symbol: String,

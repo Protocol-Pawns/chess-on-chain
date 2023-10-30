@@ -49,9 +49,20 @@ impl Chess {
         Ok(account.get_game_ids())
     }
 
-    /// Returns ELO rating for given wallet ID.
+    /// Returns whether account has been I-Am-Human verified.
     #[handle_result]
-    pub fn get_elo(&self, account_id: AccountId) -> Result<EloRating, ContractError> {
+    pub fn is_human(&self, account_id: AccountId) -> Result<bool, ContractError> {
+        let account = self
+            .accounts
+            .get(&account_id)
+            .ok_or_else(|| ContractError::AccountNotRegistered(account_id.clone()))?;
+        Ok(account.is_human())
+    }
+
+    /// Returns ELO rating for given wallet ID.
+    /// Only I-Am-Human verified accounts have an ELO.
+    #[handle_result]
+    pub fn get_elo(&self, account_id: AccountId) -> Result<Option<EloRating>, ContractError> {
         let account = self
             .accounts
             .get(&account_id)
@@ -68,7 +79,9 @@ impl Chess {
             .iter()
             .skip(skip.unwrap_or_default())
             .take(limit.unwrap_or(100))
-            .map(|(account_id, account)| (account_id.clone(), account.get_elo()))
+            .filter_map(|(account_id, account)| {
+                account.get_elo().map(|elo| (account_id.clone(), elo))
+            })
             .collect()
     }
 

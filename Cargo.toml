@@ -1,8 +1,35 @@
 [workspace]
-members = [
-    "crates/*"
-]
+members = ["crates/*"]
 resolver = "2"
+
+[workspace.dependencies]
+anyhow = "1"
+either = "1"
+futures = "0.3"
+getrandom = { version = "0.2", features = ["js"] }
+maplit = "1"
+near-workspaces = { version = "0.8", default-features = false }
+owo-colors = "3"
+rand = { version = "0.8", default-features = false, features = ["alloc"] }
+rand_chacha = "0.3"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "1"
+tokio = { version = "1", features = ["full"] }
+toml = "0.8"
+urlencoding = "2"
+
+[workspace.dependencies.near-contract-standards]
+version = "4"
+git = "https://github.com/near/near-sdk-rs.git"
+rev = "ee5cf867741d6d0d4db15857609b9e9268cc9b32"
+
+[workspace.dependencies.near-sdk]
+version = "4"
+git = "https://github.com/near/near-sdk-rs.git"
+rev = "ee5cf867741d6d0d4db15857609b9e9268cc9b32"
+default-features = false
+features = ["unit-testing", "unstable"]
 
 [profile]
 [profile.release]

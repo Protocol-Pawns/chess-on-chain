@@ -1,11 +1,11 @@
 use std::collections::HashMap;
 
-use crate::{ChallengeId, Chess, GameId, GameOutcome, TGAS};
+use crate::{ChallengeId, Chess, GameId, GameOutcome, GAS_FOR_SOCIAL_NOTIFY_CALL};
 use chess_engine::Color;
 use near_sdk::{
     env, ext_contract,
     serde::{Deserialize, Serialize},
-    AccountId, Gas, PublicKey,
+    AccountId, PublicKey,
 };
 use serde_json::{json, Value};
 use urlencoding::encode;
@@ -82,7 +82,7 @@ impl Chess {
             return;
         }
         social_db::ext(self.social_db.clone())
-            .with_static_gas(Gas(20 * TGAS))
+            .with_static_gas(GAS_FOR_SOCIAL_NOTIFY_CALL)
             .set(json!({
                 env::current_account_id(): {
                     "index": {

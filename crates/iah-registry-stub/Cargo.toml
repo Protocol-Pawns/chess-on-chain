@@ -1,5 +1,5 @@
 [package]
-name = "test-token"
+name = "iah-registry-stub"
 version = "0.1.0"
 authors = ["Mario Reder <mario.reder@pm.me>"]
 edition = "2021"
@@ -8,5 +8,4 @@ edition = "2021"
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
-near-contract-standards.workspace = true
 near-sdk.workspace = true

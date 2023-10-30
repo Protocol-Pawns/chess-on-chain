@@ -1,14 +1,10 @@
-use near_sdk::{
-    borsh::{self, BorshSerialize},
-    AccountId, Balance, FunctionError,
-};
+use near_sdk::{borsh::BorshSerialize, AccountId, Balance, FunctionError};
 use thiserror::Error;
-use witgen::witgen;
 
 use crate::ChallengeId;
 
 #[derive(BorshSerialize, Debug, Error, FunctionError)]
-#[witgen]
+#[borsh(crate = "near_sdk::borsh")]
 pub enum ContractError {
     #[error("Contract already initialized")]
     AlreadyInitilized,

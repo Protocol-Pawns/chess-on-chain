@@ -4,6 +4,7 @@ mod elo;
 mod error;
 mod event;
 mod game;
+mod iah;
 mod social;
 mod storage;
 mod view;
@@ -14,24 +15,23 @@ pub use elo::*;
 pub use error::*;
 pub use event::*;
 pub use game::*;
-use maplit::hashmap;
+pub use iah::*;
 pub use social::*;
 pub use storage::*;
-pub use view::*;
 
 use chess_engine::{Color, Move};
+use maplit::hashmap;
 use near_contract_standards::fungible_token::receiver::FungibleTokenReceiver;
 use near_sdk::{
-    borsh::{self, BorshDeserialize, BorshSerialize},
+    borsh::{BorshDeserialize, BorshSerialize},
     env,
     json_types::U128,
     near_bindgen,
     serde::{Deserialize, Serialize},
     store::{Lazy, UnorderedMap},
-    AccountId, Balance, BorshStorageKey, PanicOnDefault, PromiseOrValue,
+    AccountId, Balance, BorshStorageKey, Gas, PanicOnDefault, PromiseOrValue,
 };
 use std::collections::{HashMap, VecDeque};
-use witgen::witgen;
 
 pub const MAX_OPEN_GAMES: u32 = 10;
 pub const MAX_OPEN_CHALLENGES: u32 = 50;
@@ -42,7 +42,11 @@ pub const MIN_BLOCK_DIFF_CANCEL: u64 = 60 * 60 * 24 * 3; // ~3 days
 #[cfg(feature = "integration-test")]
 pub const MIN_BLOCK_DIFF_CANCEL: u64 = 100;
 
+pub const GAS_FOR_SOCIAL_NOTIFY_CALL: Gas = Gas::from_tgas(20);
+pub const GAS_FOR_IS_HUMAN_CALL: Gas = Gas::from_tgas(12);
+
 #[derive(BorshStorageKey, BorshSerialize)]
+#[borsh(crate = "near_sdk::borsh")]
 pub enum StorageKey {
     Accounts,
     VAccounts,
@@ -58,8 +62,10 @@ pub enum StorageKey {
 
 #[near_bindgen]
 #[derive(BorshDeserialize, BorshSerialize, PanicOnDefault)]
+#[borsh(crate = "near_sdk::borsh")]
 pub struct Chess {
     pub social_db: AccountId,
+    pub iah_registry: AccountId,
     pub accounts: UnorderedMap<AccountId, Account>,
     pub games: UnorderedMap<GameId, Game>,
     pub challenges: UnorderedMap<ChallengeId, Challenge>,
@@ -68,7 +74,9 @@ pub struct Chess {
 
 #[near_bindgen]
 #[derive(BorshDeserialize, BorshSerialize, PanicOnDefault)]
+#[borsh(crate = "near_sdk::borsh")]
 pub struct OldChess {
+    pub social_db: AccountId,
     pub accounts: UnorderedMap<AccountId, Account>,
     pub games: UnorderedMap<GameId, Game>,
     pub challenges: UnorderedMap<ChallengeId, Challenge>,
@@ -83,19 +91,19 @@ pub struct OldChess {
 /// - "e2 to e4"
 /// - "castle queenside"
 /// - "castle kingside"
-#[witgen]
 pub type MoveStr = String;
 
 #[near_bindgen]
 impl Chess {
     #[init]
     #[handle_result]
-    pub fn new(social_db: AccountId) -> Result<Self, ContractError> {
+    pub fn new(social_db: AccountId, iah_registry: AccountId) -> Result<Self, ContractError> {
         if env::state_exists() {
             return Err(ContractError::AlreadyInitilized);
         }
         Ok(Self {
             social_db,
+            iah_registry,
             accounts: UnorderedMap::new(StorageKey::VAccounts),
             games: UnorderedMap::new(StorageKey::Games),
             challenges: UnorderedMap::new(StorageKey::Challenges),
@@ -105,19 +113,20 @@ impl Chess {
 
     #[private]
     #[init(ignore_state)]
-    pub fn migrate() -> Self {
-        let mut chess: Chess = env::state_read().unwrap();
+    pub fn migrate(iah_registry: AccountId) -> Self {
+        let mut chess: OldChess = env::state_read().unwrap();
 
-        let mut games = vec![];
-        for (game_id, game) in chess.games.drain() {
-            games.push((game_id, game.migrate()));
+        let mut accounts = vec![];
+        for (account_id, account) in chess.accounts.drain() {
+            accounts.push((account_id, account.migrate()));
         }
-        for (game_id, game) in games {
-            chess.games.insert(game_id, game);
+        for (game_id, game) in accounts {
+            chess.accounts.insert(game_id, game);
         }
 
         Self {
             social_db: chess.social_db,
+            iah_registry,
             accounts: chess.accounts,
             games: chess.games,
             challenges: chess.challenges,
@@ -128,7 +137,9 @@ impl Chess {
     #[private]
     pub fn clear_all_games(&mut self) {
         for (game_id, game) in self.games.drain() {
-            let Player::Human(account_id) = game.get_white() else { panic!() };
+            let Player::Human(account_id) = game.get_white() else {
+                panic!()
+            };
             let account = self.accounts.get_mut(account_id).unwrap();
             account.remove_game_id(&game_id);
         }
@@ -363,7 +374,6 @@ impl Chess {
 
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(crate = "near_sdk::serde")]
-#[witgen]
 pub enum FtReceiverMsg {
     Challenge(ChallengeMsg),
     AcceptChallenge(AcceptChallengeMsg),
@@ -371,14 +381,12 @@ pub enum FtReceiverMsg {
 
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(crate = "near_sdk::serde")]
-#[witgen]
 pub struct ChallengeMsg {
     pub challenged_id: AccountId,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(crate = "near_sdk::serde")]
-#[witgen]
 pub struct AcceptChallengeMsg {
     pub challenge_id: ChallengeId,
 }
@@ -576,7 +584,7 @@ impl Chess {
     }
 
     pub(crate) fn internal_calculate_elo(&mut self, game: &Game, outcome: &GameOutcome) {
-        if let (Some(elo_white), Some(elo_black), GameOutcome::Victory(color)) = (
+        if let (Some(Some(elo_white)), Some(Some(elo_black)), GameOutcome::Victory(color)) = (
             game.get_white()
                 .as_account_mut(self)
                 .map(|account| account.get_elo()),
@@ -614,8 +622,13 @@ impl Chess {
             .ok_or_else(|| ContractError::AccountNotRegistered(account_id.clone()))
     }
 
-    pub(crate) fn internal_register_account(&mut self, account_id: AccountId, amount: Balance) {
-        let account = Account::new(account_id.clone(), amount);
+    pub(crate) fn internal_register_account(
+        &mut self,
+        account_id: AccountId,
+        amount: Balance,
+        is_human: bool,
+    ) {
+        let account = Account::new(account_id.clone(), amount, is_human);
         self.accounts.insert(account_id, account);
     }
 }

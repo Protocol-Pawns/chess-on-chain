@@ -9,14 +9,17 @@ use near_sdk::{
 };
 
 #[derive(BorshDeserialize, BorshSerialize)]
+#[borsh(crate = "near_sdk::borsh")]
 pub enum Account {
     V1(AccountV1),
     V2(AccountV2),
     V3(AccountV3),
     V4(AccountV4),
+    V5(AccountV5),
 }
 
 #[derive(BorshDeserialize, BorshSerialize)]
+#[borsh(crate = "near_sdk::borsh")]
 pub struct AccountV1 {
     near_amount: Balance,
     account_id: AccountId,
@@ -25,6 +28,7 @@ pub struct AccountV1 {
 }
 
 #[derive(BorshDeserialize, BorshSerialize)]
+#[borsh(crate = "near_sdk::borsh")]
 pub struct AccountV2 {
     near_amount: Balance,
     account_id: AccountId,
@@ -35,6 +39,7 @@ pub struct AccountV2 {
 }
 
 #[derive(BorshDeserialize, BorshSerialize)]
+#[borsh(crate = "near_sdk::borsh")]
 pub struct AccountV3 {
     near_amount: Balance,
     account_id: AccountId,
@@ -46,6 +51,7 @@ pub struct AccountV3 {
 }
 
 #[derive(BorshDeserialize, BorshSerialize)]
+#[borsh(crate = "near_sdk::borsh")]
 pub struct AccountV4 {
     near_amount: Balance,
     account_id: AccountId,
@@ -57,46 +63,59 @@ pub struct AccountV4 {
     challenged: UnorderedSet<ChallengeId>,
 }
 
+#[derive(BorshDeserialize, BorshSerialize)]
+#[borsh(crate = "near_sdk::borsh")]
+pub struct AccountV5 {
+    near_amount: Balance,
+    account_id: AccountId,
+    is_human: bool,
+    elo: Option<EloRating>,
+    game_ids: UnorderedSet<GameId>,
+    finished_games: UnorderedSet<GameId>,
+    challenger: UnorderedSet<ChallengeId>,
+    challenged: UnorderedSet<ChallengeId>,
+}
+
 impl Account {
-    pub fn new(account_id: AccountId, near_amount: Balance) -> Self {
+    pub fn new(account_id: AccountId, near_amount: Balance, is_human: bool) -> Self {
         let id = env::sha256_array(account_id.as_bytes());
         let game_id_prefix: Vec<u8> = [
-            StorageKey::VAccounts.try_to_vec().unwrap().as_slice(),
+            borsh::to_vec(&StorageKey::VAccounts).unwrap().as_slice(),
             &id,
-            StorageKey::AccountOrderIds.try_to_vec().unwrap().as_slice(),
+            borsh::to_vec(&StorageKey::AccountOrderIds)
+                .unwrap()
+                .as_slice(),
         ]
         .concat();
         let finished_games_prefix: Vec<u8> = [
-            StorageKey::VAccounts.try_to_vec().unwrap().as_slice(),
+            borsh::to_vec(&StorageKey::VAccounts).unwrap().as_slice(),
             &id,
-            StorageKey::AccountFinishedGames
-                .try_to_vec()
+            borsh::to_vec(&StorageKey::AccountFinishedGames)
                 .unwrap()
                 .as_slice(),
         ]
         .concat();
         let challenger_prefix: Vec<u8> = [
-            StorageKey::VAccounts.try_to_vec().unwrap().as_slice(),
+            borsh::to_vec(&StorageKey::VAccounts).unwrap().as_slice(),
             &id,
-            StorageKey::AccountChallenger
-                .try_to_vec()
+            borsh::to_vec(&StorageKey::AccountChallenger)
                 .unwrap()
                 .as_slice(),
         ]
         .concat();
         let challenged_prefix: Vec<u8> = [
-            StorageKey::VAccounts.try_to_vec().unwrap().as_slice(),
+            borsh::to_vec(&StorageKey::VAccounts).unwrap().as_slice(),
             &id,
-            StorageKey::AccountChallenged
-                .try_to_vec()
+            borsh::to_vec(&StorageKey::AccountChallenged)
                 .unwrap()
                 .as_slice(),
         ]
         .concat();
-        Self::V3(AccountV3 {
+        Self::V5(AccountV5 {
             account_id,
             near_amount,
-            elo: 1_000.,
+            is_human,
+            elo: if is_human { Some(1_000.) } else { None },
             game_ids: UnorderedSet::new(game_id_prefix),
             finished_games: UnorderedSet::new(finished_games_prefix),
             challenger: UnorderedSet::new(challenger_prefix),
@@ -105,10 +124,9 @@ impl Account {
     }
 
     pub fn migrate(self) -> Self {
-        if let Account::V4(AccountV4 {
+        if let Account::V3(AccountV3 {
             near_amount,
             account_id,
-            elo,
             game_ids,
             finished_games,
             challenger,
@@ -116,10 +134,11 @@ impl Account {
             ..
         }) = self
         {
-            Account::V3(AccountV3 {
+            Account::V5(AccountV5 {
                 near_amount,
                 account_id,
-                elo,
+                is_human: false,
+                elo: None,
                 game_ids,
                 finished_games,
                 challenger,
@@ -131,28 +150,51 @@ impl Account {
     }
 
     pub fn get_near_amount(&self) -> Balance {
-        let Account::V3(account) = self else {
+        let Account::V5(account) = self else {
             panic!("migration required");
         };
         account.near_amount
     }
 
-    pub fn get_elo(&self) -> EloRating {
-        let Account::V3(account) = self else {
+    pub fn is_human(&self) -> bool {
+        let Account::V5(account) = self else {
+            panic!("migration required");
+        };
+        account.is_human
+    }
+
+    pub fn set_is_human(&mut self, is_human: bool) {
+        let Account::V5(account) = self else {
+            panic!("migration required");
+        };
+        account.is_human = is_human;
+        if is_human {
+            if account.elo.is_none() {
+                account.elo = Some(1_000.);
+            }
+        } else {
+            account.elo = None;
+        }
+    }
+
+    pub fn get_elo(&self) -> Option<EloRating> {
+        let Account::V5(account) = self else {
             panic!("migration required");
         };
         account.elo
     }
 
     pub fn set_elo(&mut self, elo: EloRating) {
-        let Account::V3(account) = self else {
+        let Account::V5(account) = self else {
             panic!("migration required");
         };
-        account.elo = elo;
+        if account.is_human {
+            account.elo = Some(elo);
+        }
     }
 
     pub fn add_game_id(&mut self, game_id: GameId) -> Result<(), ContractError> {
-        let Account::V3(account) = self else {
+        let Account::V5(account) = self else {
             panic!("migration required");
         };
         if account.game_ids.len() >= MAX_OPEN_GAMES {
@@ -163,35 +205,35 @@ impl Account {
     }
 
     pub fn remove_game_id(&mut self, game_id: &GameId) -> bool {
-        let Account::V3(account) = self else {
+        let Account::V5(account) = self else {
             panic!("migration required");
         };
         account.game_ids.remove(game_id)
     }
 
     pub fn save_finished_game(&mut self, game_id: GameId) {
-        let Account::V3(account) = self else {
+        let Account::V5(account) = self else {
             panic!("migration required");
         };
         account.finished_games.insert(game_id);
     }
 
     pub fn is_playing(&self) -> bool {
-        let Account::V3(account) = self else {
+        let Account::V5(account) = self else {
             panic!("migration required");
         };
         !account.game_ids.is_empty()
     }
 
     pub fn get_game_ids(&self) -> Vec<GameId> {
-        let Account::V3(account) = self else {
+        let Account::V5(account) = self else {
             panic!("migration required");
         };
         account.game_ids.into_iter().cloned().collect()
     }
 
     pub fn get_finished_games(&self) -> Vec<GameId> {
-        let Account::V3(account) = self else {
+        let Account::V5(account) = self else {
             panic!("migration required");
         };
         account.finished_games.into_iter().cloned().collect()
@@ -204,7 +246,7 @@ impl Account {
         is_challenger: bool,
     ) -> Result<(), ContractError> {
         self.add_game_id(game_id)?;
-        let Account::V3(account) = self else {
+        let Account::V5(account) = self else {
             panic!("migration required");
         };
         if is_challenger {
@@ -220,7 +262,7 @@ impl Account {
         challenge_id: &ChallengeId,
         is_challenger: bool,
     ) -> Result<(), ContractError> {
-        let Account::V3(account) = self else {
+        let Account::V5(account) = self else {
             panic!("migration required");
         };
         if is_challenger {
@@ -236,7 +278,7 @@ impl Account {
         challenge_id: ChallengeId,
         is_challenger: bool,
     ) -> Result<(), ContractError> {
-        let Account::V3(account) = self else {
+        let Account::V5(account) = self else {
             panic!("migration required");
         };
         if account.challenger.len() + account.challenged.len() >= MAX_OPEN_CHALLENGES {
@@ -251,7 +293,7 @@ impl Account {
     }
 
     pub fn get_challenges(&self, is_challenger: bool) -> Vec<ChallengeId> {
-        let Account::V3(account) = self else {
+        let Account::V5(account) = self else {
             panic!("migration required");
         };
         if is_challenger {

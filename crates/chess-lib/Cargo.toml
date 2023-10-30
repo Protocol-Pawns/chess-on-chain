@@ -8,32 +8,14 @@ edition = "2021"
 crate-type = ["rlib"]
 
 [dependencies]
-getrandom = { version = "0.2", features = ["js"] }
-maplit = "1"
-serde_json = "1"
-thiserror = "1"
-urlencoding = "2"
-witgen = "0.15"
-
-[dependencies.chess-engine]
-version = "0.1"
-git = "https://github.com/Protocol-Pawns/chess-engine.git"
-# path = "../../../chess-engine"
-
-[dependencies.near-contract-standards]
-version = "4"
-git = "https://github.com/near/near-sdk-rs.git"
-rev = "89f8c2d776c8d00feb45239fdb15725527f1894b"
-
-[dependencies.near-sdk]
-version = "4"
-git = "https://github.com/near/near-sdk-rs.git"
-rev = "89f8c2d776c8d00feb45239fdb15725527f1894b"
-default-features = false
-features = ["unit-testing", "unstable"]
+chess-engine = { path = "../chess-engine" }
+getrandom.workspace = true
+maplit.workspace = true
+near-contract-standards.workspace = true
+near-sdk.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+urlencoding.workspace = true
 
 [features]
 integration-test = []
-
-[package.metadata.witgen]
-export = true

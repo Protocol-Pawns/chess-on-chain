@@ -1,9 +1,10 @@
-use crate::{Chess, ChessExt, ContractError};
+use crate::{iah, Chess, ChessExt, ContractError, GAS_FOR_IS_HUMAN_CALL};
 use near_contract_standards::storage_management::{
     StorageBalance, StorageBalanceBounds, StorageManagement,
 };
 use near_sdk::{
     assert_one_yocto, env, json_types::U128, near_bindgen, AccountId, Balance, Promise,
+    PromiseError,
 };
 
 /// 0.05N
@@ -82,14 +83,25 @@ impl Chess {
             if amount > 0 {
                 Promise::new(env::predecessor_account_id()).transfer(amount);
             }
+            Ok(self.storage_balance_of(account_id).unwrap())
         } else {
-            self.internal_register_account(account_id.clone(), min_balance);
+            iah::ext_registry::ext(self.iah_registry.clone())
+                .with_static_gas(GAS_FOR_IS_HUMAN_CALL)
+                .is_human(account_id.clone())
+                .then(
+                    Self::ext(env::current_account_id())
+                        .with_unused_gas_weight(1)
+                        .on_register_account(account_id.clone(), min_balance),
+                );
             let refund = amount - min_balance;
             if refund > 0 {
                 Promise::new(env::predecessor_account_id()).transfer(refund);
             }
+            Ok(StorageBalance {
+                total: U128(min_balance),
+                available: U128(0),
+            })
         }
-        Ok(self.storage_balance_of(account_id).unwrap())
     }
 
     fn internal_storage_withdraw(
@@ -113,6 +125,21 @@ impl Chess {
             Ok(true)
         } else {
             Ok(false)
+        }
+    }
+}
+
+#[near_bindgen]
+impl Chess {
+    #[private]
+    pub fn on_register_account(
+        &mut self,
+        account_id: AccountId,
+        min_balance: Balance,
+        #[callback_result] is_human_res: Result<Vec<(AccountId, Vec<u64>)>, PromiseError>,
+    ) {
+        if let Ok(is_human) = is_human_res {
+            self.internal_register_account(account_id, min_balance, !is_human.is_empty());
         }
     }
 }

@@ -1,8 +1,8 @@
 use super::log_view_result;
 use chess_lib::{Challenge, ChallengeId, EloRating, GameId, GameInfo};
+use near_workspaces::{AccountId, Contract};
 use serde_json::Value;
 use std::collections::HashMap;
-use workspaces::{AccountId, Contract};
 
 pub async fn get_game_ids(
     contract: &Contract,
@@ -31,7 +31,22 @@ pub async fn get_game_info(contract: &Contract, game_id: &GameId) -> anyhow::Res
     Ok(res.json()?)
 }
 
-pub async fn get_elo(contract: &Contract, account_id: &AccountId) -> anyhow::Result<EloRating> {
+pub async fn is_human(contract: &Contract, account_id: &AccountId) -> anyhow::Result<bool> {
+    let res = log_view_result(
+        contract
+            .call("is_human")
+            .args_json((account_id,))
+            .max_gas()
+            .view()
+            .await?,
+    )?;
+    Ok(res.json()?)
+}
+
+pub async fn get_elo(
+    contract: &Contract,
+    account_id: &AccountId,
+) -> anyhow::Result<Option<EloRating>> {
     let res = log_view_result(
         contract
             .call("get_elo")

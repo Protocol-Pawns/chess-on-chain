@@ -4,22 +4,58 @@ use chess_lib::{
     MoveStr,
 };
 use near_sdk::json_types::U128;
-use serde::Serialize;
-use serde_json::json;
-use workspaces::{
+use near_workspaces::{
     result::{ExecutionFinalResult, ExecutionResult, Value},
     types::Balance,
     Account, AccountId, Contract,
 };
+use serde::Serialize;
+use serde_json::json;
 
 pub async fn migrate(
     contract: &Contract,
     sender: &Account,
+    iah_registry: &AccountId,
 ) -> anyhow::Result<ExecutionResult<Value>> {
     let (res, _): (ExecutionResult<Value>, Vec<event::ContractEvent>) = log_tx_result(
         Some("migrate"),
         sender
             .call(contract.id(), "migrate")
+            .args_json((iah_registry,))
+            .max_gas()
+            .transact()
+            .await?,
+    )?;
+    Ok(res)
+}
+
+pub async fn add_human(
+    contract: &Contract,
+    sender: &Account,
+    account_id: &AccountId,
+) -> anyhow::Result<ExecutionResult<Value>> {
+    let (res, _) = log_tx_result(
+        Some("add_human"),
+        sender
+            .call(contract.id(), "add_human")
+            .args_json((account_id,))
+            .max_gas()
+            .transact()
+            .await?,
+    )?;
+    Ok(res)
+}
+
+pub async fn update_is_human(
+    contract: &Contract,
+    sender: &Account,
+    account_id: &AccountId,
+) -> anyhow::Result<ExecutionResult<Value>> {
+    let (res, _) = log_tx_result(
+        Some("update_is_human"),
+        sender
+            .call(contract.id(), "update_is_human")
+            .args_json((account_id,))
             .max_gas()
             .transact()
             .await?,

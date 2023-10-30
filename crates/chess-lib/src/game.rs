@@ -1,12 +1,11 @@
 use crate::{Account, Chess, ChessEvent, ContractError};
 use chess_engine::{Board, Color, GameResult, Move, Piece, Position};
 use near_sdk::{
-    borsh::{self, BorshDeserialize, BorshSerialize},
+    borsh::{BorshDeserialize, BorshSerialize},
     env, near_bindgen,
     serde::{Deserialize, Serialize},
     AccountId,
 };
-use witgen::witgen;
 
 /// Unique game ID, which consists of:
 ///
@@ -27,12 +26,12 @@ use witgen::witgen;
     Eq,
 )]
 #[serde(crate = "near_sdk::serde")]
-#[witgen]
+#[borsh(crate = "near_sdk::borsh")]
 pub struct GameId(pub u64, pub AccountId, pub Option<AccountId>);
 
 #[derive(BorshDeserialize, BorshSerialize, Clone, Debug, Serialize, Deserialize)]
 #[serde(crate = "near_sdk::serde")]
-#[witgen]
+#[borsh(crate = "near_sdk::borsh")]
 pub enum Player {
     Human(AccountId),
     Ai(Difficulty),
@@ -69,7 +68,7 @@ impl Player {
 /// - Hard: ~110TGas
 #[derive(BorshDeserialize, BorshSerialize, Clone, Debug, Deserialize, Serialize)]
 #[serde(crate = "near_sdk::serde")]
-#[witgen]
+#[borsh(crate = "near_sdk::borsh")]
 
 pub enum Difficulty {
     Easy,
@@ -78,6 +77,7 @@ pub enum Difficulty {
 }
 
 #[derive(BorshDeserialize, BorshSerialize)]
+#[borsh(crate = "near_sdk::borsh")]
 pub enum Game {
     V1(GameV1),
     V2(GameV2),
@@ -85,6 +85,7 @@ pub enum Game {
 
 #[near_bindgen]
 #[derive(BorshDeserialize, BorshSerialize)]
+#[borsh(crate = "near_sdk::borsh")]
 pub struct GameV2 {
     game_id: GameId,
     white: Player,
@@ -95,6 +96,7 @@ pub struct GameV2 {
 
 #[near_bindgen]
 #[derive(BorshDeserialize, BorshSerialize)]
+#[borsh(crate = "near_sdk::borsh")]
 pub struct GameV1 {
     game_id: GameId,
     white: Player,
@@ -104,7 +106,6 @@ pub struct GameV1 {
 
 #[derive(Deserialize, Serialize)]
 #[serde(crate = "near_sdk::serde")]
-#[witgen]
 pub struct GameInfo {
     pub white: Player,
     pub black: Player,
@@ -114,7 +115,7 @@ pub struct GameInfo {
 
 #[derive(BorshDeserialize, BorshSerialize, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(crate = "near_sdk::serde")]
-#[witgen]
+#[borsh(crate = "near_sdk::borsh")]
 pub enum GameOutcome {
     Victory(Color),
     Stalemate,

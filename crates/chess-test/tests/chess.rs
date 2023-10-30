@@ -12,7 +12,8 @@ use util::*;
 
 #[tokio::test]
 async fn test_migrate() -> anyhow::Result<()> {
-    let (worker, _, contract, _) = initialize_contracts(Some("../../res/chess_old.wasm")).await?;
+    let (worker, _, contract, _, iah_contract) =
+        initialize_contracts(Some("../../res/chess_old.wasm")).await?;
 
     let player_a = worker.dev_create_account().await?;
     let player_b = worker.dev_create_account().await?;
@@ -41,7 +42,7 @@ async fn test_migrate() -> anyhow::Result<()> {
         .deploy(&fs::read("../../res/chess_testing.wasm").await?)
         .await?
         .into_result()?;
-    call::migrate(&contract, contract.as_account()).await?;
+    call::migrate(&contract, contract.as_account(), iah_contract.id()).await?;
 
     let game_ids = view::get_game_ids(&contract, player_a.id()).await?;
     assert_eq!(game_ids, vec![game_id.clone()]);
@@ -70,7 +71,7 @@ async fn test_migrate() -> anyhow::Result<()> {
 
 #[tokio::test]
 async fn test_ai_game() -> anyhow::Result<()> {
-    let (worker, _, contract, _) = initialize_contracts(None).await?;
+    let (worker, _, contract, _, _) = initialize_contracts(None).await?;
 
     let player_a = worker.dev_create_account().await?;
 
@@ -161,7 +162,7 @@ async fn test_ai_game() -> anyhow::Result<()> {
 
 #[tokio::test]
 async fn test_accept_challenge() -> anyhow::Result<()> {
-    let (worker, _, contract, _) = initialize_contracts(None).await?;
+    let (worker, _, contract, _, _) = initialize_contracts(None).await?;
 
     let player_a = worker.dev_create_account().await?;
     let player_b = worker.dev_create_account().await?;
@@ -255,7 +256,7 @@ async fn test_accept_challenge() -> anyhow::Result<()> {
 
 #[tokio::test]
 async fn test_accept_challenge_with_wager() -> anyhow::Result<()> {
-    let (worker, _, contract, _) = initialize_contracts(None).await?;
+    let (worker, _, contract, _, _) = initialize_contracts(None).await?;
     let test_token = initialize_token(&worker, "wrapped Near", "wNEAR", None, 24).await?;
     let wager_amount = 10_000_000_000_000_000_000_000_000; // 10 NEAR
 
@@ -425,7 +426,7 @@ async fn test_accept_challenge_with_wager() -> anyhow::Result<()> {
 
 #[tokio::test]
 async fn test_reject_challenge() -> anyhow::Result<()> {
-    let (worker, _, contract, _) = initialize_contracts(None).await?;
+    let (worker, _, contract, _, _) = initialize_contracts(None).await?;
 
     let player_a = worker.dev_create_account().await?;
     let player_b = worker.dev_create_account().await?;
@@ -470,7 +471,7 @@ async fn test_reject_challenge() -> anyhow::Result<()> {
 
 #[tokio::test]
 async fn test_accept_reject_challenge_check_sender() -> anyhow::Result<()> {
-    let (worker, _, contract, _) = initialize_contracts(None).await?;
+    let (worker, _, contract, _, _) = initialize_contracts(None).await?;
 
     let player_a = worker.dev_create_account().await?;
     let player_b = worker.dev_create_account().await?;
@@ -515,7 +516,7 @@ async fn test_accept_reject_challenge_check_sender() -> anyhow::Result<()> {
 
 #[tokio::test]
 async fn test_challenge_check_duplicate() -> anyhow::Result<()> {
-    let (worker, _, contract, _) = initialize_contracts(None).await?;
+    let (worker, _, contract, _, _) = initialize_contracts(None).await?;
 
     let player_a = worker.dev_create_account().await?;
     let player_b = worker.dev_create_account().await?;
@@ -537,11 +538,15 @@ async fn test_challenge_check_duplicate() -> anyhow::Result<()> {
 
 #[tokio::test]
 async fn test_resign() -> anyhow::Result<()> {
-    let (worker, _, contract, _) = initialize_contracts(None).await?;
+    let (worker, _, contract, _, iah_contract) = initialize_contracts(None).await?;
 
     let player_a = worker.dev_create_account().await?;
     let player_b = worker.dev_create_account().await?;
 
+    tokio::try_join!(
+        call::add_human(&iah_contract, &player_a, player_a.id()),
+        call::add_human(&iah_contract, &player_b, player_b.id())
+    )?;
     tokio::try_join!(
         call::storage_deposit(&contract, &player_a, None, None),
         call::storage_deposit(&contract, &player_b, None, None)
@@ -570,9 +575,9 @@ async fn test_resign() -> anyhow::Result<()> {
     assert!(game_ids.is_empty());
     let game_ids = view::get_game_ids(&contract, player_b.id()).await?;
     assert!(game_ids.is_empty());
-    let elo = view::get_elo(&contract, player_a.id()).await?;
+    let elo = view::get_elo(&contract, player_a.id()).await?.unwrap();
     assert_eq!(elo, 984.);
-    let elo = view::get_elo(&contract, player_b.id()).await?;
+    let elo = view::get_elo(&contract, player_b.id()).await?.unwrap();
     assert_eq!(elo, 1016.);
     let games = view::recent_finished_games(&contract).await?;
     assert_eq!(games, vec![game_id.clone()]);
@@ -586,11 +591,15 @@ async fn test_resign() -> anyhow::Result<()> {
 
 #[tokio::test]
 async fn test_cancel_success() -> anyhow::Result<()> {
-    let (worker, _, contract, _) = initialize_contracts(None).await?;
+    let (worker, _, contract, _, iah_contract) = initialize_contracts(None).await?;
 
     let player_a = worker.dev_create_account().await?;
     let player_b = worker.dev_create_account().await?;
 
+    tokio::try_join!(
+        call::add_human(&iah_contract, &player_a, player_a.id()),
+        call::add_human(&iah_contract, &player_b, player_b.id())
+    )?;
     tokio::try_join!(
         call::storage_deposit(&contract, &player_a, None, None),
         call::storage_deposit(&contract, &player_b, None, None)
@@ -621,9 +630,9 @@ async fn test_cancel_success() -> anyhow::Result<()> {
     assert!(game_ids.is_empty());
     let game_ids = view::get_game_ids(&contract, player_b.id()).await?;
     assert!(game_ids.is_empty());
-    let elo = view::get_elo(&contract, player_a.id()).await?;
+    let elo = view::get_elo(&contract, player_a.id()).await?.unwrap();
     assert_eq!(elo, 1000.);
-    let elo = view::get_elo(&contract, player_b.id()).await?;
+    let elo = view::get_elo(&contract, player_b.id()).await?.unwrap();
     assert_eq!(elo, 1000.);
     let games = view::recent_finished_games(&contract).await?;
     assert!(games.is_empty());
@@ -637,7 +646,7 @@ async fn test_cancel_success() -> anyhow::Result<()> {
 
 #[tokio::test]
 async fn test_cancel_not_enough_blocks() -> anyhow::Result<()> {
-    let (worker, _, contract, _) = initialize_contracts(None).await?;
+    let (worker, _, contract, _, _) = initialize_contracts(None).await?;
 
     let player_a = worker.dev_create_account().await?;
     let player_b = worker.dev_create_account().await?;
@@ -668,7 +677,7 @@ async fn test_cancel_not_enough_blocks() -> anyhow::Result<()> {
 
 #[tokio::test]
 async fn test_cancel_update_last_block_height() -> anyhow::Result<()> {
-    let (worker, _, contract, _) = initialize_contracts(None).await?;
+    let (worker, _, contract, _, _) = initialize_contracts(None).await?;
 
     let player_a = worker.dev_create_account().await?;
     let player_b = worker.dev_create_account().await?;
@@ -704,7 +713,7 @@ async fn test_cancel_update_last_block_height() -> anyhow::Result<()> {
 
 #[tokio::test]
 async fn test_cancel_check_opponent() -> anyhow::Result<()> {
-    let (worker, _, contract, _) = initialize_contracts(None).await?;
+    let (worker, _, contract, _, _) = initialize_contracts(None).await?;
 
     let player_a = worker.dev_create_account().await?;
     let player_b = worker.dev_create_account().await?;
@@ -735,7 +744,7 @@ async fn test_cancel_check_opponent() -> anyhow::Result<()> {
 
 #[tokio::test]
 async fn test_no_self_challenge() -> anyhow::Result<()> {
-    let (worker, _, contract, _) = initialize_contracts(None).await?;
+    let (worker, _, contract, _, _) = initialize_contracts(None).await?;
 
     let player_a = worker.dev_create_account().await?;
 
@@ -749,7 +758,7 @@ async fn test_no_self_challenge() -> anyhow::Result<()> {
 
 #[tokio::test]
 async fn test_max_open_games() -> anyhow::Result<()> {
-    let (worker, _, contract, _) = initialize_contracts(None).await?;
+    let (worker, _, contract, _, _) = initialize_contracts(None).await?;
 
     let player_a = worker.dev_create_account().await?;
     let player_b = worker.dev_create_account().await?;
@@ -783,7 +792,7 @@ async fn test_max_open_games() -> anyhow::Result<()> {
 
 #[tokio::test]
 async fn test_max_open_challenges() -> anyhow::Result<()> {
-    let (worker, _, contract, _) = initialize_contracts(None).await?;
+    let (worker, _, contract, _, _) = initialize_contracts(None).await?;
 
     let player_a = worker.dev_create_account().await?;
     let player_b = worker.dev_create_account().await?;
@@ -815,11 +824,15 @@ async fn test_max_open_challenges() -> anyhow::Result<()> {
 
 #[tokio::test]
 async fn test_finish_game() -> anyhow::Result<()> {
-    let (worker, _, contract, _) = initialize_contracts(None).await?;
+    let (worker, _, contract, _, iah_contract) = initialize_contracts(None).await?;
 
     let player_a = worker.dev_create_account().await?;
     let player_b = worker.dev_create_account().await?;
 
+    tokio::try_join!(
+        call::add_human(&iah_contract, &player_a, player_a.id()),
+        call::add_human(&iah_contract, &player_b, player_b.id())
+    )?;
     tokio::try_join!(
         call::storage_deposit(&contract, &player_a, None, None),
         call::storage_deposit(&contract, &player_b, None, None)
@@ -882,9 +895,9 @@ async fn test_finish_game() -> anyhow::Result<()> {
     assert!(games.is_empty());
     let games = view::get_game_ids(&contract, player_b.id()).await?;
     assert!(games.is_empty());
-    let elo = view::get_elo(&contract, player_a.id()).await?;
+    let elo = view::get_elo(&contract, player_a.id()).await?.unwrap();
     assert_eq!(elo, 1016.);
-    let elo = view::get_elo(&contract, player_b.id()).await?;
+    let elo = view::get_elo(&contract, player_b.id()).await?.unwrap();
     assert_eq!(elo, 984.);
 
     Ok(())
@@ -892,7 +905,7 @@ async fn test_finish_game() -> anyhow::Result<()> {
 
 #[tokio::test]
 async fn test_notify() -> anyhow::Result<()> {
-    let (worker, _, contract, social_contract) = initialize_contracts(None).await?;
+    let (worker, _, contract, social_contract, _) = initialize_contracts(None).await?;
 
     let player_a = worker.dev_create_account().await?;
     let player_b = worker.dev_create_account().await?;
@@ -1011,6 +1024,87 @@ async fn test_notify() -> anyhow::Result<()> {
         },
     )
     .await?;
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn test_no_elo_if_not_human() -> anyhow::Result<()> {
+    let (worker, _, contract, _, iah_contract) = initialize_contracts(None).await?;
+
+    let player_a = worker.dev_create_account().await?;
+    let player_b = worker.dev_create_account().await?;
+
+    tokio::try_join!(
+        call::storage_deposit(&contract, &player_a, None, None),
+        call::storage_deposit(&contract, &player_b, None, None)
+    )?;
+
+    call::challenge(&contract, &player_a, player_b.id()).await?;
+    let challenge_id = create_challenge_id(player_a.id(), player_b.id());
+    let (game_id, _) = call::accept_challenge(&contract, &player_b, &challenge_id).await?;
+    let block_height = game_id.0;
+    let game_id = GameId(
+        block_height,
+        player_a.id().clone().parse()?,
+        Some(player_b.id().clone().parse()?),
+    );
+    call::resign(&contract, &player_a, &game_id).await?;
+
+    let is_human = view::is_human(&contract, player_a.id()).await?;
+    assert!(!is_human);
+    let is_human = view::is_human(&contract, player_b.id()).await?;
+    assert!(!is_human);
+    let elo = view::get_elo(&contract, player_a.id()).await?;
+    assert!(elo.is_none());
+    let elo = view::get_elo(&contract, player_b.id()).await?;
+    assert!(elo.is_none());
+
+    call::add_human(&iah_contract, &player_a, player_a.id()).await?;
+    call::update_is_human(&contract, &player_a, player_a.id()).await?;
+
+    call::challenge(&contract, &player_a, player_b.id()).await?;
+    let challenge_id = create_challenge_id(player_a.id(), player_b.id());
+    let (game_id, _) = call::accept_challenge(&contract, &player_b, &challenge_id).await?;
+    let block_height = game_id.0;
+    let game_id = GameId(
+        block_height,
+        player_a.id().clone().parse()?,
+        Some(player_b.id().clone().parse()?),
+    );
+    call::resign(&contract, &player_a, &game_id).await?;
+
+    let is_human = view::is_human(&contract, player_a.id()).await?;
+    assert!(is_human);
+    let is_human = view::is_human(&contract, player_b.id()).await?;
+    assert!(!is_human);
+    let elo = view::get_elo(&contract, player_a.id()).await?.unwrap();
+    assert_eq!(elo, 1_000.);
+    let elo = view::get_elo(&contract, player_b.id()).await?;
+    assert!(elo.is_none());
+
+    call::add_human(&iah_contract, &player_b, player_b.id()).await?;
+    call::update_is_human(&contract, &player_b, player_b.id()).await?;
+
+    call::challenge(&contract, &player_a, player_b.id()).await?;
+    let challenge_id = create_challenge_id(player_a.id(), player_b.id());
+    let (game_id, _) = call::accept_challenge(&contract, &player_b, &challenge_id).await?;
+    let block_height = game_id.0;
+    let game_id = GameId(
+        block_height,
+        player_a.id().clone().parse()?,
+        Some(player_b.id().clone().parse()?),
+    );
+    call::resign(&contract, &player_a, &game_id).await?;
+
+    let is_human = view::is_human(&contract, player_a.id()).await?;
+    assert!(is_human);
+    let is_human = view::is_human(&contract, player_b.id()).await?;
+    assert!(is_human);
+    let elo = view::get_elo(&contract, player_a.id()).await?.unwrap();
+    assert_eq!(elo, 984.);
+    let elo = view::get_elo(&contract, player_b.id()).await?.unwrap();
+    assert_eq!(elo, 1016.);
 
     Ok(())
 }

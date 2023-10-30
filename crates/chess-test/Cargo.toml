@@ -4,32 +4,18 @@ version = "1.0.0"
 authors = ["Mario Reder <mario.reder@pm.me>"]
 edition = "2021"
 
-[dependencies]
-anyhow = "1"
+[dev-dependencies]
+chess-engine = { path = "../chess-engine" }
 chess-lib = { path = "../chess-lib" }
-futures = "0.3"
-maplit = "1"
-owo-colors = "3"
-serde = { version = "1", features = ["derive"] }
-serde_json = "1"
 test-token = { path = "../test-token" }
-tokio = { version = "1", features = ["full"] }
-toml = "0.8"
-workspaces = "0.7"
-
-[dependencies.chess-engine]
-version = "0.1"
-git = "https://github.com/Protocol-Pawns/chess-engine.git"
-# path = "../../../chess-engine"
-
-[dependencies.near-contract-standards]
-version = "4"
-git = "https://github.com/near/near-sdk-rs.git"
-rev = "89f8c2d776c8d00feb45239fdb15725527f1894b"
-
-[dependencies.near-sdk]
-version = "4"
-git = "https://github.com/near/near-sdk-rs.git"
-rev = "89f8c2d776c8d00feb45239fdb15725527f1894b"
-default-features = false
-features = ["unit-testing", "unstable"]
+anyhow.workspace = true
+futures.workspace = true
+maplit.workspace = true
+near-contract-standards.workspace = true
+near-sdk.workspace = true
+near-workspaces.workspace = true
+owo-colors.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+tokio.workspace = true
+toml.workspace = true

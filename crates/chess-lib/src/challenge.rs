@@ -1,18 +1,15 @@
 use crate::ContractError;
 use near_sdk::{
-    borsh::{self, BorshDeserialize, BorshSerialize},
+    borsh::{BorshDeserialize, BorshSerialize},
     env,
     json_types::U128,
     serde::{Deserialize, Serialize},
     AccountId,
 };
 use std::fmt;
-use witgen::witgen;
 
-#[witgen]
 pub type ChallengeId = String;
 
-#[witgen]
 pub type Wager = Option<(AccountId, U128)>;
 
 #[derive(
@@ -28,7 +25,7 @@ pub type Wager = Option<(AccountId, U128)>;
     Deserialize,
 )]
 #[serde(crate = "near_sdk::serde")]
-#[witgen]
+#[borsh(crate = "near_sdk::borsh")]
 pub struct Challenge {
     id: String,
     challenger: AccountId,
