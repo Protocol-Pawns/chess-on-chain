@@ -85,6 +85,15 @@ impl Chess {
             .collect()
     }
 
+    pub fn get_accounts(&self, skip: Option<usize>, limit: Option<usize>) -> Vec<AccountId> {
+        self.accounts
+            .keys()
+            .skip(skip.unwrap_or_default())
+            .take(limit.unwrap_or(100))
+            .cloned()
+            .collect()
+    }
+
     /// Returns info about open challenge.
     #[handle_result]
     pub fn get_challenge(&self, challenge_id: ChallengeId) -> Result<Challenge, ContractError> {
