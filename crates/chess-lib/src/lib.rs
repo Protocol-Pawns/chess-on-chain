@@ -194,7 +194,9 @@ impl Chess {
     #[handle_result]
     pub fn accept_challenge(&mut self, challenge_id: ChallengeId) -> Result<GameId, ContractError> {
         let challenged_id = env::signer_account_id();
-        self.internal_accept_challenge(challenged_id, challenge_id, &None)
+        Ok(self
+            .internal_accept_challenge(challenged_id, challenge_id, &None)?
+            .0)
     }
 
     /// Rejects a challenge.
@@ -417,11 +419,12 @@ impl Chess {
     ) -> Result<PromiseOrValue<U128>, ContractError> {
         let msg = serde_json::from_str(&msg).map_err(|_| ContractError::Deserialize)?;
 
-        match msg {
+        let refund = match msg {
             FtReceiverMsg::Challenge(ChallengeMsg { challenged_id }) => {
                 let challenger_id = sender_id;
                 let token_id = env::predecessor_account_id();
                 self.internal_challenge(challenger_id, challenged_id, Some((token_id, amount)))?;
+                None
             }
             FtReceiverMsg::AcceptChallenge(AcceptChallengeMsg { challenge_id }) => {
                 let challenged_id = sender_id;
@@ -430,11 +433,12 @@ impl Chess {
                     challenged_id,
                     challenge_id,
                     &Some((token_id, amount)),
-                )?;
+                )?
+                .1
             }
-        }
+        };
 
-        Ok(PromiseOrValue::Value(0.into()))
+        Ok(PromiseOrValue::Value(refund.unwrap_or_default().into()))
     }
 
     fn internal_challenge(
@@ -488,7 +492,7 @@ impl Chess {
         challenged_id: AccountId,
         challenge_id: ChallengeId,
         paid_wager: &Wager,
-    ) -> Result<GameId, ContractError> {
+    ) -> Result<(GameId, Option<Balance>), ContractError> {
         let challenged = self
             .accounts
             .get_mut(&challenged_id)
@@ -498,7 +502,7 @@ impl Chess {
             .challenges
             .remove(&challenge_id)
             .ok_or(ContractError::ChallengeNotExists(challenge_id.clone()))?;
-        challenge.check_accept(&challenged_id, paid_wager)?;
+        let refund = challenge.check_accept(&challenged_id, paid_wager)?;
 
         let challenger_id = challenge.get_challenger();
         let game = Game::new(
@@ -535,7 +539,7 @@ impl Chess {
             }]
         });
 
-        Ok(game_id)
+        Ok((game_id, refund))
     }
 
     fn internal_handle_outcome(
