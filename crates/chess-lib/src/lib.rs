@@ -21,7 +21,7 @@ pub use storage::*;
 
 use chess_engine::{Color, Move};
 use maplit::hashmap;
-use near_contract_standards::fungible_token::receiver::FungibleTokenReceiver;
+use near_contract_standards::fungible_token::{core::ext_ft_core, receiver::FungibleTokenReceiver};
 use near_sdk::{
     borsh::{BorshDeserialize, BorshSerialize},
     env,
@@ -205,12 +205,12 @@ impl Chess {
         &mut self,
         challenge_id: ChallengeId,
         is_challenger: bool,
-    ) -> Result<(), ContractError> {
+    ) -> Result<PromiseOrValue<()>, ContractError> {
         let challenge = self
             .challenges
             .remove(&challenge_id)
             .ok_or(ContractError::ChallengeNotExists(challenge_id.clone()))?;
-        challenge.check_reject(is_challenger)?;
+        let wager = challenge.check_reject(is_challenger)?;
 
         let challenger_id = challenge.get_challenger();
         let challenger = self
@@ -237,7 +237,20 @@ impl Chess {
             });
         }
 
-        Ok(())
+        Ok(if let Some((token_id, amount)) = wager {
+            PromiseOrValue::Promise(
+                ext_ft_core::ext(token_id)
+                    .with_attached_deposit(1)
+                    .with_unused_gas_weight(1)
+                    .ft_transfer(
+                        challenger_id.clone(),
+                        amount,
+                        Some("wager refund".to_string()),
+                    ),
+            )
+        } else {
+            PromiseOrValue::Value(())
+        })
     }
 
     /// Plays a move.

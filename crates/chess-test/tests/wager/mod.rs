@@ -300,6 +300,75 @@ async fn test_accept_challenge_refund_too_much_wager() -> anyhow::Result<()> {
     Ok(())
 }
 
+#[tokio::test]
+async fn test_reject_challenge_refund_wager() -> anyhow::Result<()> {
+    let (worker, _, contract, _, _) = initialize_contracts(None).await?;
+    let test_token = initialize_token(&worker, "wrapped Near", "wNEAR", None, 24).await?;
+    let wager_amount = 10_000_000_000_000_000_000_000_000; // 10 NEAR
+
+    let player_a = worker.dev_create_account().await?;
+    let player_b = worker.dev_create_account().await?;
+
+    tokio::try_join!(
+        call::storage_deposit(&contract, &player_a, None, None),
+        call::storage_deposit(&contract, &player_b, None, None),
+        call::storage_deposit(
+            &test_token,
+            contract.as_account(),
+            None,
+            Some(100_000_000_000_000_000_000_000),
+        ),
+        call::storage_deposit(
+            &test_token,
+            &player_a,
+            None,
+            Some(100_000_000_000_000_000_000_000),
+        ),
+        call::storage_deposit(
+            &test_token,
+            &player_b,
+            None,
+            Some(100_000_000_000_000_000_000_000),
+        )
+    )?;
+    tokio::try_join!(
+        call::mint_tokens(&test_token, player_a.id(), wager_amount),
+        call::mint_tokens(&test_token, player_b.id(), wager_amount)
+    )?;
+
+    call::challenge_with_wager(
+        &player_a,
+        test_token.id(),
+        contract.id(),
+        wager_amount.into(),
+        ChallengeMsg {
+            challenged_id: player_b.id().parse()?,
+        },
+    )
+    .await?;
+    let challenge_id = create_challenge_id(player_a.id(), player_b.id());
+
+    let (_res, events) = call::reject_challenge(&contract, &player_b, &challenge_id, false).await?;
+    assert_event_emits(
+        events,
+        vec![ChessEvent::RejectChallenge {
+            challenge_id: create_challenge_id(player_a.id(), player_b.id()),
+        }],
+    )?;
+
+    let game_ids = view::get_game_ids(&contract, player_a.id()).await?;
+    assert!(game_ids.is_empty());
+    let game_ids = view::get_game_ids(&contract, player_b.id()).await?;
+    assert!(game_ids.is_empty());
+
+    let balance = view::ft_balance_of(&test_token, player_a.id()).await?;
+    assert_eq!(balance.0, wager_amount);
+    let balance = view::ft_balance_of(&test_token, player_b.id()).await?;
+    assert_eq!(balance.0, wager_amount);
+
+    Ok(())
+}
+
 fn get_game_id(events: &[event::ContractEvent]) -> GameId {
     events
         .iter()
@@ -321,8 +390,6 @@ fn get_game_id(events: &[event::ContractEvent]) -> GameId {
         .unwrap()
         .clone()
 }
-
-// refund wager if rejected challenge
 
 // refund wager if cancelled game
 
