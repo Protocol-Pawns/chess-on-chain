@@ -1,6 +1,8 @@
 use crate::util::*;
+use chess_engine::Color;
 use chess_lib::{
-    create_challenge_id, AcceptChallengeMsg, Challenge, ChallengeMsg, ChessEvent, GameId, Player,
+    create_challenge_id, AcceptChallengeMsg, Challenge, ChallengeMsg, ChessEvent, GameId,
+    GameOutcome, Player,
 };
 
 #[tokio::test]
@@ -458,6 +460,114 @@ async fn test_cancel_game_refund_wager() -> anyhow::Result<()> {
     Ok(())
 }
 
+#[tokio::test]
+async fn test_finish_game_payout_wager() -> anyhow::Result<()> {
+    let (worker, _, contract, _, _) = initialize_contracts(None).await?;
+    let test_token = initialize_token(&worker, "wrapped Near", "wNEAR", None, 24).await?;
+    let wager_amount = 10_000_000_000_000_000_000_000_000; // 10 NEAR
+
+    let player_a = worker.dev_create_account().await?;
+    let player_b = worker.dev_create_account().await?;
+
+    tokio::try_join!(
+        call::storage_deposit(&contract, &player_a, None, None),
+        call::storage_deposit(&contract, &player_b, None, None),
+        call::storage_deposit(
+            &test_token,
+            contract.as_account(),
+            None,
+            Some(100_000_000_000_000_000_000_000),
+        ),
+        call::storage_deposit(
+            &test_token,
+            &player_a,
+            None,
+            Some(100_000_000_000_000_000_000_000),
+        ),
+        call::storage_deposit(
+            &test_token,
+            &player_b,
+            None,
+            Some(100_000_000_000_000_000_000_000),
+        )
+    )?;
+    tokio::try_join!(
+        call::mint_tokens(&test_token, player_a.id(), wager_amount),
+        call::mint_tokens(&test_token, player_b.id(), wager_amount)
+    )?;
+
+    call::challenge_with_wager(
+        &player_a,
+        test_token.id(),
+        contract.id(),
+        wager_amount.into(),
+        ChallengeMsg {
+            challenged_id: player_b.id().parse()?,
+        },
+    )
+    .await?;
+    let challenge_id = create_challenge_id(player_a.id(), player_b.id());
+
+    let (_res, events) = call::accept_challenge_with_wager(
+        &player_b,
+        test_token.id(),
+        contract.id(),
+        wager_amount.into(),
+        AcceptChallengeMsg { challenge_id },
+    )
+    .await?;
+    let game_id = get_game_id(&events);
+
+    call::play_move(&contract, &player_a, &game_id, "e2e4".to_string()).await?;
+    call::play_move(&contract, &player_b, &game_id, "a7a6".to_string()).await?;
+    call::play_move(&contract, &player_a, &game_id, "d1f3".to_string()).await?;
+    call::play_move(&contract, &player_b, &game_id, "a6a5".to_string()).await?;
+    call::play_move(&contract, &player_a, &game_id, "f1c4".to_string()).await?;
+    call::play_move(&contract, &player_b, &game_id, "a5a4".to_string()).await?;
+    let ((outcome, board), events) =
+        call::play_move(&contract, &player_a, &game_id, "f3f7".to_string()).await?;
+    let expected_board = [
+        "RNB K NR".to_string(),
+        "PPPP PPP".to_string(),
+        "        ".to_string(),
+        "p B P   ".to_string(),
+        "        ".to_string(),
+        "        ".to_string(),
+        " ppppQpp".to_string(),
+        "rnbqkbnr".to_string(),
+    ];
+    assert_eq!(outcome.unwrap(), GameOutcome::Victory(Color::White));
+    assert_eq!(board, expected_board);
+    assert_event_emits(
+        events,
+        vec![
+            ChessEvent::PlayMove {
+                game_id: game_id.clone(),
+                color: Color::White,
+                mv: "f3 to f7".to_string(),
+            },
+            ChessEvent::FinishGame {
+                game_id: game_id.clone(),
+                outcome: GameOutcome::Victory(Color::White),
+                board: expected_board,
+            },
+        ],
+    )?;
+
+    let game_ids = view::get_game_ids(&contract, player_a.id()).await?;
+    assert!(game_ids.is_empty());
+    let game_ids = view::get_game_ids(&contract, player_b.id()).await?;
+    assert!(game_ids.is_empty());
+    let balance = view::ft_balance_of(&test_token, player_a.id()).await?;
+    assert_eq!(balance.0, 2 * wager_amount);
+    let balance = view::ft_balance_of(&test_token, player_b.id()).await?;
+    assert_eq!(balance.0, 0);
+    let balance = view::ft_balance_of(&test_token, contract.id()).await?;
+    assert_eq!(balance.0, 0);
+
+    Ok(())
+}
+
 fn get_game_id(events: &[event::ContractEvent]) -> GameId {
     events
         .iter()
@@ -480,6 +590,8 @@ fn get_game_id(events: &[event::ContractEvent]) -> GameId {
         .clone()
 }
 
-// pay out wager on win
+// pay out wager on resign
 
 // treasury
+
+// TODO stalemate refund wager

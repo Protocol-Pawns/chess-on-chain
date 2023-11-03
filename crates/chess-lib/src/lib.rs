@@ -604,6 +604,44 @@ impl Chess {
             self.internal_calculate_elo(&game, outcome);
         }
 
+        if let Some((token_id, amount)) = game.get_wager().clone() {
+            match outcome {
+                GameOutcome::Victory(color) => {
+                    ext_ft_core::ext(token_id)
+                        .with_attached_deposit(1)
+                        .with_unused_gas_weight(1)
+                        .ft_transfer(
+                            match color {
+                                Color::White => game.get_white().get_account_id().unwrap(),
+                                Color::Black => game.get_black().get_account_id().unwrap(),
+                            },
+                            (2 * amount.0).into(),
+                            Some("wager win".to_string()),
+                        );
+                }
+                GameOutcome::Stalemate => {
+                    ext_ft_core::ext(token_id.clone())
+                        .with_attached_deposit(1)
+                        .with_unused_gas_weight(1)
+                        .ft_transfer(
+                            game.get_white().get_account_id().unwrap(),
+                            amount,
+                            Some("wager refund".to_string()),
+                        )
+                        .then(
+                            ext_ft_core::ext(token_id)
+                                .with_attached_deposit(1)
+                                .with_unused_gas_weight(1)
+                                .ft_transfer(
+                                    game.get_black().get_account_id().unwrap(),
+                                    amount,
+                                    Some("wager refund".to_string()),
+                                ),
+                        );
+                }
+            }
+        }
+
         if let Player::Human(account_id) = game.get_white() {
             notifications.insert(
                 account_id.clone(),
