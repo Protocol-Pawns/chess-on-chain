@@ -113,20 +113,20 @@ impl Chess {
 
     #[private]
     #[init(ignore_state)]
-    pub fn migrate(iah_registry: AccountId) -> Self {
-        let mut chess: OldChess = env::state_read().unwrap();
+    pub fn migrate() -> Self {
+        let mut chess: Chess = env::state_read().unwrap();
 
-        let mut accounts = vec![];
-        for (account_id, account) in chess.accounts.drain() {
-            accounts.push((account_id, account.migrate()));
+        let mut games = vec![];
+        for (game_id, game) in chess.games.drain() {
+            games.push((game_id, game.migrate()));
         }
-        for (game_id, game) in accounts {
-            chess.accounts.insert(game_id, game);
+        for (game_id, game) in games {
+            chess.games.insert(game_id, game);
         }
 
         Self {
             social_db: chess.social_db,
-            iah_registry,
+            iah_registry: chess.iah_registry,
             accounts: chess.accounts,
             games: chess.games,
             challenges: chess.challenges,
@@ -157,7 +157,7 @@ impl Chess {
             .get_mut(&account_id)
             .ok_or_else(|| ContractError::AccountNotRegistered(account_id.clone()))?;
 
-        let game = Game::new(Player::Human(account_id), Player::Ai(difficulty));
+        let game = Game::new(Player::Human(account_id), Player::Ai(difficulty), None);
         let game_id = game.get_game_id().clone();
 
         account.add_game_id(game_id.clone())?;
@@ -195,7 +195,7 @@ impl Chess {
     pub fn accept_challenge(&mut self, challenge_id: ChallengeId) -> Result<GameId, ContractError> {
         let challenged_id = env::signer_account_id();
         Ok(self
-            .internal_accept_challenge(challenged_id, challenge_id, &None)?
+            .internal_accept_challenge(challenged_id, challenge_id, None)?
             .0)
     }
 
@@ -350,7 +350,7 @@ impl Chess {
     /// Players can only cancel a game, if the opponent is human
     /// and hasn't been doing a move for the last approx. 3days (measured in block height)
     #[handle_result]
-    pub fn cancel(&mut self, game_id: GameId) -> Result<(), ContractError> {
+    pub fn cancel(&mut self, game_id: GameId) -> Result<PromiseOrValue<()>, ContractError> {
         let account_id = env::signer_account_id();
         let game = self
             .games
@@ -383,7 +383,30 @@ impl Chess {
         };
         event.emit();
 
-        Ok(())
+        Ok(if let Some((token_id, amount)) = game.get_wager().clone() {
+            PromiseOrValue::Promise(
+                ext_ft_core::ext(token_id.clone())
+                    .with_attached_deposit(1)
+                    .with_unused_gas_weight(1)
+                    .ft_transfer(
+                        game.get_white().get_account_id().unwrap(),
+                        amount,
+                        Some("wager refund".to_string()),
+                    )
+                    .then(
+                        ext_ft_core::ext(token_id)
+                            .with_attached_deposit(1)
+                            .with_unused_gas_weight(1)
+                            .ft_transfer(
+                                game.get_black().get_account_id().unwrap(),
+                                amount,
+                                Some("wager refund".to_string()),
+                            ),
+                    ),
+            )
+        } else {
+            PromiseOrValue::Value(())
+        })
     }
 }
 
@@ -445,7 +468,7 @@ impl Chess {
                 self.internal_accept_challenge(
                     challenged_id,
                     challenge_id,
-                    &Some((token_id, amount)),
+                    Some((token_id, amount)),
                 )?
                 .1
             }
@@ -504,7 +527,7 @@ impl Chess {
         &mut self,
         challenged_id: AccountId,
         challenge_id: ChallengeId,
-        paid_wager: &Wager,
+        paid_wager: Wager,
     ) -> Result<(GameId, Option<Balance>), ContractError> {
         let challenged = self
             .accounts
@@ -515,12 +538,13 @@ impl Chess {
             .challenges
             .remove(&challenge_id)
             .ok_or(ContractError::ChallengeNotExists(challenge_id.clone()))?;
-        let refund = challenge.check_accept(&challenged_id, paid_wager)?;
+        let refund = challenge.check_accept(&challenged_id, &paid_wager)?;
 
         let challenger_id = challenge.get_challenger();
         let game = Game::new(
             Player::Human(challenger_id.clone()),
             Player::Human(challenged_id.clone()),
+            paid_wager,
         );
         let game_id = game.get_game_id().clone();
 

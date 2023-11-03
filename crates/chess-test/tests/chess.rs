@@ -13,7 +13,7 @@ use util::*;
 
 #[tokio::test]
 async fn test_migrate() -> anyhow::Result<()> {
-    let (worker, _, contract, _, iah_contract) =
+    let (worker, _, contract, _, _) =
         initialize_contracts(Some("../../res/chess_old.wasm")).await?;
 
     let player_a = worker.dev_create_account().await?;
@@ -43,7 +43,7 @@ async fn test_migrate() -> anyhow::Result<()> {
         .deploy(&fs::read("../../res/chess_testing.wasm").await?)
         .await?
         .into_result()?;
-    call::migrate(&contract, contract.as_account(), iah_contract.id()).await?;
+    call::migrate(&contract, contract.as_account()).await?;
 
     let game_ids = view::get_game_ids(&contract, player_a.id()).await?;
     assert_eq!(game_ids, vec![game_id.clone()]);
