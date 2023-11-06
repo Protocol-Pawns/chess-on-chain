@@ -147,13 +147,31 @@ async fn test_ai_game() -> anyhow::Result<()> {
         ],
     )?;
 
-    let (_res, events) = call::resign(&contract, &player_a, &game_id).await?;
+    let (res, events) = call::resign(&contract, &player_a, &game_id).await?;
+    assert_eq!(res, GameOutcome::Victory(Color::Black));
+    let expected_board = [
+        "RNBQKBNR".to_string(),
+        "PPPP PPP".to_string(),
+        "        ".to_string(),
+        "    P   ".to_string(),
+        "        ".to_string(),
+        "     n  ".to_string(),
+        "pppppppp".to_string(),
+        "rnbqkb r".to_string(),
+    ];
     assert_event_emits(
         events,
-        vec![ChessEvent::ResignGame {
-            game_id,
-            resigner: player_a.id().parse()?,
-        }],
+        vec![
+            ChessEvent::ResignGame {
+                game_id: game_id.clone(),
+                resigner: player_a.id().parse()?,
+            },
+            ChessEvent::FinishGame {
+                game_id: game_id.clone(),
+                outcome: GameOutcome::Victory(Color::Black),
+                board: expected_board,
+            },
+        ],
     )?;
     let game_ids = view::get_game_ids(&contract, player_a.id()).await?;
     assert!(game_ids.is_empty());
@@ -393,13 +411,31 @@ async fn test_resign() -> anyhow::Result<()> {
         Some(player_b.id().clone().parse()?),
     );
 
-    let (_res, events) = call::resign(&contract, &player_a, &game_id).await?;
+    let (res, events) = call::resign(&contract, &player_a, &game_id).await?;
+    assert_eq!(res, GameOutcome::Victory(Color::Black));
+    let expected_board = [
+        "RNBQKBNR".to_string(),
+        "PPPPPPPP".to_string(),
+        "        ".to_string(),
+        "        ".to_string(),
+        "        ".to_string(),
+        "        ".to_string(),
+        "pppppppp".to_string(),
+        "rnbqkbnr".to_string(),
+    ];
     assert_event_emits(
         events,
-        vec![ChessEvent::ResignGame {
-            game_id: game_id.clone(),
-            resigner: player_a.id().parse()?,
-        }],
+        vec![
+            ChessEvent::ResignGame {
+                game_id: game_id.clone(),
+                resigner: player_a.id().parse()?,
+            },
+            ChessEvent::FinishGame {
+                game_id: game_id.clone(),
+                outcome: GameOutcome::Victory(Color::Black),
+                board: expected_board,
+            },
+        ],
     )?;
     let game_ids = view::get_game_ids(&contract, player_a.id()).await?;
     assert!(game_ids.is_empty());

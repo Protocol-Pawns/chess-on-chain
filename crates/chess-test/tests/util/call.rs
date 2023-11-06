@@ -249,7 +249,7 @@ pub async fn resign(
     contract: &Contract,
     sender: &Account,
     game_id: &GameId,
-) -> anyhow::Result<(ExecutionResult<Value>, Vec<event::ContractEvent>)> {
+) -> anyhow::Result<(GameOutcome, Vec<event::ContractEvent>)> {
     let (res, events) = log_tx_result(
         Some("resign"),
         sender
@@ -259,7 +259,7 @@ pub async fn resign(
             .transact()
             .await?,
     )?;
-    Ok((res, events))
+    Ok((res.json()?, events))
 }
 
 pub async fn cancel(

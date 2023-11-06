@@ -353,7 +353,7 @@ impl Game {
         Self::_get_board_state(&game.board)
     }
 
-    fn _get_board_state(board: &Board) -> [String; 8] {
+    pub fn _get_board_state(board: &Board) -> [String; 8] {
         (0..8)
             .map(|row| -> String {
                 (0..8)

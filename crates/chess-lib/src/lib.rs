@@ -311,7 +311,7 @@ impl Chess {
     /// You might need to call this if a game is stuck and the AI refuses to work.
     /// You can also only have 10 open games due to storage limitations.
     #[handle_result]
-    pub fn resign(&mut self, game_id: GameId) -> Result<(), ContractError> {
+    pub fn resign(&mut self, game_id: GameId) -> Result<GameOutcome, ContractError> {
         let account_id = env::signer_account_id();
         let game = self
             .games
@@ -331,18 +331,26 @@ impl Chess {
         } else {
             GameOutcome::Victory(Color::Black)
         };
+        let board_state = Game::_get_board_state(game.get_board());
 
         let mut notifications = HashMap::new();
         self.internal_handle_outcome(game_id.clone(), &outcome, &mut notifications);
         self.internal_send_notify(notifications);
 
         let event = ChessEvent::ResignGame {
-            game_id,
+            game_id: game_id.clone(),
             resigner: account_id,
         };
         event.emit();
 
-        Ok(())
+        let event = ChessEvent::FinishGame {
+            game_id,
+            outcome: outcome.clone(),
+            board: board_state.clone(),
+        };
+        event.emit();
+
+        Ok(outcome)
     }
 
     /// Cancel a game, resulting in no player winning or loosing.
