@@ -7,7 +7,7 @@ use near_sdk::AccountId;
 use near_workspaces::{
     network::Sandbox,
     result::{ExecutionFinalResult, ExecutionResult, Value, ViewResultDetails},
-    types::{KeyType, SecretKey},
+    types::{KeyType, NearToken, SecretKey},
     Account, Contract, Worker,
 };
 use owo_colors::OwoColorize;
@@ -119,7 +119,7 @@ pub async fn initialize_contracts(
                 contract.id().as_str(): {}
             }
         }))
-        .deposit(2_000_000_000_000_000_000_000_000)
+        .deposit(NearToken::from_near(2))
         .transact()
         .await?
         .into_result()?;

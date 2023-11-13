@@ -1,4 +1,4 @@
-//! Elo algorithm implementation taken from https://github.com/atomflunder/skillratings/
+//! Elo algorithm implementation taken from <https://github.com/atomflunder/skillratings/>
 //!
 //! MIT License
 //!

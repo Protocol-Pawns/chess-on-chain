@@ -6,7 +6,7 @@ use chess_lib::{
 use near_sdk::json_types::U128;
 use near_workspaces::{
     result::{ExecutionFinalResult, ExecutionResult, Value},
-    types::Balance,
+    types::NearToken,
     Account, AccountId, Contract,
 };
 use serde::Serialize;
@@ -65,14 +65,14 @@ pub async fn storage_deposit(
     contract: &Contract,
     sender: &Account,
     account_id: Option<&AccountId>,
-    deposit: Option<Balance>,
+    deposit: Option<NearToken>,
 ) -> anyhow::Result<ExecutionResult<Value>> {
     let (res, _) = log_tx_result(
         Some("storage_deposit"),
         sender
             .call(contract.id(), "storage_deposit")
             .args_json((account_id, None::<bool>))
-            .deposit(deposit.unwrap_or(50_000_000_000_000_000_000_000))
+            .deposit(deposit.unwrap_or(NearToken::from_millinear(50)))
             .max_gas()
             .transact()
             .await?,
@@ -295,7 +295,7 @@ async fn ft_transfer_call<T: Serialize>(
             json!(msg).to_string(),
         ))
         .max_gas()
-        .deposit(1)
+        .deposit(NearToken::from_yoctonear(1))
         .transact()
         .await?)
 }

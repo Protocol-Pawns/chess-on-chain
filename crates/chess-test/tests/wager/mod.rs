@@ -4,6 +4,7 @@ use chess_lib::{
     create_challenge_id, AcceptChallengeMsg, Challenge, ChallengeMsg, ChessEvent, GameId,
     GameOutcome, Player,
 };
+use near_workspaces::types::NearToken;
 
 #[tokio::test]
 async fn test_accept_challenge_success() -> anyhow::Result<()> {
@@ -21,19 +22,19 @@ async fn test_accept_challenge_success() -> anyhow::Result<()> {
             &test_token,
             contract.as_account(),
             None,
-            Some(100_000_000_000_000_000_000_000),
+            Some(NearToken::from_millinear(100)),
         ),
         call::storage_deposit(
             &test_token,
             &player_a,
             None,
-            Some(100_000_000_000_000_000_000_000),
+            Some(NearToken::from_millinear(100)),
         ),
         call::storage_deposit(
             &test_token,
             &player_b,
             None,
-            Some(100_000_000_000_000_000_000_000),
+            Some(NearToken::from_millinear(100)),
         )
     )?;
     tokio::try_join!(
@@ -142,19 +143,19 @@ async fn test_accept_challenge_not_enough_wager() -> anyhow::Result<()> {
             &test_token,
             contract.as_account(),
             None,
-            Some(100_000_000_000_000_000_000_000),
+            Some(NearToken::from_millinear(100)),
         ),
         call::storage_deposit(
             &test_token,
             &player_a,
             None,
-            Some(100_000_000_000_000_000_000_000),
+            Some(NearToken::from_millinear(100)),
         ),
         call::storage_deposit(
             &test_token,
             &player_b,
             None,
-            Some(100_000_000_000_000_000_000_000),
+            Some(NearToken::from_millinear(100)),
         )
     )?;
     tokio::try_join!(
@@ -210,19 +211,19 @@ async fn test_accept_challenge_refund_too_much_wager() -> anyhow::Result<()> {
             &test_token,
             contract.as_account(),
             None,
-            Some(100_000_000_000_000_000_000_000),
+            Some(NearToken::from_millinear(100)),
         ),
         call::storage_deposit(
             &test_token,
             &player_a,
             None,
-            Some(100_000_000_000_000_000_000_000),
+            Some(NearToken::from_millinear(100)),
         ),
         call::storage_deposit(
             &test_token,
             &player_b,
             None,
-            Some(100_000_000_000_000_000_000_000),
+            Some(NearToken::from_millinear(100)),
         )
     )?;
     tokio::try_join!(
@@ -318,19 +319,19 @@ async fn test_reject_challenge_refund_wager() -> anyhow::Result<()> {
             &test_token,
             contract.as_account(),
             None,
-            Some(100_000_000_000_000_000_000_000),
+            Some(NearToken::from_millinear(100)),
         ),
         call::storage_deposit(
             &test_token,
             &player_a,
             None,
-            Some(100_000_000_000_000_000_000_000),
+            Some(NearToken::from_millinear(100)),
         ),
         call::storage_deposit(
             &test_token,
             &player_b,
             None,
-            Some(100_000_000_000_000_000_000_000),
+            Some(NearToken::from_millinear(100)),
         )
     )?;
     tokio::try_join!(
@@ -387,19 +388,19 @@ async fn test_cancel_game_refund_wager() -> anyhow::Result<()> {
             &test_token,
             contract.as_account(),
             None,
-            Some(100_000_000_000_000_000_000_000),
+            Some(NearToken::from_millinear(100)),
         ),
         call::storage_deposit(
             &test_token,
             &player_a,
             None,
-            Some(100_000_000_000_000_000_000_000),
+            Some(NearToken::from_millinear(100)),
         ),
         call::storage_deposit(
             &test_token,
             &player_b,
             None,
-            Some(100_000_000_000_000_000_000_000),
+            Some(NearToken::from_millinear(100)),
         )
     )?;
     tokio::try_join!(
@@ -476,19 +477,19 @@ async fn test_finish_game_payout_wager() -> anyhow::Result<()> {
             &test_token,
             contract.as_account(),
             None,
-            Some(100_000_000_000_000_000_000_000),
+            Some(NearToken::from_millinear(100)),
         ),
         call::storage_deposit(
             &test_token,
             &player_a,
             None,
-            Some(100_000_000_000_000_000_000_000),
+            Some(NearToken::from_millinear(100)),
         ),
         call::storage_deposit(
             &test_token,
             &player_b,
             None,
-            Some(100_000_000_000_000_000_000_000),
+            Some(NearToken::from_millinear(100)),
         )
     )?;
     tokio::try_join!(
@@ -584,19 +585,19 @@ async fn test_resign_payout_wager() -> anyhow::Result<()> {
             &test_token,
             contract.as_account(),
             None,
-            Some(100_000_000_000_000_000_000_000),
+            Some(NearToken::from_millinear(100)),
         ),
         call::storage_deposit(
             &test_token,
             &player_a,
             None,
-            Some(100_000_000_000_000_000_000_000),
+            Some(NearToken::from_millinear(100)),
         ),
         call::storage_deposit(
             &test_token,
             &player_b,
             None,
-            Some(100_000_000_000_000_000_000_000),
+            Some(NearToken::from_millinear(100)),
         )
     )?;
     tokio::try_join!(
