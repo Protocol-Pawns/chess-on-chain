@@ -7,6 +7,7 @@ use chess_engine::Color;
 use maplit::hashmap;
 use near_contract_standards::fungible_token::core::ext_ft_core;
 use near_sdk::{AccountId, Balance};
+use primitive_types::U128;
 use std::collections::HashMap;
 
 impl Chess {
@@ -139,6 +140,36 @@ impl Chess {
         if let Some((token_id, amount)) = game.get_wager().clone() {
             match outcome {
                 GameOutcome::Victory(color) => {
+                    let fees = self.fees.get();
+                    let treasury_amount = U128::from(amount.0)
+                        .full_mul(fees.treasury.into())
+                        .checked_div(10_000.into())
+                        .unwrap()
+                        .as_u128();
+                    if let Some(treasury) = self.treasury.get_mut(&token_id) {
+                        *treasury += treasury_amount;
+                    } else {
+                        self.treasury.insert(token_id.clone(), treasury_amount);
+                    }
+
+                    let mut total_royalty = 0;
+                    fees.royalties
+                        .iter()
+                        .for_each(|(royalty_account, royalty_fee)| {
+                            let royalty_amount = U128::from(amount.0)
+                                .full_mul((*royalty_fee).into())
+                                .checked_div(10_000.into())
+                                .unwrap()
+                                .as_u128();
+                            total_royalty += royalty_amount;
+
+                            ext_ft_core::ext(token_id.clone())
+                                .with_attached_deposit(1)
+                                .with_unused_gas_weight(1)
+                                .ft_transfer(royalty_account.clone(), royalty_amount.into(), None);
+                        });
+
+                    let wager_amount = 2 * amount.0 - treasury_amount - total_royalty;
                     ext_ft_core::ext(token_id)
                         .with_attached_deposit(1)
                         .with_unused_gas_weight(1)
@@ -147,7 +178,7 @@ impl Chess {
                                 Color::White => game.get_white().get_account_id().unwrap(),
                                 Color::Black => game.get_black().get_account_id().unwrap(),
                             },
-                            (2 * amount.0).into(),
+                            wager_amount.into(),
                             Some("wager win".to_string()),
                         );
                 }

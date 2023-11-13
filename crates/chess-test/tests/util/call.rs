@@ -1,7 +1,7 @@
 use super::{event, log_tx_result};
 use chess_lib::{
-    AcceptChallengeMsg, ChallengeId, ChallengeMsg, Difficulty, FtReceiverMsg, GameId, GameOutcome,
-    MoveStr,
+    AcceptChallengeMsg, ChallengeId, ChallengeMsg, Difficulty, Fees, FtReceiverMsg, GameId,
+    GameOutcome, MoveStr,
 };
 use near_sdk::json_types::U128;
 use near_workspaces::{
@@ -59,6 +59,60 @@ pub async fn update_is_human(
             .await?,
     )?;
     Ok(res)
+}
+
+pub async fn set_fees(
+    contract: &Contract,
+    sender: &Account,
+    fees: &Fees,
+) -> anyhow::Result<(ExecutionResult<Value>, Vec<event::ContractEvent>)> {
+    let (res, events): (ExecutionResult<Value>, Vec<event::ContractEvent>) = log_tx_result(
+        Some("set_fees"),
+        sender
+            .call(contract.id(), "set_fees")
+            .args_json(fees)
+            .max_gas()
+            .transact()
+            .await?,
+    )?;
+    Ok((res, events))
+}
+
+pub async fn set_wager_whitelist(
+    contract: &Contract,
+    sender: &Account,
+    whitelist: &[AccountId],
+) -> anyhow::Result<(ExecutionResult<Value>, Vec<event::ContractEvent>)> {
+    let (res, events): (ExecutionResult<Value>, Vec<event::ContractEvent>) = log_tx_result(
+        Some("set_wager_whitelist"),
+        sender
+            .call(contract.id(), "set_wager_whitelist")
+            .args_json((whitelist,))
+            .max_gas()
+            .transact()
+            .await?,
+    )?;
+    Ok((res, events))
+}
+
+pub async fn register_token(
+    contract: &Contract,
+    sender: &Account,
+    token_id: &AccountId,
+    amount: U128,
+    deposit: NearToken,
+) -> anyhow::Result<(ExecutionResult<Value>, Vec<event::ContractEvent>)> {
+    let (res, events): (ExecutionResult<Value>, Vec<event::ContractEvent>) = log_tx_result(
+        Some("register_token"),
+        sender
+            .call(contract.id(), "register_token")
+            .args_json((token_id, amount))
+            .deposit(deposit)
+            .max_gas()
+            .transact()
+            .await?,
+    )?;
+    Ok((res, events))
 }
 
 pub async fn storage_deposit(

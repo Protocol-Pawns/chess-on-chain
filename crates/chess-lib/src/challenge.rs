@@ -56,7 +56,7 @@ impl Challenge {
             return Err(ContractError::WrongChallengedId);
         }
         if let (Some(paid_wager), Some(wager)) = (paid_wager, &self.wager) {
-            if paid_wager < wager {
+            if paid_wager.0 != wager.0 || paid_wager.1 < wager.1 {
                 return Err(ContractError::PaidWager);
             }
             Ok(Some(paid_wager.1 .0 - wager.1 .0))

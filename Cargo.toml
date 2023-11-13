@@ -10,6 +10,7 @@ getrandom = { version = "0.2", features = ["js"] }
 maplit = "1"
 near-workspaces = { version = "0.9", default-features = false }
 owo-colors = "3"
+primitive-types = { version = "0.12", default-features = false }
 rand = { version = "0.8", default-features = false, features = ["alloc"] }
 rand_chacha = "0.3"
 serde = { version = "1", features = ["derive"] }

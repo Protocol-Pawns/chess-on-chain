@@ -51,17 +51,19 @@ impl Chess {
         msg: String,
     ) -> Result<PromiseOrValue<U128>, ContractError> {
         let msg = serde_json::from_str(&msg).map_err(|_| ContractError::Deserialize)?;
+        let token_id = env::predecessor_account_id();
+        if !self.wager_whitelist.contains(&token_id) {
+            return Err(ContractError::WagerNoWhitelist);
+        }
 
         let refund = match msg {
             FtReceiverMsg::Challenge(ChallengeMsg { challenged_id }) => {
                 let challenger_id = sender_id;
-                let token_id = env::predecessor_account_id();
                 self.internal_challenge(challenger_id, challenged_id, Some((token_id, amount)))?;
                 None
             }
             FtReceiverMsg::AcceptChallenge(AcceptChallengeMsg { challenge_id }) => {
                 let challenged_id = sender_id;
-                let token_id = env::predecessor_account_id();
                 self.internal_accept_challenge(
                     challenged_id,
                     challenge_id,

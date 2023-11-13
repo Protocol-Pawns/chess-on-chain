@@ -27,15 +27,17 @@ use maplit::hashmap;
 use near_contract_standards::fungible_token::core::ext_ft_core;
 use near_sdk::{
     borsh::{BorshDeserialize, BorshSerialize},
-    env, near_bindgen,
+    env,
+    json_types::U128,
+    near_bindgen,
+    serde::{Deserialize, Serialize},
     store::{Lazy, UnorderedMap},
-    AccountId, BorshStorageKey, Gas, PanicOnDefault, PromiseOrValue,
+    AccountId, Balance, BorshStorageKey, Gas, GasWeight, PanicOnDefault, PromiseOrValue,
 };
 use std::collections::{HashMap, VecDeque};
 
 pub const MAX_OPEN_GAMES: u32 = 10;
 pub const MAX_OPEN_CHALLENGES: u32 = 50;
-pub const TGAS: u64 = 1_000_000_000_000;
 
 #[cfg(not(feature = "integration-test"))]
 pub const MIN_BLOCK_DIFF_CANCEL: u64 = 60 * 60 * 24 * 3; // ~3 days
@@ -58,6 +60,9 @@ pub enum StorageKey {
     Challenges,
     RecentFinishedGames,
     RecentFinishedGamesV2,
+    Treasury,
+    Fees,
+    WagerWhitelist,
 }
 
 #[near_bindgen]
@@ -70,6 +75,9 @@ pub struct Chess {
     pub games: UnorderedMap<GameId, Game>,
     pub challenges: UnorderedMap<ChallengeId, Challenge>,
     pub recent_finished_games: Lazy<VecDeque<GameId>>,
+    pub treasury: UnorderedMap<AccountId, Balance>,
+    pub fees: Lazy<Fees>,
+    pub wager_whitelist: Lazy<Vec<AccountId>>,
 }
 
 #[near_bindgen]
@@ -77,10 +85,29 @@ pub struct Chess {
 #[borsh(crate = "near_sdk::borsh")]
 pub struct OldChess {
     pub social_db: AccountId,
+    pub iah_registry: AccountId,
     pub accounts: UnorderedMap<AccountId, Account>,
     pub games: UnorderedMap<GameId, Game>,
     pub challenges: UnorderedMap<ChallengeId, Challenge>,
     pub recent_finished_games: Lazy<VecDeque<GameId>>,
+}
+
+#[derive(
+    Clone,
+    Debug,
+    PartialEq,
+    Eq,
+    BorshDeserialize,
+    BorshSerialize,
+    PanicOnDefault,
+    Deserialize,
+    Serialize,
+)]
+#[serde(crate = "near_sdk::serde")]
+#[borsh(crate = "near_sdk::borsh")]
+pub struct Fees {
+    pub treasury: u16,
+    pub royalties: Vec<(AccountId, u16)>,
 }
 
 /// A valid move will be parsed from a string.
@@ -108,21 +135,22 @@ impl Chess {
             games: UnorderedMap::new(StorageKey::Games),
             challenges: UnorderedMap::new(StorageKey::Challenges),
             recent_finished_games: Lazy::new(StorageKey::RecentFinishedGamesV2, VecDeque::new()),
+            treasury: UnorderedMap::new(StorageKey::Treasury),
+            fees: Lazy::new(
+                StorageKey::Fees,
+                Fees {
+                    treasury: 0,
+                    royalties: Vec::new(),
+                },
+            ),
+            wager_whitelist: Lazy::new(StorageKey::WagerWhitelist, Vec::new()),
         })
     }
 
     #[private]
     #[init(ignore_state)]
     pub fn migrate() -> Self {
-        let mut chess: Chess = env::state_read().unwrap();
-
-        let mut games = vec![];
-        for (game_id, game) in chess.games.drain() {
-            games.push((game_id, game.migrate()));
-        }
-        for (game_id, game) in games {
-            chess.games.insert(game_id, game);
-        }
+        let chess: OldChess = env::state_read().unwrap();
 
         Self {
             social_db: chess.social_db,
@@ -131,6 +159,15 @@ impl Chess {
             games: chess.games,
             challenges: chess.challenges,
             recent_finished_games: chess.recent_finished_games,
+            treasury: UnorderedMap::new(StorageKey::Treasury),
+            fees: Lazy::new(
+                StorageKey::Fees,
+                Fees {
+                    treasury: 0,
+                    royalties: Vec::new(),
+                },
+            ),
+            wager_whitelist: Lazy::new(StorageKey::WagerWhitelist, Vec::new()),
         }
     }
 
@@ -143,6 +180,71 @@ impl Chess {
             let account = self.accounts.get_mut(account_id).unwrap();
             account.remove_game_id(&game_id);
         }
+    }
+
+    #[private]
+    pub fn set_fees(&mut self, treasury: u16, royalties: Vec<(AccountId, u16)>) {
+        self.fees.set(Fees {
+            treasury,
+            royalties,
+        });
+    }
+
+    #[private]
+    pub fn set_wager_whitelist(&mut self, whitelist: Vec<AccountId>) {
+        self.wager_whitelist.set(whitelist);
+    }
+
+    #[payable]
+    #[handle_result]
+    pub fn register_token(
+        &mut self,
+        token_id: AccountId,
+        amount: U128,
+    ) -> Result<(), ContractError> {
+        let fees = self.fees.get();
+
+        let actual_deposit = env::attached_deposit();
+        let expected_deposit = (1 + fees.royalties.len() as u128) * amount.0;
+        if expected_deposit < actual_deposit {
+            return Err(ContractError::NotEnoughDeposit(
+                actual_deposit,
+                expected_deposit,
+            ));
+        }
+
+        let promise_index = env::promise_batch_create(&token_id);
+        env::promise_batch_action_function_call_weight(
+            promise_index,
+            "storage_deposit",
+            serde_json::json!({
+                "account_id": env::current_account_id(),
+                "registration_only": true
+            })
+            .to_string()
+            .as_bytes(),
+            amount.0,
+            Gas::from_tgas(0),
+            GasWeight::default(),
+        );
+        for (account_id, _) in &fees.royalties {
+            env::promise_batch_action_function_call_weight(
+                promise_index,
+                "storage_deposit",
+                serde_json::json!({
+                    "account_id": account_id,
+                    "registration_only": true
+                })
+                .to_string()
+                .as_bytes(),
+                amount.0,
+                Gas::from_tgas(0),
+                GasWeight::default(),
+            );
+        }
+        env::promise_return(promise_index);
+
+        Ok(())
     }
 
     /// Create a new game against an AI player.

@@ -1,5 +1,7 @@
-use crate::{Challenge, ChallengeId, Chess, ChessExt, ContractError, EloRating, GameId, GameInfo};
-use near_sdk::{near_bindgen, AccountId};
+use crate::{
+    Challenge, ChallengeId, Chess, ChessExt, ContractError, EloRating, Fees, GameId, GameInfo,
+};
+use near_sdk::{json_types::U128, near_bindgen, AccountId};
 
 #[near_bindgen]
 impl Chess {
@@ -135,5 +137,20 @@ impl Chess {
             .get(&account_id)
             .ok_or_else(|| ContractError::AccountNotRegistered(account_id.clone()))?;
         Ok(account.get_finished_games())
+    }
+
+    pub fn get_treasury_tokens(&self) -> Vec<(AccountId, U128)> {
+        self.treasury
+            .iter()
+            .map(|(token_id, amount)| (token_id.clone(), (*amount).into()))
+            .collect()
+    }
+
+    pub fn get_fees(&self) -> Fees {
+        self.fees.get().clone()
+    }
+
+    pub fn get_wager_whitelist(&self) -> Vec<AccountId> {
+        self.wager_whitelist.get().clone()
     }
 }

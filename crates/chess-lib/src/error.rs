@@ -40,6 +40,8 @@ pub enum ContractError {
     WrongChallengedId,
     #[error("Challenged wallet did not pay proper wager to accept challenge")]
     PaidWager,
+    #[error("Received token not on wager whitelist")]
+    WagerNoWhitelist,
     #[error("Challenger and challenged wallet ID can't be the same")]
     SelfChallenge,
     #[error("Challenge alread exists")]
