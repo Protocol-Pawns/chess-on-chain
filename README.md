@@ -28,20 +28,24 @@ near deploy app.chess-game.near ./res/chess.wasm
 near call app.chess-game.near migrate '' --accountId app.chess-game.near --gas 300000000000000
 ```
 
-## Bundlr uploads
+## Irys uploads
 
-Install [Bundlr CLI](https://docs.bundlr.network/developer-docs/cli).
+Install [Irys CLI](https://docs.irys.network/developer-docs/cli).
 
 ```sh
 # fund account
-bundlr -h http://node1.bundlr.network -w $NEAR_PRIVATE_KEY -c near fund 1000000000000000000000000
+bundlr -h http://node1.bundlr.network -w $NEAR_PRIVATE_KEY -t near fund 1000000000000000000000000
 
 # check balance
-bundlr -h http://node1.bundlr.network -w $NEAR_PRIVATE_KEY -c near balance chess-game.near
+bundlr -h http://node1.bundlr.network -w $NEAR_PRIVATE_KEY -t near balance chess-game.near
 
 # upload folder
-bundlr -h http://node1.bundlr.network -w $NEAR_PRIVATE_KEY -c near upload-dir ./assets/hk/
+bundlr -h http://node1.bundlr.network -w $NEAR_PRIVATE_KEY -t near upload-dir ./assets/hk/
 ```
+
+### Uploaded files
+
+- https://6pvogaxcfxogppk7kexyngfi3uzdlay77zowch4gcaoswmrcyooa.arweave.net/8-rjAuIt3Ge9X1Evhpio3TI1gx_-XWEfhhAdKzIiw5w
 
 ## Credits
 
