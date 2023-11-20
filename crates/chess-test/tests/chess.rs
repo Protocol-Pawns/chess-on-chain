@@ -1,3 +1,4 @@
+mod points;
 mod util;
 mod wager;
 
@@ -102,7 +103,7 @@ async fn test_ai_game() -> anyhow::Result<()> {
     let game_ids = view::get_game_ids(&contract, player_a.id()).await?;
     assert_eq!(game_ids, vec![game_id.clone()]);
 
-    let ((outcome, _board), events) =
+    let ((outcome, _board), _, events) =
         call::play_move(&contract, &player_a, &game_id, "e2e4".to_string()).await?;
     assert!(outcome.is_none());
     assert_event_emits(
@@ -243,7 +244,7 @@ async fn test_accept_challenge() -> anyhow::Result<()> {
     let game_ids = view::get_game_ids(&contract, player_b.id()).await?;
     assert_eq!(game_ids, vec![game_id.clone()]);
 
-    let ((outcome, _board), events) =
+    let ((outcome, _board), _, events) =
         call::play_move(&contract, &player_a, &game_id, "e2e4".to_string()).await?;
     assert!(outcome.is_none());
     assert_event_emits(
@@ -721,7 +722,7 @@ async fn test_finish_game() -> anyhow::Result<()> {
     call::play_move(&contract, &player_b, &game_id, "a6a5".to_string()).await?;
     call::play_move(&contract, &player_a, &game_id, "f1c4".to_string()).await?;
     call::play_move(&contract, &player_b, &game_id, "a5a4".to_string()).await?;
-    let ((outcome, board), events) =
+    let ((outcome, board), _, events) =
         call::play_move(&contract, &player_a, &game_id, "f3f7".to_string()).await?;
     let expected_board = [
         "RNB K NR".to_string(),

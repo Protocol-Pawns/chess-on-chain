@@ -3,6 +3,7 @@ pub mod event;
 pub mod view;
 
 use chess_lib::{chess_notification_to_value, ChessEvent, ChessNotification};
+use near_contract_standards::fungible_token::events::FtMint;
 use near_sdk::AccountId;
 use near_workspaces::{
     network::Sandbox,
@@ -220,6 +221,40 @@ where
         ev.insert("standard".into(), "chess-game".into());
         ev.insert("version".into(), "1.0.0".into());
         expected.push(expected_event);
+    }
+    assert_eq!(
+        &actual,
+        &serde_json::to_value(&expected)?,
+        "actual and expected events did not match.\nActual: {:#?}\nExpected: {:#?}",
+        &actual,
+        &expected
+    );
+    Ok(())
+}
+
+pub fn assert_ft_mint_events<T>(actual: T, events: Vec<FtMint>) -> anyhow::Result<()>
+where
+    T: Serialize + fmt::Debug + Clone,
+{
+    let mut actual = serde_json::to_value(&actual)?;
+    actual.as_array_mut().unwrap().retain(|ac| {
+        let event_str = ac
+            .as_object()
+            .unwrap()
+            .get("event")
+            .unwrap()
+            .as_str()
+            .unwrap();
+        event_str == "ft_mint"
+    });
+    let mut expected = vec![];
+    for event in events {
+        expected.push(json!({
+            "event": "ft_mint",
+            "standard": "nep141",
+            "version": "1.0.0",
+            "data": [event]
+        }));
     }
     assert_eq!(
         &actual,

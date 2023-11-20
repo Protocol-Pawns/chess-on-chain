@@ -7,7 +7,7 @@ use near_sdk::json_types::U128;
 use near_workspaces::{
     result::{ExecutionFinalResult, ExecutionResult, Value},
     types::NearToken,
-    Account, AccountId, Contract,
+    Account, AccountId, Contract, CryptoHash,
 };
 use serde::Serialize;
 use serde_json::json;
@@ -285,6 +285,7 @@ pub async fn play_move(
     mv: MoveStr,
 ) -> anyhow::Result<(
     (Option<GameOutcome>, [String; 8]),
+    CryptoHash,
     Vec<event::ContractEvent>,
 )> {
     let (res, events) = log_tx_result(
@@ -296,7 +297,7 @@ pub async fn play_move(
             .transact()
             .await?,
     )?;
-    Ok((res.json()?, events))
+    Ok((res.json()?, res.receipt_outcomes()[0].block_hash, events))
 }
 
 pub async fn resign(

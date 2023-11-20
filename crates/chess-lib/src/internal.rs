@@ -1,7 +1,7 @@
 use crate::{
-    calculate_elo, create_challenge_id, Account, Challenge, ChallengeId, Chess, ChessEvent,
-    ChessNotification, ContractError, EloConfig, EloOutcome, Game, GameId, GameOutcome, Player,
-    Wager,
+    calculate_elo, create_challenge_id, Account, Achievement, Challenge, ChallengeId, Chess,
+    ChessEvent, ChessNotification, ContractError, Difficulty, EloConfig, EloOutcome, Game, GameId,
+    GameOutcome, Player, Wager,
 };
 use chess_engine::Color;
 use maplit::hashmap;
@@ -135,6 +135,33 @@ impl Chess {
 
         if game.get_black().is_human() {
             self.internal_calculate_elo(&game, outcome);
+        }
+
+        if let GameOutcome::Victory(color) = outcome {
+            let (winner, looser) = match color {
+                Color::White => (game.get_white(), game.get_black()),
+                Color::Black => (game.get_black(), game.get_white()),
+            };
+            if winner.is_human() {
+                if let Some(achievement) = match looser {
+                    Player::Human(account_id) => {
+                        let looser_is_human = self.accounts.get(account_id).unwrap().is_human();
+                        if looser_is_human {
+                            Some(Achievement::FirstWinHuman)
+                        } else {
+                            None
+                        }
+                    }
+                    Player::Ai(Difficulty::Easy) => Some(Achievement::FirstWinAiEasy),
+                    Player::Ai(Difficulty::Medium) => Some(Achievement::FirstWinAiMedium),
+                    Player::Ai(Difficulty::Hard) => Some(Achievement::FirstWinAiHard),
+                } {
+                    winner
+                        .as_account_mut(self)
+                        .unwrap()
+                        .apply_achievement(achievement);
+                }
+            }
         }
 
         if let Some((token_id, amount)) = game.get_wager().clone() {

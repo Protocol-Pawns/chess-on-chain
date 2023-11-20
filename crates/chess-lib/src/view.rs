@@ -1,7 +1,9 @@
 use crate::{
-    Challenge, ChallengeId, Chess, ChessExt, ContractError, EloRating, Fees, GameId, GameInfo,
+    Achievement, Challenge, ChallengeId, Chess, ChessExt, ContractError, EloRating, Fees, GameId,
+    GameInfo, Quest,
 };
 use near_sdk::{json_types::U128, near_bindgen, AccountId};
+use std::collections::VecDeque;
 
 #[near_bindgen]
 impl Chess {
@@ -70,6 +72,39 @@ impl Chess {
             .get(&account_id)
             .ok_or_else(|| ContractError::AccountNotRegistered(account_id.clone()))?;
         Ok(account.get_elo())
+    }
+
+    #[handle_result]
+    pub fn get_points(&self, account_id: AccountId) -> Result<U128, ContractError> {
+        let account = self
+            .accounts
+            .get(&account_id)
+            .ok_or_else(|| ContractError::AccountNotRegistered(account_id.clone()))?;
+        Ok(account.get_points().into())
+    }
+
+    #[handle_result]
+    pub fn get_quest_cooldowns(
+        &self,
+        account_id: AccountId,
+    ) -> Result<&VecDeque<(u64, Quest)>, ContractError> {
+        let account = self
+            .accounts
+            .get(&account_id)
+            .ok_or_else(|| ContractError::AccountNotRegistered(account_id.clone()))?;
+        Ok(account.get_quest_cooldowns())
+    }
+
+    #[handle_result]
+    pub fn get_achievements(
+        &self,
+        account_id: AccountId,
+    ) -> Result<&Vec<(u64, Achievement)>, ContractError> {
+        let account = self
+            .accounts
+            .get(&account_id)
+            .ok_or_else(|| ContractError::AccountNotRegistered(account_id.clone()))?;
+        Ok(account.get_achievements())
     }
 
     pub fn get_elo_ratings(

@@ -1,5 +1,5 @@
 use super::log_view_result;
-use chess_lib::{Challenge, ChallengeId, EloRating, Fees, GameId, GameInfo};
+use chess_lib::{Achievement, Challenge, ChallengeId, EloRating, Fees, GameId, GameInfo, Quest};
 use near_sdk::json_types::U128;
 use near_workspaces::{AccountId, Contract};
 use serde_json::Value;
@@ -51,6 +51,48 @@ pub async fn get_elo(
     let res = log_view_result(
         contract
             .call("get_elo")
+            .args_json((account_id,))
+            .max_gas()
+            .view()
+            .await?,
+    )?;
+    Ok(res.json()?)
+}
+
+pub async fn get_points(contract: &Contract, account_id: &AccountId) -> anyhow::Result<U128> {
+    let res = log_view_result(
+        contract
+            .call("get_points")
+            .args_json((account_id,))
+            .max_gas()
+            .view()
+            .await?,
+    )?;
+    Ok(res.json()?)
+}
+
+pub async fn get_quest_cooldowns(
+    contract: &Contract,
+    account_id: &AccountId,
+) -> anyhow::Result<Vec<(u64, Quest)>> {
+    let res = log_view_result(
+        contract
+            .call("get_quest_cooldowns")
+            .args_json((account_id,))
+            .max_gas()
+            .view()
+            .await?,
+    )?;
+    Ok(res.json()?)
+}
+
+pub async fn get_achievements(
+    contract: &Contract,
+    account_id: &AccountId,
+) -> anyhow::Result<Vec<(u64, Achievement)>> {
+    let res = log_view_result(
+        contract
+            .call("get_achievements")
             .args_json((account_id,))
             .max_gas()
             .view()

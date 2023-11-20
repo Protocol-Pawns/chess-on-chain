@@ -24,13 +24,21 @@ pub struct Nep141Event {
 #[serde(tag = "event", content = "data")]
 #[serde(rename_all = "snake_case")]
 pub enum Nep141EventKind {
-    FtTransfer(Vec<FtTransferData>),
+    FtTransfer(Vec<FtTransfer>),
+    FtMint(Vec<FtMint>),
 }
 
 #[derive(Clone, Serialize, Deserialize, Debug)]
-pub struct FtTransferData {
+pub struct FtTransfer {
     pub old_owner_id: String,
     pub new_owner_id: String,
+    pub amount: String,
+    pub memo: Option<String>,
+}
+
+#[derive(Clone, Serialize, Deserialize, Debug)]
+pub struct FtMint {
+    pub owner_id: String,
     pub amount: String,
     pub memo: Option<String>,
 }
@@ -143,6 +151,9 @@ impl Display for Nep141Event {
             Nep141EventKind::FtTransfer(_) => {
                 formatter.write_fmt(format_args!("{}: ft_transfer", "event".bright_cyan()))?;
             }
+            Nep141EventKind::FtMint(_) => {
+                formatter.write_fmt(format_args!("{}: ft_mint", "event".bright_cyan()))?;
+            }
         }
         formatter.write_fmt(format_args!("\n{}: nep141", "standard".bright_cyan(),))?;
         formatter.write_fmt(format_args!(
@@ -156,12 +167,17 @@ impl Display for Nep141Event {
                     formatter.write_fmt(format_args!("\n{}: {}", "data".bright_cyan(), data))?;
                 }
             }
+            Nep141EventKind::FtMint(datas) => {
+                for data in datas {
+                    formatter.write_fmt(format_args!("\n{}: {}", "data".bright_cyan(), data))?;
+                }
+            }
         }
         Ok(())
     }
 }
 
-impl Display for FtTransferData {
+impl Display for FtTransfer {
     fn fmt(&self, formatter: &mut Formatter<'_>) -> fmt::Result {
         if let Some(memo) = &self.memo {
             formatter.write_fmt(format_args!(
@@ -177,6 +193,26 @@ impl Display for FtTransferData {
                 self.old_owner_id.bright_blue(),
                 self.amount.bright_blue(),
                 self.new_owner_id.bright_blue(),
+            ))?;
+        }
+        Ok(())
+    }
+}
+
+impl Display for FtMint {
+    fn fmt(&self, formatter: &mut Formatter<'_>) -> fmt::Result {
+        if let Some(memo) = &self.memo {
+            formatter.write_fmt(format_args!(
+                "{} ({}) --> {}",
+                self.amount.bright_blue(),
+                memo,
+                self.owner_id.bright_blue(),
+            ))?;
+        } else {
+            formatter.write_fmt(format_args!(
+                "{} --> {}",
+                self.amount.bright_blue(),
+                self.owner_id.bright_blue(),
             ))?;
         }
         Ok(())

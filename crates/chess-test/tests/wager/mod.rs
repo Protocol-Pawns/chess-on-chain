@@ -692,7 +692,7 @@ async fn test_finish_game_payout_wager() -> anyhow::Result<()> {
     call::play_move(&contract, &player_b, &game_id, "a6a5".to_string()).await?;
     call::play_move(&contract, &player_a, &game_id, "f1c4".to_string()).await?;
     call::play_move(&contract, &player_b, &game_id, "a5a4".to_string()).await?;
-    let ((outcome, board), events) =
+    let ((outcome, board), _, events) =
         call::play_move(&contract, &player_a, &game_id, "f3f7".to_string()).await?;
     let expected_board = [
         "RNB K NR".to_string(),
@@ -822,7 +822,7 @@ async fn test_finish_game_payout_fees() -> anyhow::Result<()> {
     call::play_move(&contract, &player_b, &game_id, "a6a5".to_string()).await?;
     call::play_move(&contract, &player_a, &game_id, "f1c4".to_string()).await?;
     call::play_move(&contract, &player_b, &game_id, "a5a4".to_string()).await?;
-    let ((outcome, board), events) =
+    let ((outcome, board), _, events) =
         call::play_move(&contract, &player_a, &game_id, "f3f7".to_string()).await?;
     let expected_board = [
         "RNB K NR".to_string(),

@@ -7,6 +7,7 @@ mod ft_receiver;
 mod game;
 mod iah;
 mod internal;
+mod points;
 mod social;
 mod storage;
 mod view;
@@ -19,6 +20,7 @@ pub use event::*;
 pub use ft_receiver::*;
 pub use game::*;
 pub use iah::*;
+pub use points::*;
 pub use social::*;
 pub use storage::*;
 
@@ -63,6 +65,8 @@ pub enum StorageKey {
     Treasury,
     Fees,
     WagerWhitelist,
+    AccountQuestCooldowns,
+    AccountAchievements,
 }
 
 #[near_bindgen]
@@ -150,7 +154,15 @@ impl Chess {
     #[private]
     #[init(ignore_state)]
     pub fn migrate() -> Self {
-        let chess: OldChess = env::state_read().unwrap();
+        let mut chess: Chess = env::state_read().unwrap();
+
+        let mut accounts = vec![];
+        for (account_id, account) in chess.accounts.drain() {
+            accounts.push((account_id, account.migrate()));
+        }
+        for (account_id, account) in accounts {
+            chess.accounts.insert(account_id, account);
+        }
 
         Self {
             social_db: chess.social_db,
@@ -159,15 +171,9 @@ impl Chess {
             games: chess.games,
             challenges: chess.challenges,
             recent_finished_games: chess.recent_finished_games,
-            treasury: UnorderedMap::new(StorageKey::Treasury),
-            fees: Lazy::new(
-                StorageKey::Fees,
-                Fees {
-                    treasury: 0,
-                    royalties: Vec::new(),
-                },
-            ),
-            wager_whitelist: Lazy::new(StorageKey::WagerWhitelist, Vec::new()),
+            treasury: chess.treasury,
+            fees: chess.fees,
+            wager_whitelist: chess.wager_whitelist,
         }
     }
 
@@ -366,11 +372,16 @@ impl Chess {
     ) -> Result<(Option<GameOutcome>, [String; 8]), ContractError> {
         let account_id = env::signer_account_id();
 
+        let mv = Move::parse(mv).map_err(ContractError::MoveParse)?;
         let game = self
             .games
             .get_mut(&game_id)
             .ok_or(ContractError::GameNotExists)?;
-        let mv = Move::parse(mv).map_err(ContractError::MoveParse)?;
+        let account = self
+            .accounts
+            .get_mut(&account_id)
+            .ok_or(ContractError::AccountNotRegistered(account_id.clone()))?;
+        account.apply_quest(Quest::DailyPlayMove);
 
         if !game.is_turn(&account_id) {
             return Err(ContractError::NotYourTurn);
