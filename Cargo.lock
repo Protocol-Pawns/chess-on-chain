@@ -631,7 +631,6 @@ name = "chess-lib"
 version = "1.0.0"
 dependencies = [
  "chess-engine",
- "getrandom 0.2.11",
  "maplit",
  "near-contract-standards",
  "near-sdk",
@@ -1350,10 +1349,8 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fe9006bed769170c11f845cf00c7c1e9092aeb3f268e007c3e760ac68008070f"
 dependencies = [
  "cfg-if",
- "js-sys",
  "libc",
  "wasi 0.11.0+wasi-snapshot-preview1",
- "wasm-bindgen",
 ]
 
 [[package]]
