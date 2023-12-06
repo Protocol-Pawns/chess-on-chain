@@ -50,4 +50,8 @@ pub enum ContractError {
     GameNotCancellable(u64),
     #[error("Game can only be cancelled, if it's not your turn")]
     CancelOnOpponentsTurn,
+    #[error("Invalid bet. Player accounts must not be the same")]
+    InvalidBetPlayers,
+    #[error("Betting is locked for this player pair as long as game is ongoing")]
+    BetLocked,
 }

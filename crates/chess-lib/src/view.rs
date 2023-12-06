@@ -107,6 +107,29 @@ impl Chess {
         Ok(account.get_achievements())
     }
 
+    #[handle_result]
+    pub fn get_tokens(
+        &mut self,
+        account_id: AccountId,
+    ) -> Result<Vec<(AccountId, U128)>, ContractError> {
+        let account = self.internal_get_account(&account_id)?;
+        Ok(account
+            .get_tokens()
+            .into_iter()
+            .map(|(token_id, balance)| (token_id, balance.into()))
+            .collect())
+    }
+
+    #[handle_result]
+    pub fn get_token_amount(
+        &mut self,
+        account_id: AccountId,
+        token_id: AccountId,
+    ) -> Result<U128, ContractError> {
+        let account = self.internal_get_account(&account_id)?;
+        Ok(account.get_token_amount(&token_id).into())
+    }
+
     pub fn get_elo_ratings(
         &self,
         skip: Option<usize>,

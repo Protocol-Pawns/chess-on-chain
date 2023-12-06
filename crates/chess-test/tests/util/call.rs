@@ -167,23 +167,6 @@ pub async fn create_ai_game(
     Ok((res.json()?, events))
 }
 
-pub async fn create_ai_game_old(
-    contract: &Contract,
-    sender: &Account,
-    difficulty: Difficulty,
-) -> anyhow::Result<ExecutionResult<Value>> {
-    let (res, _): (ExecutionResult<Value>, Vec<event::ContractEvent>) = log_tx_result(
-        Some("create_ai_game_old"),
-        sender
-            .call(contract.id(), "create_ai_game")
-            .args_json((difficulty,))
-            .max_gas()
-            .transact()
-            .await?,
-    )?;
-    Ok(res)
-}
-
 pub async fn challenge(
     contract: &Contract,
     sender: &Account,

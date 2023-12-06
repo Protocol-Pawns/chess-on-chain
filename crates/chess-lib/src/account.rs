@@ -6,7 +6,7 @@ use near_contract_standards::fungible_token::events::FtMint;
 use near_sdk::{
     borsh::{self, BorshDeserialize, BorshSerialize},
     env,
-    store::{Lazy, UnorderedSet},
+    store::{Lazy, UnorderedMap, UnorderedSet},
     AccountId, Balance,
 };
 use std::collections::VecDeque;
@@ -20,6 +20,7 @@ pub enum Account {
     V4(AccountV4),
     V5(AccountV5),
     V6(AccountV6),
+    V7(AccountV7),
 }
 
 #[derive(BorshDeserialize, BorshSerialize)]
@@ -96,10 +97,27 @@ pub struct AccountV6 {
     achievements: Lazy<Vec<(u64, Achievement)>>,
 }
 
+#[derive(BorshDeserialize, BorshSerialize)]
+#[borsh(crate = "near_sdk::borsh")]
+pub struct AccountV7 {
+    near_amount: Balance,
+    account_id: AccountId,
+    is_human: bool,
+    points: Balance,
+    elo: Option<EloRating>,
+    game_ids: UnorderedSet<GameId>,
+    finished_games: UnorderedSet<GameId>,
+    challenger: UnorderedSet<ChallengeId>,
+    challenged: UnorderedSet<ChallengeId>,
+    quest_cooldowns: Lazy<VecDeque<(u64, Quest)>>,
+    achievements: Lazy<Vec<(u64, Achievement)>>,
+    tokens: UnorderedMap<AccountId, Balance>,
+}
+
 impl Account {
     pub fn new(account_id: AccountId, near_amount: Balance, is_human: bool) -> Self {
         let id = env::sha256_array(account_id.as_bytes());
-        let game_id_prefix: Vec<u8> = [
+        let game_id_key: Vec<u8> = [
             borsh::to_vec(&StorageKey::VAccounts).unwrap().as_slice(),
             &id,
             borsh::to_vec(&StorageKey::AccountOrderIds)
@@ -107,7 +125,7 @@ impl Account {
                 .as_slice(),
         ]
         .concat();
-        let finished_games_prefix: Vec<u8> = [
+        let finished_games_key: Vec<u8> = [
             borsh::to_vec(&StorageKey::VAccounts).unwrap().as_slice(),
             &id,
             borsh::to_vec(&StorageKey::AccountFinishedGames)
@@ -115,7 +133,7 @@ impl Account {
                 .as_slice(),
         ]
         .concat();
-        let challenger_prefix: Vec<u8> = [
+        let challenger_key: Vec<u8> = [
             borsh::to_vec(&StorageKey::VAccounts).unwrap().as_slice(),
             &id,
             borsh::to_vec(&StorageKey::AccountChallenger)
@@ -123,7 +141,7 @@ impl Account {
                 .as_slice(),
         ]
         .concat();
-        let challenged_prefix: Vec<u8> = [
+        let challenged_key: Vec<u8> = [
             borsh::to_vec(&StorageKey::VAccounts).unwrap().as_slice(),
             &id,
             borsh::to_vec(&StorageKey::AccountChallenged)
@@ -131,7 +149,7 @@ impl Account {
                 .as_slice(),
         ]
         .concat();
-        let quest_cooldown_prefix: Vec<u8> = [
+        let quest_cooldown_key: Vec<u8> = [
             borsh::to_vec(&StorageKey::VAccounts).unwrap().as_slice(),
             &id,
             borsh::to_vec(&StorageKey::AccountQuestCooldowns)
@@ -139,7 +157,7 @@ impl Account {
                 .as_slice(),
         ]
         .concat();
-        let achievement_prefix: Vec<u8> = [
+        let achievement_key: Vec<u8> = [
             borsh::to_vec(&StorageKey::VAccounts).unwrap().as_slice(),
             &id,
             borsh::to_vec(&StorageKey::AccountAchievements)
@@ -147,23 +165,32 @@ impl Account {
                 .as_slice(),
         ]
         .concat();
-        Self::V6(AccountV6 {
+        let tokens_key: Vec<u8> = [
+            borsh::to_vec(&StorageKey::VAccounts).unwrap().as_slice(),
+            &id,
+            borsh::to_vec(&StorageKey::AccountTokens)
+                .unwrap()
+                .as_slice(),
+        ]
+        .concat();
+        Self::V7(AccountV7 {
             account_id,
             near_amount,
             is_human,
             points: 0,
             elo: if is_human { Some(1_000.) } else { None },
-            game_ids: UnorderedSet::new(game_id_prefix),
-            finished_games: UnorderedSet::new(finished_games_prefix),
-            challenger: UnorderedSet::new(challenger_prefix),
-            challenged: UnorderedSet::new(challenged_prefix),
-            quest_cooldowns: Lazy::new(quest_cooldown_prefix, VecDeque::new()),
-            achievements: Lazy::new(achievement_prefix, Vec::new()),
+            game_ids: UnorderedSet::new(game_id_key),
+            finished_games: UnorderedSet::new(finished_games_key),
+            challenger: UnorderedSet::new(challenger_key),
+            challenged: UnorderedSet::new(challenged_key),
+            quest_cooldowns: Lazy::new(quest_cooldown_key, VecDeque::new()),
+            achievements: Lazy::new(achievement_key, Vec::new()),
+            tokens: UnorderedMap::new(tokens_key),
         })
     }
 
     pub fn migrate(self) -> Self {
-        if let Account::V5(AccountV5 {
+        if let Account::V6(AccountV6 {
             near_amount,
             account_id,
             is_human,
@@ -172,37 +199,33 @@ impl Account {
             finished_games,
             challenger,
             challenged,
+            points,
+            quest_cooldowns,
+            achievements,
         }) = self
         {
             let id = env::sha256_array(account_id.as_bytes());
-            let cooldown_prefix: Vec<u8> = [
+            let tokens_key: Vec<u8> = [
                 borsh::to_vec(&StorageKey::VAccounts).unwrap().as_slice(),
                 &id,
-                borsh::to_vec(&StorageKey::AccountQuestCooldowns)
+                borsh::to_vec(&StorageKey::AccountTokens)
                     .unwrap()
                     .as_slice(),
             ]
             .concat();
-            let achievement_prefix: Vec<u8> = [
-                borsh::to_vec(&StorageKey::VAccounts).unwrap().as_slice(),
-                &id,
-                borsh::to_vec(&StorageKey::AccountAchievements)
-                    .unwrap()
-                    .as_slice(),
-            ]
-            .concat();
-            Account::V6(AccountV6 {
+            Account::V7(AccountV7 {
                 near_amount,
                 account_id,
                 is_human,
-                points: 0,
+                points,
                 elo,
                 game_ids,
                 finished_games,
                 challenger,
                 challenged,
-                quest_cooldowns: Lazy::new(cooldown_prefix, VecDeque::new()),
-                achievements: Lazy::new(achievement_prefix, Vec::new()),
+                quest_cooldowns,
+                achievements,
+                tokens: UnorderedMap::new(tokens_key),
             })
         } else {
             self
@@ -210,21 +233,21 @@ impl Account {
     }
 
     pub fn get_near_amount(&self) -> Balance {
-        let Account::V6(account) = self else {
+        let Account::V7(account) = self else {
             panic!("migration required");
         };
         account.near_amount
     }
 
     pub fn is_human(&self) -> bool {
-        let Account::V6(account) = self else {
+        let Account::V7(account) = self else {
             panic!("migration required");
         };
         account.is_human
     }
 
     pub fn set_is_human(&mut self, is_human: bool) {
-        let Account::V6(account) = self else {
+        let Account::V7(account) = self else {
             panic!("migration required");
         };
         account.is_human = is_human;
@@ -238,14 +261,14 @@ impl Account {
     }
 
     pub fn get_elo(&self) -> Option<EloRating> {
-        let Account::V6(account) = self else {
+        let Account::V7(account) = self else {
             panic!("migration required");
         };
         account.elo
     }
 
     pub fn set_elo(&mut self, elo: EloRating) {
-        let Account::V6(account) = self else {
+        let Account::V7(account) = self else {
             panic!("migration required");
         };
         if account.is_human {
@@ -254,28 +277,28 @@ impl Account {
     }
 
     pub fn get_points(&self) -> Balance {
-        let Account::V6(account) = self else {
+        let Account::V7(account) = self else {
             panic!("migration required");
         };
         account.points
     }
 
     pub fn get_quest_cooldowns(&self) -> &VecDeque<(u64, Quest)> {
-        let Account::V6(account) = self else {
+        let Account::V7(account) = self else {
             panic!("migration required");
         };
         account.quest_cooldowns.get()
     }
 
     pub fn get_achievements(&self) -> &Vec<(u64, Achievement)> {
-        let Account::V6(account) = self else {
+        let Account::V7(account) = self else {
             panic!("migration required");
         };
         account.achievements.get()
     }
 
     pub fn add_game_id(&mut self, game_id: GameId) -> Result<(), ContractError> {
-        let Account::V6(account) = self else {
+        let Account::V7(account) = self else {
             panic!("migration required");
         };
         if account.game_ids.len() >= MAX_OPEN_GAMES {
@@ -286,38 +309,73 @@ impl Account {
     }
 
     pub fn remove_game_id(&mut self, game_id: &GameId) -> bool {
-        let Account::V6(account) = self else {
+        let Account::V7(account) = self else {
             panic!("migration required");
         };
         account.game_ids.remove(game_id)
     }
 
     pub fn save_finished_game(&mut self, game_id: GameId) {
-        let Account::V6(account) = self else {
+        let Account::V7(account) = self else {
             panic!("migration required");
         };
         account.finished_games.insert(game_id);
     }
 
     pub fn is_playing(&self) -> bool {
-        let Account::V6(account) = self else {
+        let Account::V7(account) = self else {
             panic!("migration required");
         };
         !account.game_ids.is_empty()
     }
 
     pub fn get_game_ids(&self) -> Vec<GameId> {
-        let Account::V6(account) = self else {
+        let Account::V7(account) = self else {
             panic!("migration required");
         };
         account.game_ids.into_iter().cloned().collect()
     }
 
     pub fn get_finished_games(&self) -> Vec<GameId> {
-        let Account::V6(account) = self else {
+        let Account::V7(account) = self else {
             panic!("migration required");
         };
         account.finished_games.into_iter().cloned().collect()
+    }
+
+    pub fn get_tokens(&self) -> Vec<(AccountId, Balance)> {
+        let Account::V7(account) = self else {
+            panic!("migration required");
+        };
+        account
+            .tokens
+            .iter()
+            .map(|(a, b)| (a.clone(), *b))
+            .collect()
+    }
+
+    pub fn get_token_amount(&self, token_id: &AccountId) -> Balance {
+        let Account::V7(account) = self else {
+            panic!("migration required");
+        };
+        *account.tokens.get(token_id).unwrap_or(&0)
+    }
+
+    pub fn add_token(&mut self, token_id: &AccountId, amount: Balance) {
+        let Account::V7(account) = self else {
+            panic!("migration required");
+        };
+        if !account.tokens.contains_key(token_id) {
+            account.tokens.insert(token_id.clone(), 0);
+        }
+        *account.tokens.get_mut(token_id).unwrap() += amount;
+    }
+
+    pub fn withdraw_token(&mut self, token_id: &AccountId) -> Balance {
+        let Account::V7(account) = self else {
+            panic!("migration required");
+        };
+        account.tokens.remove(token_id).unwrap_or_default()
     }
 
     pub fn accept_challenge(
@@ -327,7 +385,7 @@ impl Account {
         is_challenger: bool,
     ) -> Result<(), ContractError> {
         self.add_game_id(game_id)?;
-        let Account::V6(account) = self else {
+        let Account::V7(account) = self else {
             panic!("migration required");
         };
         if is_challenger {
@@ -343,7 +401,7 @@ impl Account {
         challenge_id: &ChallengeId,
         is_challenger: bool,
     ) -> Result<(), ContractError> {
-        let Account::V6(account) = self else {
+        let Account::V7(account) = self else {
             panic!("migration required");
         };
         if is_challenger {
@@ -359,7 +417,7 @@ impl Account {
         challenge_id: ChallengeId,
         is_challenger: bool,
     ) -> Result<(), ContractError> {
-        let Account::V6(account) = self else {
+        let Account::V7(account) = self else {
             panic!("migration required");
         };
         if account.challenger.len() + account.challenged.len() >= MAX_OPEN_CHALLENGES {
@@ -374,7 +432,7 @@ impl Account {
     }
 
     pub fn get_challenges(&self, is_challenger: bool) -> Vec<ChallengeId> {
-        let Account::V6(account) = self else {
+        let Account::V7(account) = self else {
             panic!("migration required");
         };
         if is_challenger {
@@ -385,7 +443,7 @@ impl Account {
     }
 
     pub fn apply_quest(&mut self, quest: Quest) {
-        let Account::V6(account) = self else {
+        let Account::V7(account) = self else {
             panic!("migration required");
         };
         let current_timestamp = env::block_timestamp_ms();
@@ -420,7 +478,7 @@ impl Account {
     }
 
     pub fn apply_achievement(&mut self, achievement: Achievement) {
-        let Account::V6(account) = self else {
+        let Account::V7(account) = self else {
             panic!("migration required");
         };
         let achievements = account.achievements.get_mut();

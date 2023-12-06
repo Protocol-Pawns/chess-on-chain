@@ -1,5 +1,5 @@
 use crate::{
-    calculate_elo, create_challenge_id, Account, Achievement, Challenge, ChallengeId, Chess,
+    calculate_elo, create_challenge_id, Account, Achievement, BetId, Challenge, ChallengeId, Chess,
     ChessEvent, ChessNotification, ContractError, Difficulty, EloConfig, EloOutcome, Game, GameId,
     GameOutcome, Player, Wager,
 };
@@ -8,7 +8,7 @@ use maplit::hashmap;
 use near_contract_standards::fungible_token::core::ext_ft_core;
 use near_sdk::{AccountId, Balance};
 use primitive_types::U128;
-use std::collections::HashMap;
+use std::{cmp, collections::HashMap, ops::Div};
 
 impl Chess {
     pub(crate) fn internal_challenge(
@@ -62,11 +62,6 @@ impl Chess {
         challenge_id: ChallengeId,
         paid_wager: Wager,
     ) -> Result<(GameId, Option<Balance>), ContractError> {
-        let challenged = self
-            .accounts
-            .get_mut(&challenged_id)
-            .ok_or_else(|| ContractError::AccountNotRegistered(challenged_id.clone()))?;
-
         let challenge = self
             .challenges
             .remove(&challenge_id)
@@ -74,14 +69,28 @@ impl Chess {
         let refund = challenge.check_accept(&challenged_id, &paid_wager)?;
 
         let challenger_id = challenge.get_challenger();
+        let players = (challenger_id.clone(), challenged_id.clone());
+        let bet_id = BetId::new(players)?;
+        let has_bets = if let Some(bets) = self.bets.get_mut(&bet_id) {
+            bets.filter_valid(&mut self.accounts);
+            bets.is_locked = true;
+            !bets.bets.is_empty()
+        } else {
+            false
+        };
+
         let game = Game::new(
             Player::Human(challenger_id.clone()),
             Player::Human(challenged_id.clone()),
             paid_wager,
+            has_bets,
         );
         let game_id = game.get_game_id().clone();
 
-        challenged.accept_challenge(&challenge_id, game_id.clone(), false)?;
+        self.accounts
+            .get_mut(&challenged_id)
+            .ok_or_else(|| ContractError::AccountNotRegistered(challenged_id.clone()))?
+            .accept_challenge(&challenge_id, game_id.clone(), false)?;
         let challenger = self
             .accounts
             .get_mut(challenger_id)
@@ -167,36 +176,7 @@ impl Chess {
         if let Some((token_id, amount)) = game.get_wager().clone() {
             match outcome {
                 GameOutcome::Victory(color) => {
-                    let fees = self.fees.get();
-                    let treasury_amount = U128::from(amount.0)
-                        .full_mul(fees.treasury.into())
-                        .checked_div(10_000.into())
-                        .unwrap()
-                        .as_u128();
-                    if let Some(treasury) = self.treasury.get_mut(&token_id) {
-                        *treasury += treasury_amount;
-                    } else {
-                        self.treasury.insert(token_id.clone(), treasury_amount);
-                    }
-
-                    let mut total_royalty = 0;
-                    fees.royalties
-                        .iter()
-                        .for_each(|(royalty_account, royalty_fee)| {
-                            let royalty_amount = U128::from(amount.0)
-                                .full_mul((*royalty_fee).into())
-                                .checked_div(10_000.into())
-                                .unwrap()
-                                .as_u128();
-                            total_royalty += royalty_amount;
-
-                            ext_ft_core::ext(token_id.clone())
-                                .with_attached_deposit(1)
-                                .with_unused_gas_weight(1)
-                                .ft_transfer(royalty_account.clone(), royalty_amount.into(), None);
-                        });
-
-                    let wager_amount = 2 * amount.0 - treasury_amount - total_royalty;
+                    let wager_amount = 2 * amount.0 - self.deduct_fees(&token_id, amount.0);
                     ext_ft_core::ext(token_id)
                         .with_attached_deposit(1)
                         .with_unused_gas_weight(1)
@@ -228,6 +208,86 @@ impl Chess {
                                     Some("wager refund".to_string()),
                                 ),
                         );
+                }
+            }
+        }
+
+        if game.has_bets() {
+            let players = (
+                game.get_white().get_account_id().unwrap(),
+                game.get_black().get_account_id().unwrap(),
+            );
+            let bet_id = BetId::new(players).unwrap();
+            let all_bets = self.bets.remove(&bet_id).unwrap();
+            match outcome {
+                GameOutcome::Victory(color) => {
+                    let winner_id = match color {
+                        Color::White => game.get_white().get_account_id().unwrap(),
+
+                        Color::Black => game.get_black().get_account_id().unwrap(),
+                    };
+
+                    // TODO Limit max amount of bets
+                    for (token_id, bets) in all_bets.bets.iter() {
+                        let mut total_winner = 0;
+                        let mut total_looser = 0;
+                        for (_, bet) in bets.iter() {
+                            if winner_id == bet.winner {
+                                total_winner += bet.amount;
+                            } else {
+                                total_looser += bet.amount;
+                            }
+                        }
+
+                        total_looser -= self.deduct_fees(token_id, total_looser);
+
+                        let mut total_win_amount = 0;
+
+                        // pay out winners
+                        for (account_id, bet) in bets.iter() {
+                            if winner_id == bet.winner {
+                                let mut win_amount = U128::from(total_looser)
+                                    .full_mul(bet.amount.into())
+                                    .div(total_winner)
+                                    .as_u128();
+                                win_amount = cmp::min(win_amount, bet.amount);
+                                total_win_amount += win_amount;
+
+                                self.accounts
+                                    .get_mut(account_id)
+                                    .unwrap()
+                                    .add_token(token_id, win_amount + bet.amount);
+                            }
+                        }
+
+                        // refund loosers, if `total_win_amount` is less than what loosers lost
+                        let total_refund_amount = total_looser - total_win_amount;
+                        if total_refund_amount > 0 {
+                            for (account_id, bet) in bets.iter() {
+                                if winner_id != bet.winner {
+                                    let refund_amount = U128::from(total_refund_amount)
+                                        .full_mul(bet.amount.into())
+                                        .div(total_looser)
+                                        .as_u128();
+
+                                    self.accounts
+                                        .get_mut(account_id)
+                                        .unwrap()
+                                        .add_token(token_id, refund_amount);
+                                }
+                            }
+                        }
+                    }
+                }
+                GameOutcome::Stalemate => {
+                    for (token_id, bets) in all_bets.bets.iter() {
+                        for (account_id, bet) in bets {
+                            self.accounts
+                                .get_mut(account_id)
+                                .unwrap()
+                                .add_token(token_id, bet.amount);
+                        }
+                    }
                 }
             }
         }
@@ -291,6 +351,15 @@ impl Chess {
             .ok_or_else(|| ContractError::AccountNotRegistered(account_id.clone()))
     }
 
+    pub(crate) fn internal_get_account_mut(
+        &mut self,
+        account_id: &AccountId,
+    ) -> Result<&mut Account, ContractError> {
+        self.accounts
+            .get_mut(account_id)
+            .ok_or_else(|| ContractError::AccountNotRegistered(account_id.clone()))
+    }
+
     pub(crate) fn internal_register_account(
         &mut self,
         account_id: AccountId,
@@ -299,5 +368,36 @@ impl Chess {
     ) {
         let account = Account::new(account_id.clone(), amount, is_human);
         self.accounts.insert(account_id, account);
+    }
+
+    fn deduct_fees(&mut self, token_id: &AccountId, amount: Balance) -> Balance {
+        let fees = self.fees.get();
+        let treasury_amount = U128::from(amount)
+            .full_mul(fees.treasury.into())
+            .div(10_000)
+            .as_u128();
+        if let Some(treasury) = self.treasury.get_mut(token_id) {
+            *treasury += treasury_amount;
+        } else {
+            self.treasury.insert(token_id.clone(), treasury_amount);
+        }
+
+        let mut total_royalty = 0;
+        fees.royalties
+            .iter()
+            .for_each(|(royalty_account, royalty_fee)| {
+                let royalty_amount = U128::from(amount)
+                    .full_mul((*royalty_fee).into())
+                    .div(10_000)
+                    .as_u128();
+                total_royalty += royalty_amount;
+
+                ext_ft_core::ext(token_id.clone())
+                    .with_attached_deposit(1)
+                    .with_unused_gas_weight(1)
+                    .ft_transfer(royalty_account.clone(), royalty_amount.into(), None);
+            });
+
+        treasury_amount + total_royalty
     }
 }

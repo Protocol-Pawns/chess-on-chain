@@ -13,6 +13,7 @@ use near_sdk::{
 pub enum FtReceiverMsg {
     Challenge(ChallengeMsg),
     AcceptChallenge(AcceptChallengeMsg),
+    Bet(BetMsg),
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -25,6 +26,13 @@ pub struct ChallengeMsg {
 #[serde(crate = "near_sdk::serde")]
 pub struct AcceptChallengeMsg {
     pub challenge_id: ChallengeId,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+#[serde(crate = "near_sdk::serde")]
+pub struct BetMsg {
+    pub players: (AccountId, AccountId),
+    pub winner: AccountId,
 }
 
 #[near_bindgen]
@@ -70,6 +78,10 @@ impl Chess {
                     Some((token_id, amount)),
                 )?
                 .1
+            }
+            FtReceiverMsg::Bet(BetMsg { players, winner }) => {
+                self.internal_bet(sender_id, token_id, amount.0, players, winner)?;
+                None
             }
         };
 

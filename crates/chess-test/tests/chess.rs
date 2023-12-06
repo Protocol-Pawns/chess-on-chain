@@ -37,7 +37,7 @@ async fn test_migrate() -> anyhow::Result<()> {
         Some(player_b.id().clone().parse()?),
     );
 
-    call::create_ai_game_old(&contract, &player_c, Difficulty::Easy).await?;
+    call::create_ai_game(&contract, &player_c, Difficulty::Easy).await?;
 
     contract
         .as_account()

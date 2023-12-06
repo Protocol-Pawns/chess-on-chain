@@ -1,4 +1,5 @@
 mod account;
+mod bet;
 mod challenge;
 mod elo;
 mod error;
@@ -13,6 +14,7 @@ mod storage;
 mod view;
 
 pub use account::*;
+pub use bet::*;
 pub use challenge::*;
 pub use elo::*;
 pub use error::*;
@@ -28,6 +30,7 @@ use chess_engine::{Color, Move};
 use maplit::hashmap;
 use near_contract_standards::fungible_token::core::ext_ft_core;
 use near_sdk::{
+    assert_one_yocto,
     borsh::{BorshDeserialize, BorshSerialize},
     env,
     json_types::U128,
@@ -67,6 +70,8 @@ pub enum StorageKey {
     WagerWhitelist,
     AccountQuestCooldowns,
     AccountAchievements,
+    Bets,
+    AccountTokens,
 }
 
 #[near_bindgen]
@@ -82,6 +87,7 @@ pub struct Chess {
     pub treasury: UnorderedMap<AccountId, Balance>,
     pub fees: Lazy<Fees>,
     pub wager_whitelist: Lazy<Vec<AccountId>>,
+    pub bets: UnorderedMap<BetId, Bets>,
 }
 
 #[near_bindgen]
@@ -94,6 +100,9 @@ pub struct OldChess {
     pub games: UnorderedMap<GameId, Game>,
     pub challenges: UnorderedMap<ChallengeId, Challenge>,
     pub recent_finished_games: Lazy<VecDeque<GameId>>,
+    pub treasury: UnorderedMap<AccountId, Balance>,
+    pub fees: Lazy<Fees>,
+    pub wager_whitelist: Lazy<Vec<AccountId>>,
 }
 
 #[derive(
@@ -148,13 +157,14 @@ impl Chess {
                 },
             ),
             wager_whitelist: Lazy::new(StorageKey::WagerWhitelist, Vec::new()),
+            bets: UnorderedMap::new(StorageKey::Bets),
         })
     }
 
     #[private]
     #[init(ignore_state)]
     pub fn migrate() -> Self {
-        let mut chess: Chess = env::state_read().unwrap();
+        let mut chess: OldChess = env::state_read().unwrap();
 
         let mut accounts = vec![];
         for (account_id, account) in chess.accounts.drain() {
@@ -162,6 +172,14 @@ impl Chess {
         }
         for (account_id, account) in accounts {
             chess.accounts.insert(account_id, account);
+        }
+
+        let mut games = vec![];
+        for (game_id, game) in chess.games.drain() {
+            games.push((game_id, game.migrate()));
+        }
+        for (game_id, game) in games {
+            chess.games.insert(game_id, game);
         }
 
         Self {
@@ -174,6 +192,7 @@ impl Chess {
             treasury: chess.treasury,
             fees: chess.fees,
             wager_whitelist: chess.wager_whitelist,
+            bets: UnorderedMap::new(StorageKey::Bets),
         }
     }
 
@@ -265,7 +284,12 @@ impl Chess {
             .get_mut(&account_id)
             .ok_or_else(|| ContractError::AccountNotRegistered(account_id.clone()))?;
 
-        let game = Game::new(Player::Human(account_id), Player::Ai(difficulty), None);
+        let game = Game::new(
+            Player::Human(account_id),
+            Player::Ai(difficulty),
+            None,
+            false,
+        );
         let game_id = game.get_game_id().clone();
 
         account.add_game_id(game_id.clone())?;
@@ -527,6 +551,28 @@ impl Chess {
             )
         } else {
             PromiseOrValue::Value(())
+        })
+    }
+
+    #[handle_result]
+    pub fn withdraw_token(
+        &mut self,
+        token_id: AccountId,
+    ) -> Result<PromiseOrValue<()>, ContractError> {
+        assert_one_yocto();
+
+        let signer_id = env::signer_account_id();
+        let account = self.internal_get_account_mut(&signer_id)?;
+        let amount = account.withdraw_token(&token_id);
+
+        Ok(if amount == 0 {
+            PromiseOrValue::Value(())
+        } else {
+            PromiseOrValue::Promise(ext_ft_core::ext(token_id).ft_transfer(
+                signer_id,
+                amount.into(),
+                Some("withdraw".to_string()),
+            ))
         })
     }
 }
