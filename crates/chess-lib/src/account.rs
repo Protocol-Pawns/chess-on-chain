@@ -14,87 +14,13 @@ use std::collections::VecDeque;
 #[derive(BorshDeserialize, BorshSerialize)]
 #[borsh(crate = "near_sdk::borsh")]
 pub enum Account {
-    V1(AccountV1),
-    V2(AccountV2),
-    V3(AccountV3),
-    V4(AccountV4),
-    V5(AccountV5),
+    V1(()),
+    V2(()),
+    V3(()),
+    V4(()),
+    V5(()),
     V6(AccountV6),
     V7(AccountV7),
-}
-
-#[derive(BorshDeserialize, BorshSerialize)]
-#[borsh(crate = "near_sdk::borsh")]
-pub struct AccountV1 {
-    near_amount: Balance,
-    account_id: AccountId,
-    game_ids: UnorderedSet<GameId>,
-    finished_games: UnorderedSet<GameId>,
-}
-
-#[derive(BorshDeserialize, BorshSerialize)]
-#[borsh(crate = "near_sdk::borsh")]
-pub struct AccountV2 {
-    near_amount: Balance,
-    account_id: AccountId,
-    game_ids: UnorderedSet<GameId>,
-    finished_games: UnorderedSet<GameId>,
-    challenger: UnorderedSet<ChallengeId>,
-    challenged: UnorderedSet<ChallengeId>,
-}
-
-#[derive(BorshDeserialize, BorshSerialize)]
-#[borsh(crate = "near_sdk::borsh")]
-pub struct AccountV3 {
-    near_amount: Balance,
-    account_id: AccountId,
-    elo: EloRating,
-    game_ids: UnorderedSet<GameId>,
-    finished_games: UnorderedSet<GameId>,
-    challenger: UnorderedSet<ChallengeId>,
-    challenged: UnorderedSet<ChallengeId>,
-}
-
-#[derive(BorshDeserialize, BorshSerialize)]
-#[borsh(crate = "near_sdk::borsh")]
-pub struct AccountV4 {
-    near_amount: Balance,
-    account_id: AccountId,
-    enabled_notifications: bool,
-    elo: EloRating,
-    game_ids: UnorderedSet<GameId>,
-    finished_games: UnorderedSet<GameId>,
-    challenger: UnorderedSet<ChallengeId>,
-    challenged: UnorderedSet<ChallengeId>,
-}
-
-#[derive(BorshDeserialize, BorshSerialize)]
-#[borsh(crate = "near_sdk::borsh")]
-pub struct AccountV5 {
-    near_amount: Balance,
-    account_id: AccountId,
-    is_human: bool,
-    elo: Option<EloRating>,
-    game_ids: UnorderedSet<GameId>,
-    finished_games: UnorderedSet<GameId>,
-    challenger: UnorderedSet<ChallengeId>,
-    challenged: UnorderedSet<ChallengeId>,
-}
-
-#[derive(BorshDeserialize, BorshSerialize)]
-#[borsh(crate = "near_sdk::borsh")]
-pub struct AccountV6 {
-    near_amount: Balance,
-    account_id: AccountId,
-    is_human: bool,
-    points: Balance,
-    elo: Option<EloRating>,
-    game_ids: UnorderedSet<GameId>,
-    finished_games: UnorderedSet<GameId>,
-    challenger: UnorderedSet<ChallengeId>,
-    challenged: UnorderedSet<ChallengeId>,
-    quest_cooldowns: Lazy<VecDeque<(u64, Quest)>>,
-    achievements: Lazy<Vec<(u64, Achievement)>>,
 }
 
 #[derive(BorshDeserialize, BorshSerialize)]
@@ -112,6 +38,22 @@ pub struct AccountV7 {
     quest_cooldowns: Lazy<VecDeque<(u64, Quest)>>,
     achievements: Lazy<Vec<(u64, Achievement)>>,
     tokens: UnorderedMap<AccountId, Balance>,
+}
+
+#[derive(BorshDeserialize, BorshSerialize)]
+#[borsh(crate = "near_sdk::borsh")]
+pub struct AccountV6 {
+    near_amount: Balance,
+    account_id: AccountId,
+    is_human: bool,
+    points: Balance,
+    elo: Option<EloRating>,
+    game_ids: UnorderedSet<GameId>,
+    finished_games: UnorderedSet<GameId>,
+    challenger: UnorderedSet<ChallengeId>,
+    challenged: UnorderedSet<ChallengeId>,
+    quest_cooldowns: Lazy<VecDeque<(u64, Quest)>>,
+    achievements: Lazy<Vec<(u64, Achievement)>>,
 }
 
 impl Account {

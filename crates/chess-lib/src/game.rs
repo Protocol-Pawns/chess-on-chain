@@ -79,8 +79,8 @@ pub enum Difficulty {
 #[derive(BorshDeserialize, BorshSerialize)]
 #[borsh(crate = "near_sdk::borsh")]
 pub enum Game {
-    V1(GameV1),
-    V2(GameV2),
+    V1(()),
+    V2(()),
     V3(GameV3),
     V4(GameV4),
 }
@@ -108,27 +108,6 @@ pub struct GameV3 {
     board: Board,
     wager: Wager,
     last_move_block_height: u64,
-}
-
-#[near_bindgen]
-#[derive(BorshDeserialize, BorshSerialize)]
-#[borsh(crate = "near_sdk::borsh")]
-pub struct GameV2 {
-    game_id: GameId,
-    white: Player,
-    black: Player,
-    board: Board,
-    last_move_block_height: u64,
-}
-
-#[near_bindgen]
-#[derive(BorshDeserialize, BorshSerialize)]
-#[borsh(crate = "near_sdk::borsh")]
-pub struct GameV1 {
-    game_id: GameId,
-    white: Player,
-    black: Player,
-    board: Board,
 }
 
 #[derive(Deserialize, Serialize)]
