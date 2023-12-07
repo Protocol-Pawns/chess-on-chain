@@ -1,3 +1,4 @@
+mod bet;
 mod points;
 mod util;
 mod wager;
@@ -64,6 +65,7 @@ async fn test_migrate() -> anyhow::Result<()> {
         black: Player::Human(player_b.id().parse()?),
         turn_color: Color::White,
         last_block_height: block_height,
+        has_bets: false,
     })?;
     expected["last_block_height"].take();
     assert_eq!(actual, expected);

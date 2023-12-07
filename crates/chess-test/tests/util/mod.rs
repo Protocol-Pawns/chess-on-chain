@@ -1,5 +1,6 @@
 pub mod call;
 pub mod event;
+pub mod macros;
 pub mod view;
 
 use chess_lib::{chess_notification_to_value, ChessEvent, ChessNotification};

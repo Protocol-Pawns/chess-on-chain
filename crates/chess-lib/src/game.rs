@@ -117,6 +117,7 @@ pub struct GameInfo {
     pub black: Player,
     pub turn_color: Color,
     pub last_block_height: u64,
+    pub has_bets: bool,
 }
 
 #[derive(BorshDeserialize, BorshSerialize, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]

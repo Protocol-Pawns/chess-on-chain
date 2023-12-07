@@ -1,6 +1,6 @@
 use crate::{
-    Achievement, Challenge, ChallengeId, Chess, ChessExt, ContractError, EloRating, Fees, GameId,
-    GameInfo, Quest,
+    Achievement, BetId, BetInfo, Challenge, ChallengeId, Chess, ChessExt, ContractError, EloRating,
+    Fees, GameId, GameInfo, Quest,
 };
 use near_sdk::{json_types::U128, near_bindgen, AccountId};
 use std::collections::VecDeque;
@@ -40,7 +40,18 @@ impl Chess {
             black: game.get_black().clone(),
             turn_color: game.get_board().get_turn_color(),
             last_block_height: game.get_last_block_height(),
+            has_bets: game.has_bets(),
         })
+    }
+
+    #[handle_result]
+    pub fn bet_info(&self, players: (AccountId, AccountId)) -> Result<BetInfo, ContractError> {
+        let bet_id = BetId::new(players)?;
+        Ok(self
+            .bets
+            .get(&bet_id)
+            .ok_or(ContractError::BetNotExists)?
+            .into())
     }
 
     /// Returns all open game IDs for given wallet ID.
@@ -209,6 +220,6 @@ impl Chess {
     }
 
     pub fn get_wager_whitelist(&self) -> Vec<AccountId> {
-        self.wager_whitelist.get().clone()
+        self.token_whitelist.get().clone()
     }
 }

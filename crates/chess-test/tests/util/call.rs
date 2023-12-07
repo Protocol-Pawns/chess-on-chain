@@ -1,6 +1,6 @@
 use super::{event, log_tx_result};
 use chess_lib::{
-    AcceptChallengeMsg, ChallengeId, ChallengeMsg, Difficulty, Fees, FtReceiverMsg, GameId,
+    AcceptChallengeMsg, BetMsg, ChallengeId, ChallengeMsg, Difficulty, Fees, FtReceiverMsg, GameId,
     GameOutcome, MoveStr,
 };
 use near_sdk::json_types::U128;
@@ -310,6 +310,45 @@ pub async fn cancel(
         sender
             .call(contract.id(), "cancel")
             .args_json((game_id,))
+            .max_gas()
+            .transact()
+            .await?,
+    )?;
+    Ok((res, events))
+}
+
+pub async fn bet(
+    sender: &Account,
+    token_id: &AccountId,
+    receiver_id: &AccountId,
+    amount: U128,
+    msg: BetMsg,
+) -> anyhow::Result<(ExecutionResult<Value>, Vec<event::ContractEvent>)> {
+    let (res, events): (ExecutionResult<Value>, Vec<event::ContractEvent>) = log_tx_result(
+        Some("bet"),
+        ft_transfer_call(
+            sender,
+            token_id,
+            receiver_id,
+            amount,
+            FtReceiverMsg::Bet(msg),
+        )
+        .await?,
+    )?;
+    Ok((res, events))
+}
+
+pub async fn withdraw_token(
+    contract: &Contract,
+    sender: &Account,
+    token_id: &AccountId,
+) -> anyhow::Result<(ExecutionResult<Value>, Vec<event::ContractEvent>)> {
+    let (res, events) = log_tx_result(
+        Some("withdraw_token"),
+        sender
+            .call(contract.id(), "withdraw_token")
+            .args_json((token_id,))
+            .deposit(NearToken::from_yoctonear(1))
             .max_gas()
             .transact()
             .await?,

@@ -1,5 +1,7 @@
 use super::log_view_result;
-use chess_lib::{Achievement, Challenge, ChallengeId, EloRating, Fees, GameId, GameInfo, Quest};
+use chess_lib::{
+    Achievement, BetInfo, Challenge, ChallengeId, EloRating, Fees, GameId, GameInfo, Quest,
+};
 use near_sdk::json_types::U128;
 use near_workspaces::{AccountId, Contract};
 use serde_json::Value;
@@ -25,6 +27,21 @@ pub async fn get_game_info(contract: &Contract, game_id: &GameId) -> anyhow::Res
         contract
             .call("game_info")
             .args_json((game_id,))
+            .max_gas()
+            .view()
+            .await?,
+    )?;
+    Ok(res.json()?)
+}
+
+pub async fn get_bet_info(
+    contract: &Contract,
+    players: (&AccountId, &AccountId),
+) -> anyhow::Result<BetInfo> {
+    let res = log_view_result(
+        contract
+            .call("bet_info")
+            .args_json((players,))
             .max_gas()
             .view()
             .await?,

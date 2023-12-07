@@ -40,8 +40,8 @@ pub enum ContractError {
     WrongChallengedId,
     #[error("Challenged wallet did not pay proper wager to accept challenge")]
     PaidWager,
-    #[error("Received token not on wager whitelist")]
-    WagerNoWhitelist,
+    #[error("Received token not on token whitelist")]
+    TokenNoWhitelist,
     #[error("Challenger and challenged wallet ID can't be the same")]
     SelfChallenge,
     #[error("Challenge alread exists")]
@@ -50,6 +50,8 @@ pub enum ContractError {
     GameNotCancellable(u64),
     #[error("Game can only be cancelled, if it's not your turn")]
     CancelOnOpponentsTurn,
+    #[error("Bet does not exist")]
+    BetNotExists,
     #[error("Invalid bet. Player accounts must not be the same")]
     InvalidBetPlayers,
     #[error("Betting is locked for this player pair as long as game is ongoing")]

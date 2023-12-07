@@ -60,8 +60,8 @@ impl Chess {
     ) -> Result<PromiseOrValue<U128>, ContractError> {
         let msg = serde_json::from_str(&msg).map_err(|_| ContractError::Deserialize)?;
         let token_id = env::predecessor_account_id();
-        if !self.wager_whitelist.contains(&token_id) {
-            return Err(ContractError::WagerNoWhitelist);
+        if !self.token_whitelist.contains(&token_id) {
+            return Err(ContractError::TokenNoWhitelist);
         }
 
         let refund = match msg {

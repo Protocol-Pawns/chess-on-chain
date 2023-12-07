@@ -67,7 +67,7 @@ pub enum StorageKey {
     RecentFinishedGamesV2,
     Treasury,
     Fees,
-    WagerWhitelist,
+    TokenWhitelist,
     AccountQuestCooldowns,
     AccountAchievements,
     Bets,
@@ -86,7 +86,7 @@ pub struct Chess {
     pub recent_finished_games: Lazy<VecDeque<GameId>>,
     pub treasury: UnorderedMap<AccountId, Balance>,
     pub fees: Lazy<Fees>,
-    pub wager_whitelist: Lazy<Vec<AccountId>>,
+    pub token_whitelist: Lazy<Vec<AccountId>>,
     pub bets: UnorderedMap<BetId, Bets>,
 }
 
@@ -156,7 +156,7 @@ impl Chess {
                     royalties: Vec::new(),
                 },
             ),
-            wager_whitelist: Lazy::new(StorageKey::WagerWhitelist, Vec::new()),
+            token_whitelist: Lazy::new(StorageKey::TokenWhitelist, Vec::new()),
             bets: UnorderedMap::new(StorageKey::Bets),
         })
     }
@@ -191,7 +191,7 @@ impl Chess {
             recent_finished_games: chess.recent_finished_games,
             treasury: chess.treasury,
             fees: chess.fees,
-            wager_whitelist: chess.wager_whitelist,
+            token_whitelist: chess.wager_whitelist,
             bets: UnorderedMap::new(StorageKey::Bets),
         }
     }
@@ -217,7 +217,7 @@ impl Chess {
 
     #[private]
     pub fn set_wager_whitelist(&mut self, whitelist: Vec<AccountId>) {
-        self.wager_whitelist.set(whitelist);
+        self.token_whitelist.set(whitelist);
     }
 
     #[payable]
@@ -555,6 +555,7 @@ impl Chess {
     }
 
     #[handle_result]
+    #[payable]
     pub fn withdraw_token(
         &mut self,
         token_id: AccountId,
@@ -568,11 +569,12 @@ impl Chess {
         Ok(if amount == 0 {
             PromiseOrValue::Value(())
         } else {
-            PromiseOrValue::Promise(ext_ft_core::ext(token_id).ft_transfer(
-                signer_id,
-                amount.into(),
-                Some("withdraw".to_string()),
-            ))
+            PromiseOrValue::Promise(
+                ext_ft_core::ext(token_id)
+                    .with_unused_gas_weight(1)
+                    .with_attached_deposit(1)
+                    .ft_transfer(signer_id, amount.into(), Some("withdraw".to_string())),
+            )
         })
     }
 }

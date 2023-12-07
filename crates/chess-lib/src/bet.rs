@@ -2,10 +2,14 @@ use crate::{Account, Chess, ContractError, StorageKey};
 use near_sdk::{
     borsh::{self, BorshDeserialize, BorshSerialize},
     env,
+    serde::{Deserialize, Serialize},
     store::UnorderedMap,
     AccountId, Balance,
 };
-use std::{cmp::Ordering, collections::HashSet};
+use std::{
+    cmp::Ordering,
+    collections::{HashMap, HashSet},
+};
 
 /// (player_0_id, player_1_id) sorted alphabetically
 #[derive(BorshDeserialize, BorshSerialize, Clone, Hash, Ord, PartialOrd, PartialEq, Eq)]
@@ -35,15 +39,35 @@ pub struct Bets {
     pub bets: UnorderedMap<AccountId, Vec<(AccountId, Bet)>>,
 }
 
+#[derive(Debug, Deserialize, Serialize)]
+#[serde(crate = "near_sdk::serde")]
+pub struct BetInfo {
+    pub is_locked: bool,
+    pub bets: HashMap<AccountId, Vec<(AccountId, Bet)>>,
+}
+
+impl From<&Bets> for BetInfo {
+    fn from(bets: &Bets) -> Self {
+        BetInfo {
+            is_locked: bets.is_locked,
+            bets: bets
+                .bets
+                .iter()
+                .map(|(a, b)| (a.clone(), b.clone()))
+                .collect::<HashMap<_, _>>(),
+        }
+    }
+}
+
 impl Bets {
     pub fn filter_valid(&mut self, accounts: &mut UnorderedMap<AccountId, Account>) {
         let mut to_remove = vec![];
-        for (token_id, bets) in self.bets.iter() {
+        'outer: for (token_id, bets) in self.bets.iter() {
             let mut set = HashSet::new();
             for (_, bet) in bets.iter() {
                 set.insert(bet.winner.clone());
                 if set.len() == 2 {
-                    continue;
+                    continue 'outer;
                 }
             }
             to_remove.push(token_id.clone());
@@ -58,13 +82,15 @@ impl Bets {
     }
 }
 
-#[derive(BorshDeserialize, BorshSerialize, Clone)]
+#[derive(BorshDeserialize, BorshSerialize, Clone, Debug, Deserialize, Serialize)]
+#[serde(crate = "near_sdk::serde")]
 #[borsh(crate = "near_sdk::borsh")]
 pub struct Bet {
     pub amount: Balance,
     pub winner: AccountId,
 }
 
+// TODO `cancel_bet`
 impl Chess {
     pub fn internal_bet(
         &mut self,
