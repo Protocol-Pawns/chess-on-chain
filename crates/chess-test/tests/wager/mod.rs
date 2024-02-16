@@ -53,7 +53,7 @@ async fn test_accept_challenge_success() -> anyhow::Result<()> {
         contract.id(),
         wager_amount.into(),
         ChallengeMsg {
-            challenged_id: player_b.id().parse()?,
+            challenged_id: player_b.id().clone(),
         },
     )
     .await?;
@@ -68,9 +68,9 @@ async fn test_accept_challenge_success() -> anyhow::Result<()> {
     assert_eq!(challenge_ids, vec![challenge_id.clone()]);
     let challenge = view::get_challenge(&contract, &challenge_id).await?;
     let expected_challenge = Challenge::new(
-        player_a.id().parse()?,
-        player_b.id().parse()?,
-        Some((test_token.id().parse()?, wager_amount.into())),
+        player_a.id().clone(),
+        player_b.id().clone(),
+        Some((test_token.id().clone(), wager_amount.into())),
     );
     assert_eq!(&challenge, &expected_challenge);
     assert_event_emits(events, vec![ChessEvent::Challenge(expected_challenge)])?;
@@ -94,8 +94,8 @@ async fn test_accept_challenge_success() -> anyhow::Result<()> {
             },
             ChessEvent::CreateGame {
                 game_id: game_id.clone(),
-                white: Player::Human(player_a.id().clone().parse()?),
-                black: Player::Human(player_b.id().clone().parse()?),
+                white: Player::Human(player_a.id().clone()),
+                black: Player::Human(player_b.id().clone()),
                 board: [
                     "RNBQKBNR".to_string(),
                     "PPPPPPPP".to_string(),
@@ -115,8 +115,8 @@ async fn test_accept_challenge_success() -> anyhow::Result<()> {
         game_ids,
         vec![GameId(
             block_height,
-            player_a.id().clone().parse()?,
-            Some(player_b.id().clone().parse()?)
+            player_a.id().clone(),
+            Some(player_b.id().clone())
         )]
     );
     let game_ids = view::get_game_ids(&contract, player_b.id()).await?;
@@ -124,8 +124,8 @@ async fn test_accept_challenge_success() -> anyhow::Result<()> {
         game_ids,
         vec![GameId(
             block_height,
-            player_a.id().clone().parse()?,
-            Some(player_b.id().clone().parse()?)
+            player_a.id().clone(),
+            Some(player_b.id().clone())
         )]
     );
 
@@ -179,7 +179,7 @@ async fn test_accept_challenge_not_enough_wager() -> anyhow::Result<()> {
         contract.id(),
         wager_amount.into(),
         ChallengeMsg {
-            challenged_id: player_b.id().parse()?,
+            challenged_id: player_b.id().clone(),
         },
     )
     .await?;
@@ -252,7 +252,7 @@ async fn test_accept_challenge_refund_too_much_wager() -> anyhow::Result<()> {
         contract.id(),
         wager_amount.into(),
         ChallengeMsg {
-            challenged_id: player_b.id().parse()?,
+            challenged_id: player_b.id().clone(),
         },
     )
     .await?;
@@ -277,8 +277,8 @@ async fn test_accept_challenge_refund_too_much_wager() -> anyhow::Result<()> {
             },
             ChessEvent::CreateGame {
                 game_id: game_id.clone(),
-                white: Player::Human(player_a.id().clone().parse()?),
-                black: Player::Human(player_b.id().clone().parse()?),
+                white: Player::Human(player_a.id().clone()),
+                black: Player::Human(player_b.id().clone()),
                 board: [
                     "RNBQKBNR".to_string(),
                     "PPPPPPPP".to_string(),
@@ -298,8 +298,8 @@ async fn test_accept_challenge_refund_too_much_wager() -> anyhow::Result<()> {
         game_ids,
         vec![GameId(
             block_height,
-            player_a.id().clone().parse()?,
-            Some(player_b.id().clone().parse()?)
+            player_a.id().clone(),
+            Some(player_b.id().clone())
         )]
     );
     let game_ids = view::get_game_ids(&contract, player_b.id()).await?;
@@ -307,8 +307,8 @@ async fn test_accept_challenge_refund_too_much_wager() -> anyhow::Result<()> {
         game_ids,
         vec![GameId(
             block_height,
-            player_a.id().clone().parse()?,
-            Some(player_b.id().clone().parse()?)
+            player_a.id().clone(),
+            Some(player_b.id().clone())
         )]
     );
 
@@ -365,7 +365,7 @@ async fn test_reject_challenge_refund_wager() -> anyhow::Result<()> {
         contract.id(),
         wager_amount.into(),
         ChallengeMsg {
-            challenged_id: player_b.id().parse()?,
+            challenged_id: player_b.id().clone(),
         },
     )
     .await?;
@@ -434,7 +434,7 @@ async fn test_reject_wager_no_whitelist() -> anyhow::Result<()> {
         contract.id(),
         wager_amount.into(),
         ChallengeMsg {
-            challenged_id: player_b.id().parse()?,
+            challenged_id: player_b.id().clone(),
         },
     )
     .await?;
@@ -510,7 +510,7 @@ async fn test_reject_wager_wrong_token() -> anyhow::Result<()> {
         contract.id(),
         wager_amount.into(),
         ChallengeMsg {
-            challenged_id: player_b.id().parse()?,
+            challenged_id: player_b.id().clone(),
         },
     )
     .await?;
@@ -576,7 +576,7 @@ async fn test_cancel_game_refund_wager() -> anyhow::Result<()> {
         contract.id(),
         wager_amount.into(),
         ChallengeMsg {
-            challenged_id: player_b.id().parse()?,
+            challenged_id: player_b.id().clone(),
         },
     )
     .await?;
@@ -606,7 +606,7 @@ async fn test_cancel_game_refund_wager() -> anyhow::Result<()> {
         events,
         vec![ChessEvent::CancelGame {
             game_id: game_id.clone(),
-            cancelled_by: player_b.id().parse()?,
+            cancelled_by: player_b.id().clone(),
         }],
     )?;
     let game_ids = view::get_game_ids(&contract, player_a.id()).await?;
@@ -670,7 +670,7 @@ async fn test_finish_game_payout_wager() -> anyhow::Result<()> {
         contract.id(),
         wager_amount.into(),
         ChallengeMsg {
-            challenged_id: player_b.id().parse()?,
+            challenged_id: player_b.id().clone(),
         },
     )
     .await?;
@@ -771,8 +771,8 @@ async fn test_finish_game_payout_fees() -> anyhow::Result<()> {
     let fees = Fees {
         treasury: 900,
         royalties: vec![
-            (royalty_account_a.id().parse()?, 70),
-            (royalty_account_b.id().parse()?, 30),
+            (royalty_account_a.id().clone(), 70),
+            (royalty_account_b.id().clone(), 30),
         ],
     };
     call::set_fees(&contract, contract.as_account(), &fees).await?;
@@ -800,7 +800,7 @@ async fn test_finish_game_payout_fees() -> anyhow::Result<()> {
         contract.id(),
         wager_amount.into(),
         ChallengeMsg {
-            challenged_id: player_b.id().parse()?,
+            challenged_id: player_b.id().clone(),
         },
     )
     .await?;
@@ -917,7 +917,7 @@ async fn test_resign_payout_wager() -> anyhow::Result<()> {
         contract.id(),
         wager_amount.into(),
         ChallengeMsg {
-            challenged_id: player_b.id().parse()?,
+            challenged_id: player_b.id().clone(),
         },
     )
     .await?;
@@ -951,7 +951,7 @@ async fn test_resign_payout_wager() -> anyhow::Result<()> {
         vec![
             ChessEvent::ResignGame {
                 game_id: game_id.clone(),
-                resigner: player_b.id().parse()?,
+                resigner: player_b.id().clone(),
             },
             ChessEvent::FinishGame {
                 game_id: game_id.clone(),

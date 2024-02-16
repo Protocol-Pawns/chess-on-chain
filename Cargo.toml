@@ -7,8 +7,8 @@ anyhow = "1"
 either = "1"
 futures = "0.3"
 maplit = "1"
-near-workspaces = { version = "0.9", default-features = false }
-owo-colors = "3"
+near-workspaces = { version = "0.10", default-features = false }
+owo-colors = "4"
 primitive-types = { version = "0.12", default-features = false }
 rand = { version = "0.8", default-features = false, features = ["alloc"] }
 rand_chacha = "0.3"
@@ -20,14 +20,10 @@ toml = "0.8"
 urlencoding = "2"
 
 [workspace.dependencies.near-contract-standards]
-version = "4"
-git = "https://github.com/near/near-sdk-rs.git"
-rev = "ee5cf867741d6d0d4db15857609b9e9268cc9b32"
+version = "5.0.0-alpha.2"
 
 [workspace.dependencies.near-sdk]
-version = "4"
-git = "https://github.com/near/near-sdk-rs.git"
-rev = "ee5cf867741d6d0d4db15857609b9e9268cc9b32"
+version = "5.0.0-alpha.2"
 default-features = false
 features = ["unit-testing", "unstable"]
 

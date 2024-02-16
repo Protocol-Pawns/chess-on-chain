@@ -1,4 +1,4 @@
-use near_sdk::{borsh::BorshSerialize, AccountId, Balance, FunctionError};
+use near_sdk::{borsh::BorshSerialize, AccountId, FunctionError};
 use thiserror::Error;
 
 use crate::ChallengeId;
@@ -27,7 +27,7 @@ pub enum ContractError {
     #[error("You are not a player from this game")]
     NotPlaying,
     #[error("Not enough NEAR deposit. Required: {}, actual: {}", _0, _1)]
-    NotEnoughDeposit(Balance, Balance),
+    NotEnoughDeposit(u128, u128),
     #[error("Operation not supported")]
     OperationNotSupported,
     #[error("Unable to deserialize message")]

@@ -5,21 +5,14 @@ use chess_engine::Color;
 use near_sdk::{
     env, ext_contract,
     serde::{Deserialize, Serialize},
-    AccountId, PublicKey,
+    AccountId,
 };
 use serde_json::{json, Value};
 use urlencoding::encode;
 
 #[ext_contract(social_db)]
-trait SocialDb {
+pub trait SocialDb {
     fn set(&mut self, data: Value);
-
-    fn is_write_permission_granted(
-        &self,
-        predecessor_id: Option<AccountId>,
-        public_key: Option<PublicKey>,
-        key: String,
-    ) -> bool;
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]

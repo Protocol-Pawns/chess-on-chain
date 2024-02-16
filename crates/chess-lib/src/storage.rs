@@ -1,18 +1,13 @@
-use crate::{iah, Chess, ChessExt, ContractError, GAS_FOR_IS_HUMAN_CALL};
+use crate::{iah, Chess, ChessExt, ContractError, GAS_FOR_IS_HUMAN_CALL, NO_DEPOSIT};
 use near_contract_standards::storage_management::{
     StorageBalance, StorageBalanceBounds, StorageManagement,
 };
-use near_sdk::{
-    assert_one_yocto, env, json_types::U128, near_bindgen, AccountId, Balance, Promise,
-    PromiseError,
-};
+use near_sdk::{assert_one_yocto, env, near_bindgen, AccountId, NearToken, Promise, PromiseError};
 
-/// 0.05N
-pub const STORAGE_ACCOUNT_COST: Balance = 50_000_000_000_000_000_000_000;
+pub const STORAGE_ACCOUNT_COST: NearToken = NearToken::from_millinear(50);
 
 #[near_bindgen]
 impl StorageManagement for Chess {
-    /// Requires exactly 0.05N (50000000000000000000000 yoctoNear) to pay for storage.
     #[payable]
     fn storage_deposit(
         &mut self,
@@ -28,7 +23,7 @@ impl StorageManagement for Chess {
     }
 
     #[payable]
-    fn storage_withdraw(&mut self, amount: Option<U128>) -> StorageBalance {
+    fn storage_withdraw(&mut self, amount: Option<NearToken>) -> StorageBalance {
         assert_one_yocto();
         match self.internal_storage_withdraw(amount) {
             Ok(res) => res,
@@ -51,7 +46,7 @@ impl StorageManagement for Chess {
 
     fn storage_balance_bounds(&self) -> StorageBalanceBounds {
         StorageBalanceBounds {
-            min: STORAGE_ACCOUNT_COST.into(),
+            min: STORAGE_ACCOUNT_COST,
             max: None,
         }
     }
@@ -60,8 +55,8 @@ impl StorageManagement for Chess {
         self.internal_get_account(&account_id)
             .ok()
             .map(|account| StorageBalance {
-                total: U128(account.get_near_amount()),
-                available: U128(0),
+                total: account.get_near_amount(),
+                available: NO_DEPOSIT,
             })
     }
 }
@@ -74,13 +69,16 @@ impl Chess {
     ) -> Result<StorageBalance, ContractError> {
         let amount = env::attached_deposit();
         let account_id = account_id.unwrap_or_else(env::predecessor_account_id);
-        let min_balance = self.storage_balance_bounds().min.0;
+        let min_balance = self.storage_balance_bounds().min;
         let already_registered = self.accounts.contains_key(&account_id);
         if amount < min_balance && !already_registered {
-            return Err(ContractError::NotEnoughDeposit(min_balance, amount));
+            return Err(ContractError::NotEnoughDeposit(
+                min_balance.as_yoctonear(),
+                amount.as_yoctonear(),
+            ));
         }
         if already_registered {
-            if amount > 0 {
+            if amount.as_yoctonear() > 0 {
                 Promise::new(env::predecessor_account_id()).transfer(amount);
             }
             Ok(self.storage_balance_of(account_id).unwrap())
@@ -93,20 +91,20 @@ impl Chess {
                         .with_unused_gas_weight(1)
                         .on_register_account(account_id.clone(), min_balance),
                 );
-            let refund = amount - min_balance;
-            if refund > 0 {
+            let refund = amount.checked_sub(min_balance).unwrap();
+            if refund.as_yoctonear() > 0 {
                 Promise::new(env::predecessor_account_id()).transfer(refund);
             }
             Ok(StorageBalance {
-                total: U128(min_balance),
-                available: U128(0),
+                total: min_balance,
+                available: NO_DEPOSIT,
             })
         }
     }
 
     fn internal_storage_withdraw(
         &mut self,
-        _amount: Option<U128>,
+        _amount: Option<NearToken>,
     ) -> Result<StorageBalance, ContractError> {
         Err(ContractError::OperationNotSupported)
     }
@@ -135,7 +133,7 @@ impl Chess {
     pub fn on_register_account(
         &mut self,
         account_id: AccountId,
-        min_balance: Balance,
+        min_balance: NearToken,
         #[callback_result] is_human_res: Result<Vec<(AccountId, Vec<u64>)>, PromiseError>,
     ) {
         if let Ok(is_human) = is_human_res {

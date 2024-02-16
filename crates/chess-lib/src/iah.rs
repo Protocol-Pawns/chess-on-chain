@@ -2,7 +2,7 @@ use crate::{Chess, ChessExt, ContractError, GAS_FOR_IS_HUMAN_CALL};
 use near_sdk::{env, ext_contract, near_bindgen, AccountId, Promise};
 
 #[ext_contract(ext_registry)]
-trait ExtRegistry {
+pub trait ExtRegistry {
     fn is_human(&self, account: AccountId) -> Vec<(AccountId, Vec<u64>)>;
 }
 

@@ -1,8 +1,12 @@
+mod old;
+
+use old::*;
+
 use crate::{Account, Chess, ChessEvent, ContractError, Wager};
 use chess_engine::{Board, Color, GameResult, Move, Piece, Position};
 use near_sdk::{
     borsh::{BorshDeserialize, BorshSerialize},
-    env, near_bindgen,
+    env,
     serde::{Deserialize, Serialize},
     AccountId,
 };
@@ -85,7 +89,6 @@ pub enum Game {
     V4(GameV4),
 }
 
-#[near_bindgen]
 #[derive(BorshDeserialize, BorshSerialize)]
 #[borsh(crate = "near_sdk::borsh")]
 pub struct GameV4 {
@@ -96,18 +99,6 @@ pub struct GameV4 {
     wager: Wager,
     last_move_block_height: u64,
     has_bets: bool,
-}
-
-#[near_bindgen]
-#[derive(BorshDeserialize, BorshSerialize)]
-#[borsh(crate = "near_sdk::borsh")]
-pub struct GameV3 {
-    game_id: GameId,
-    white: Player,
-    black: Player,
-    board: Board,
-    wager: Wager,
-    last_move_block_height: u64,
 }
 
 #[derive(Deserialize, Serialize)]

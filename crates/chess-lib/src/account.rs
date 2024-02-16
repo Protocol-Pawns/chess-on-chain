@@ -7,7 +7,7 @@ use near_sdk::{
     borsh::{self, BorshDeserialize, BorshSerialize},
     env,
     store::{Lazy, UnorderedMap, UnorderedSet},
-    AccountId, Balance,
+    AccountId, NearToken,
 };
 use std::collections::VecDeque;
 
@@ -26,10 +26,10 @@ pub enum Account {
 #[derive(BorshDeserialize, BorshSerialize)]
 #[borsh(crate = "near_sdk::borsh")]
 pub struct AccountV7 {
-    near_amount: Balance,
+    near_amount: NearToken,
     account_id: AccountId,
     is_human: bool,
-    points: Balance,
+    points: u128,
     elo: Option<EloRating>,
     game_ids: UnorderedSet<GameId>,
     finished_games: UnorderedSet<GameId>,
@@ -37,16 +37,16 @@ pub struct AccountV7 {
     challenged: UnorderedSet<ChallengeId>,
     quest_cooldowns: Lazy<VecDeque<(u64, Quest)>>,
     achievements: Lazy<Vec<(u64, Achievement)>>,
-    tokens: UnorderedMap<AccountId, Balance>,
+    tokens: UnorderedMap<AccountId, u128>,
 }
 
 #[derive(BorshDeserialize, BorshSerialize)]
 #[borsh(crate = "near_sdk::borsh")]
 pub struct AccountV6 {
-    near_amount: Balance,
+    near_amount: u128,
     account_id: AccountId,
     is_human: bool,
-    points: Balance,
+    points: u128,
     elo: Option<EloRating>,
     game_ids: UnorderedSet<GameId>,
     finished_games: UnorderedSet<GameId>,
@@ -57,7 +57,7 @@ pub struct AccountV6 {
 }
 
 impl Account {
-    pub fn new(account_id: AccountId, near_amount: Balance, is_human: bool) -> Self {
+    pub fn new(account_id: AccountId, near_amount: NearToken, is_human: bool) -> Self {
         let id = env::sha256_array(account_id.as_bytes());
         let game_id_key: Vec<u8> = [
             borsh::to_vec(&StorageKey::VAccounts).unwrap().as_slice(),
@@ -156,7 +156,7 @@ impl Account {
             ]
             .concat();
             Account::V7(AccountV7 {
-                near_amount,
+                near_amount: NearToken::from_yoctonear(near_amount),
                 account_id,
                 is_human,
                 points,
@@ -174,7 +174,7 @@ impl Account {
         }
     }
 
-    pub fn get_near_amount(&self) -> Balance {
+    pub fn get_near_amount(&self) -> NearToken {
         let Account::V7(account) = self else {
             panic!("migration required");
         };
@@ -218,7 +218,7 @@ impl Account {
         }
     }
 
-    pub fn get_points(&self) -> Balance {
+    pub fn get_points(&self) -> u128 {
         let Account::V7(account) = self else {
             panic!("migration required");
         };
@@ -285,7 +285,7 @@ impl Account {
         account.finished_games.into_iter().cloned().collect()
     }
 
-    pub fn get_tokens(&self) -> Vec<(AccountId, Balance)> {
+    pub fn get_tokens(&self) -> Vec<(AccountId, u128)> {
         let Account::V7(account) = self else {
             panic!("migration required");
         };
@@ -296,14 +296,14 @@ impl Account {
             .collect()
     }
 
-    pub fn get_token_amount(&self, token_id: &AccountId) -> Balance {
+    pub fn get_token_amount(&self, token_id: &AccountId) -> u128 {
         let Account::V7(account) = self else {
             panic!("migration required");
         };
         *account.tokens.get(token_id).unwrap_or(&0)
     }
 
-    pub fn add_token(&mut self, token_id: &AccountId, amount: Balance) {
+    pub fn add_token(&mut self, token_id: &AccountId, amount: u128) {
         let Account::V7(account) = self else {
             panic!("migration required");
         };
@@ -313,7 +313,7 @@ impl Account {
         *account.tokens.get_mut(token_id).unwrap() += amount;
     }
 
-    pub fn withdraw_token(&mut self, token_id: &AccountId) -> Balance {
+    pub fn withdraw_token(&mut self, token_id: &AccountId) -> u128 {
         let Account::V7(account) = self else {
             panic!("migration required");
         };
@@ -410,7 +410,7 @@ impl Account {
         account.points += mint_amount;
         FtMint {
             owner_id: &account.account_id,
-            amount: &mint_amount.into(),
+            amount: mint_amount.into(),
             memo: Some(quest.get_name()),
         }
         .emit();
@@ -430,7 +430,7 @@ impl Account {
             account.points += mint_amount;
             FtMint {
                 owner_id: &account.account_id,
-                amount: &mint_amount.into(),
+                amount: mint_amount.into(),
                 memo: Some(achievement.get_name()),
             }
             .emit();

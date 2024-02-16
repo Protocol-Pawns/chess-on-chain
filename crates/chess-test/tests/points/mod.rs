@@ -26,8 +26,8 @@ async fn test_daily_play_move() -> anyhow::Result<()> {
     let block_height = game_id.0;
     let game_id = GameId(
         block_height,
-        player_a.id().clone().parse()?,
-        Some(player_b.id().clone().parse()?),
+        player_a.id().clone(),
+        Some(player_b.id().clone()),
     );
 
     let (_, block_hash, events) =
@@ -43,8 +43,8 @@ async fn test_daily_play_move() -> anyhow::Result<()> {
     assert_ft_mint_events(
         events,
         vec![FtMint {
-            owner_id: &player_a.id().parse()?,
-            amount: &Quest::DailyPlayMove.get_points(false).into(),
+            owner_id: player_a.id(),
+            amount: Quest::DailyPlayMove.get_points(false).into(),
             memo: Some("DailyPlayMove"),
         }],
     )?;
@@ -56,8 +56,8 @@ async fn test_daily_play_move() -> anyhow::Result<()> {
     assert_ft_mint_events(
         events,
         vec![FtMint {
-            owner_id: &player_b.id().parse()?,
-            amount: &Quest::DailyPlayMove.get_points(false).into(),
+            owner_id: player_b.id(),
+            amount: Quest::DailyPlayMove.get_points(false).into(),
             memo: Some("DailyPlayMove"),
         }],
     )?;
@@ -72,8 +72,8 @@ async fn test_daily_play_move() -> anyhow::Result<()> {
     assert_ft_mint_events(
         events,
         vec![FtMint {
-            owner_id: &player_a.id().parse()?,
-            amount: &Quest::DailyPlayMove.get_points(true).into(),
+            owner_id: player_a.id(),
+            amount: Quest::DailyPlayMove.get_points(true).into(),
             memo: Some("DailyPlayMove"),
         }],
     )?;
@@ -88,8 +88,8 @@ async fn test_daily_play_move() -> anyhow::Result<()> {
     assert_ft_mint_events(
         events,
         vec![FtMint {
-            owner_id: &player_b.id().parse()?,
-            amount: &Quest::DailyPlayMove.get_points(true).into(),
+            owner_id: player_b.id(),
+            amount: Quest::DailyPlayMove.get_points(true).into(),
             memo: Some("DailyPlayMove"),
         }],
     )?;
@@ -106,8 +106,8 @@ async fn test_daily_play_move() -> anyhow::Result<()> {
     assert_ft_mint_events(
         events,
         vec![FtMint {
-            owner_id: &player_a.id().parse()?,
-            amount: &Quest::DailyPlayMove.get_points(false).into(),
+            owner_id: player_a.id(),
+            amount: Quest::DailyPlayMove.get_points(false).into(),
             memo: Some("DailyPlayMove"),
         }],
     )?;
@@ -122,8 +122,8 @@ async fn test_daily_play_move() -> anyhow::Result<()> {
     assert_ft_mint_events(
         events,
         vec![FtMint {
-            owner_id: &player_b.id().parse()?,
-            amount: &Quest::DailyPlayMove.get_points(false).into(),
+            owner_id: player_b.id(),
+            amount: Quest::DailyPlayMove.get_points(false).into(),
             memo: Some("DailyPlayMove"),
         }],
     )?;
@@ -154,8 +154,8 @@ async fn test_first_win_human() -> anyhow::Result<()> {
     let block_height = game_id.0;
     let game_id = GameId(
         block_height,
-        player_a.id().clone().parse()?,
-        Some(player_b.id().clone().parse()?),
+        player_a.id().clone(),
+        Some(player_b.id().clone()),
     );
 
     call::play_move(&contract, &player_a, &game_id, "e2e4".to_string()).await?;
@@ -190,13 +190,13 @@ async fn test_first_win_human() -> anyhow::Result<()> {
         events,
         vec![
             FtMint {
-                owner_id: &player_a.id().parse()?,
-                amount: &Quest::DailyPlayMove.get_points(true).into(),
+                owner_id: player_a.id(),
+                amount: Quest::DailyPlayMove.get_points(true).into(),
                 memo: Some("DailyPlayMove"),
             },
             FtMint {
-                owner_id: &player_a.id().parse()?,
-                amount: &Achievement::FirstWinHuman.get_points().into(),
+                owner_id: player_a.id(),
+                amount: Achievement::FirstWinHuman.get_points().into(),
                 memo: Some("FirstWinHuman"),
             },
         ],
@@ -224,8 +224,8 @@ async fn test_first_win_not_human() -> anyhow::Result<()> {
     let block_height = game_id.0;
     let game_id = GameId(
         block_height,
-        player_a.id().clone().parse()?,
-        Some(player_b.id().clone().parse()?),
+        player_a.id().clone(),
+        Some(player_b.id().clone()),
     );
 
     call::play_move(&contract, &player_a, &game_id, "e2e4".to_string()).await?;
@@ -254,8 +254,8 @@ async fn test_first_win_not_human() -> anyhow::Result<()> {
     assert_ft_mint_events(
         events,
         vec![FtMint {
-            owner_id: &player_a.id().parse()?,
-            amount: &Quest::DailyPlayMove.get_points(true).into(),
+            owner_id: player_a.id(),
+            amount: Quest::DailyPlayMove.get_points(true).into(),
             memo: Some("DailyPlayMove"),
         }],
     )?;
@@ -273,7 +273,7 @@ async fn test_first_win_ai() -> anyhow::Result<()> {
 
     let (game_id, _) = call::create_ai_game(&contract, &player_a, Difficulty::Easy).await?;
     let block_height = game_id.0;
-    let game_id = GameId(block_height, player_a.id().clone().parse()?, None);
+    let game_id = GameId(block_height, player_a.id().clone(), None);
 
     call::play_move(&contract, &player_a, &game_id, "e2e4".to_string()).await?;
     call::play_move(&contract, &player_a, &game_id, "d1f3".to_string()).await?;
@@ -299,13 +299,13 @@ async fn test_first_win_ai() -> anyhow::Result<()> {
         events,
         vec![
             FtMint {
-                owner_id: &player_a.id().parse()?,
-                amount: &Quest::DailyPlayMove.get_points(true).into(),
+                owner_id: player_a.id(),
+                amount: Quest::DailyPlayMove.get_points(true).into(),
                 memo: Some("DailyPlayMove"),
             },
             FtMint {
-                owner_id: &player_a.id().parse()?,
-                amount: &Achievement::FirstWinAiEasy.get_points().into(),
+                owner_id: player_a.id(),
+                amount: Achievement::FirstWinAiEasy.get_points().into(),
                 memo: Some("FirstWinAiEasy"),
             },
         ],
@@ -324,7 +324,7 @@ async fn test_achievement_only_once() -> anyhow::Result<()> {
 
     let (game_id, _) = call::create_ai_game(&contract, &player_a, Difficulty::Easy).await?;
     let block_height = game_id.0;
-    let game_id = GameId(block_height, player_a.id().clone().parse()?, None);
+    let game_id = GameId(block_height, player_a.id().clone(), None);
 
     call::play_move(&contract, &player_a, &game_id, "e2e4".to_string()).await?;
     call::play_move(&contract, &player_a, &game_id, "d1f3".to_string()).await?;
@@ -339,7 +339,7 @@ async fn test_achievement_only_once() -> anyhow::Result<()> {
 
     let (game_id, _) = call::create_ai_game(&contract, &player_a, Difficulty::Easy).await?;
     let block_height = game_id.0;
-    let game_id = GameId(block_height, player_a.id().clone().parse()?, None);
+    let game_id = GameId(block_height, player_a.id().clone(), None);
 
     call::play_move(&contract, &player_a, &game_id, "e2e4".to_string()).await?;
     call::play_move(&contract, &player_a, &game_id, "d1f3".to_string()).await?;
@@ -363,8 +363,8 @@ async fn test_achievement_only_once() -> anyhow::Result<()> {
     assert_ft_mint_events(
         events,
         vec![FtMint {
-            owner_id: &player_a.id().parse()?,
-            amount: &Quest::DailyPlayMove.get_points(true).into(),
+            owner_id: player_a.id(),
+            amount: Quest::DailyPlayMove.get_points(true).into(),
             memo: Some("DailyPlayMove"),
         }],
     )?;
@@ -395,8 +395,8 @@ async fn test_multiple_achievements() -> anyhow::Result<()> {
     let block_height = game_id.0;
     let game_id = GameId(
         block_height,
-        player_a.id().clone().parse()?,
-        Some(player_b.id().clone().parse()?),
+        player_a.id().clone(),
+        Some(player_b.id().clone()),
     );
 
     call::play_move(&contract, &player_a, &game_id, "e2e4".to_string()).await?;
@@ -416,7 +416,7 @@ async fn test_multiple_achievements() -> anyhow::Result<()> {
 
     let (game_id, _) = call::create_ai_game(&contract, &player_a, Difficulty::Easy).await?;
     let block_height = game_id.0;
-    let game_id = GameId(block_height, player_a.id().clone().parse()?, None);
+    let game_id = GameId(block_height, player_a.id().clone(), None);
 
     call::play_move(&contract, &player_a, &game_id, "e2e4".to_string()).await?;
     call::play_move(&contract, &player_a, &game_id, "d1f3".to_string()).await?;

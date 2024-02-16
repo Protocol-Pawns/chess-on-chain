@@ -34,8 +34,8 @@ async fn test_migrate() -> anyhow::Result<()> {
     let block_height = game_id.0;
     let game_id = GameId(
         block_height,
-        player_a.id().clone().parse()?,
-        Some(player_b.id().clone().parse()?),
+        player_a.id().clone(),
+        Some(player_b.id().clone()),
     );
 
     call::create_ai_game(&contract, &player_c, Difficulty::Easy).await?;
@@ -61,8 +61,8 @@ async fn test_migrate() -> anyhow::Result<()> {
     let mut actual = serde_json::to_value(game_info)?;
     actual["last_block_height"].take();
     let mut expected = serde_json::to_value(GameInfo {
-        white: Player::Human(player_a.id().parse()?),
-        black: Player::Human(player_b.id().parse()?),
+        white: Player::Human(player_a.id().clone()),
+        black: Player::Human(player_b.id().clone()),
         turn_color: Color::White,
         last_block_height: block_height,
         has_bets: false,
@@ -82,12 +82,12 @@ async fn test_ai_game() -> anyhow::Result<()> {
     call::storage_deposit(&contract, &player_a, None, None).await?;
     let (game_id, events) = call::create_ai_game(&contract, &player_a, Difficulty::Easy).await?;
     let block_height = game_id.0;
-    let game_id = GameId(block_height, player_a.id().clone().parse()?, None);
+    let game_id = GameId(block_height, player_a.id().clone(), None);
     assert_event_emits(
         events,
         vec![ChessEvent::CreateGame {
             game_id: game_id.clone(),
-            white: Player::Human(player_a.id().clone().parse()?),
+            white: Player::Human(player_a.id().clone()),
             black: Player::Ai(Difficulty::Easy),
             board: [
                 "RNBQKBNR".to_string(),
@@ -167,7 +167,7 @@ async fn test_ai_game() -> anyhow::Result<()> {
         vec![
             ChessEvent::ResignGame {
                 game_id: game_id.clone(),
-                resigner: player_a.id().parse()?,
+                resigner: player_a.id().clone(),
             },
             ChessEvent::FinishGame {
                 game_id: game_id.clone(),
@@ -205,7 +205,7 @@ async fn test_accept_challenge() -> anyhow::Result<()> {
     let challenge_ids = view::get_challenges(&contract, player_b.id(), false).await?;
     assert_eq!(challenge_ids, vec![challenge_id.clone()]);
     let challenge = view::get_challenge(&contract, &challenge_id).await?;
-    let expected_challenge = Challenge::new(player_a.id().parse()?, player_b.id().parse()?, None);
+    let expected_challenge = Challenge::new(player_a.id().clone(), player_b.id().clone(), None);
     assert_eq!(&challenge, &expected_challenge);
     assert_event_emits(events, vec![ChessEvent::Challenge(expected_challenge)])?;
 
@@ -213,8 +213,8 @@ async fn test_accept_challenge() -> anyhow::Result<()> {
     let block_height = game_id.0;
     let game_id = GameId(
         block_height,
-        player_a.id().clone().parse()?,
-        Some(player_b.id().clone().parse()?),
+        player_a.id().clone(),
+        Some(player_b.id().clone()),
     );
     assert_event_emits(
         events,
@@ -225,8 +225,8 @@ async fn test_accept_challenge() -> anyhow::Result<()> {
             },
             ChessEvent::CreateGame {
                 game_id: game_id.clone(),
-                white: Player::Human(player_a.id().clone().parse()?),
-                black: Player::Human(player_b.id().clone().parse()?),
+                white: Player::Human(player_a.id().clone()),
+                black: Player::Human(player_b.id().clone()),
                 board: [
                     "RNBQKBNR".to_string(),
                     "PPPPPPPP".to_string(),
@@ -294,8 +294,8 @@ async fn test_reject_challenge() -> anyhow::Result<()> {
     assert_event_emits(
         events,
         vec![ChessEvent::Challenge(Challenge::new(
-            player_a.id().parse()?,
-            player_b.id().parse()?,
+            player_a.id().clone(),
+            player_b.id().clone(),
             None,
         ))],
     )?;
@@ -345,7 +345,7 @@ async fn test_accept_reject_challenge_check_sender() -> anyhow::Result<()> {
     let challenge_ids = view::get_challenges(&contract, player_b.id(), false).await?;
     assert_eq!(challenge_ids, vec![challenge_id.clone()]);
     let challenge = view::get_challenge(&contract, &challenge_id).await?;
-    let expected_challenge = Challenge::new(player_a.id().parse()?, player_b.id().parse()?, None);
+    let expected_challenge = Challenge::new(player_a.id().clone(), player_b.id().clone(), None);
     assert_eq!(&challenge, &expected_challenge);
     assert_event_emits(events, vec![ChessEvent::Challenge(expected_challenge)])?;
 
@@ -410,8 +410,8 @@ async fn test_resign() -> anyhow::Result<()> {
     let block_height = game_id.0;
     let game_id = GameId(
         block_height,
-        player_a.id().clone().parse()?,
-        Some(player_b.id().clone().parse()?),
+        player_a.id().clone(),
+        Some(player_b.id().clone()),
     );
 
     let (res, events) = call::resign(&contract, &player_a, &game_id).await?;
@@ -431,7 +431,7 @@ async fn test_resign() -> anyhow::Result<()> {
         vec![
             ChessEvent::ResignGame {
                 game_id: game_id.clone(),
-                resigner: player_a.id().parse()?,
+                resigner: player_a.id().clone(),
             },
             ChessEvent::FinishGame {
                 game_id: game_id.clone(),
@@ -481,8 +481,8 @@ async fn test_cancel_success() -> anyhow::Result<()> {
     let block_height = game_id.0;
     let game_id = GameId(
         block_height,
-        player_a.id().clone().parse()?,
-        Some(player_b.id().clone().parse()?),
+        player_a.id().clone(),
+        Some(player_b.id().clone()),
     );
 
     worker.fast_forward(100).await?;
@@ -492,7 +492,7 @@ async fn test_cancel_success() -> anyhow::Result<()> {
         events,
         vec![ChessEvent::CancelGame {
             game_id: game_id.clone(),
-            cancelled_by: player_b.id().parse()?,
+            cancelled_by: player_b.id().clone(),
         }],
     )?;
     let game_ids = view::get_game_ids(&contract, player_a.id()).await?;
@@ -532,8 +532,8 @@ async fn test_cancel_not_enough_blocks() -> anyhow::Result<()> {
     let block_height = game_id.0;
     let game_id = GameId(
         block_height,
-        player_a.id().clone().parse()?,
-        Some(player_b.id().clone().parse()?),
+        player_a.id().clone(),
+        Some(player_b.id().clone()),
     );
 
     let res = call::cancel(&contract, &player_a, &game_id).await;
@@ -563,8 +563,8 @@ async fn test_cancel_update_last_block_height() -> anyhow::Result<()> {
     let block_height = game_id.0;
     let game_id = GameId(
         block_height,
-        player_a.id().clone().parse()?,
-        Some(player_b.id().clone().parse()?),
+        player_a.id().clone(),
+        Some(player_b.id().clone()),
     );
 
     worker.fast_forward(50).await?;
@@ -599,8 +599,8 @@ async fn test_cancel_check_opponent() -> anyhow::Result<()> {
     let block_height = game_id.0;
     let game_id = GameId(
         block_height,
-        player_a.id().clone().parse()?,
-        Some(player_b.id().clone().parse()?),
+        player_a.id().clone(),
+        Some(player_b.id().clone()),
     );
 
     worker.fast_forward(100).await?;
@@ -714,8 +714,8 @@ async fn test_finish_game() -> anyhow::Result<()> {
     let block_height = game_id.0;
     let game_id = GameId(
         block_height,
-        player_a.id().clone().parse()?,
-        Some(player_b.id().clone().parse()?),
+        player_a.id().clone(),
+        Some(player_b.id().clone()),
     );
 
     call::play_move(&contract, &player_a, &game_id, "e2e4".to_string()).await?;
@@ -789,9 +789,9 @@ async fn test_notify() -> anyhow::Result<()> {
         &contract,
         &social_contract,
         hashmap! {
-            player_b.id().parse()? => vec![ChessNotification::Challenged {
+            player_b.id().clone() => vec![ChessNotification::Challenged {
                 challenge_id: create_challenge_id(player_a.id(), player_b.id()),
-                challenger_id: player_a.id().parse()?,
+                challenger_id: player_a.id().clone(),
             }],
         },
     )
@@ -803,8 +803,8 @@ async fn test_notify() -> anyhow::Result<()> {
         &contract,
         &social_contract,
         hashmap! {
-            player_a.id().parse()? => vec![ChessNotification::RejectedChallenge {
-                challenged_id: player_b.id().parse()?,
+            player_a.id().clone() => vec![ChessNotification::RejectedChallenge {
+                challenged_id: player_b.id().clone(),
             }],
         },
     )
@@ -816,9 +816,9 @@ async fn test_notify() -> anyhow::Result<()> {
         &contract,
         &social_contract,
         hashmap! {
-            player_a.id().parse()? => vec![ChessNotification::AcceptedChallenge {
+            player_a.id().clone() => vec![ChessNotification::AcceptedChallenge {
                 game_id: game_id.clone(),
-                challenged_id: player_b.id().parse()?,
+                challenged_id: player_b.id().clone(),
             }]
         },
     )
@@ -826,8 +826,8 @@ async fn test_notify() -> anyhow::Result<()> {
     let block_height = game_id.0;
     let game_id = GameId(
         block_height,
-        player_a.id().clone().parse()?,
-        Some(player_b.id().clone().parse()?),
+        player_a.id().clone(),
+        Some(player_b.id().clone()),
     );
 
     call::play_move(&contract, &player_a, &game_id, "e2e4".to_string()).await?;
@@ -835,7 +835,7 @@ async fn test_notify() -> anyhow::Result<()> {
         &contract,
         &social_contract,
         hashmap! {
-            player_b.id().parse()? => vec![ChessNotification::YourTurn {
+            player_b.id().clone() => vec![ChessNotification::YourTurn {
                 game_id: game_id.clone(),
             }]
         },
@@ -847,7 +847,7 @@ async fn test_notify() -> anyhow::Result<()> {
         &contract,
         &social_contract,
         hashmap! {
-            player_a.id().parse()? => vec![ChessNotification::YourTurn {
+            player_a.id().clone() => vec![ChessNotification::YourTurn {
                 game_id: game_id.clone(),
             }]
         },
@@ -863,11 +863,11 @@ async fn test_notify() -> anyhow::Result<()> {
         &contract,
         &social_contract,
         hashmap! {
-            player_a.id().parse()? => vec![ChessNotification::Outcome {
+            player_a.id().clone() => vec![ChessNotification::Outcome {
                 game_id: game_id.clone(),
                 outcome: GameOutcome::Victory(Color::White),
             }],
-            player_b.id().parse()? => vec![ChessNotification::Outcome {
+            player_b.id().clone() => vec![ChessNotification::Outcome {
                 game_id: game_id.clone(),
                 outcome: GameOutcome::Victory(Color::White),
             }]
@@ -882,11 +882,11 @@ async fn test_notify() -> anyhow::Result<()> {
         &contract,
         &social_contract,
         hashmap! {
-            player_a.id().parse()? => vec![ChessNotification::Outcome {
+            player_a.id().clone() => vec![ChessNotification::Outcome {
                 game_id: game_id.clone(),
                 outcome: GameOutcome::Victory(Color::Black),
             }],
-            player_b.id().parse()? => vec![ChessNotification::Outcome {
+            player_b.id().clone() => vec![ChessNotification::Outcome {
                 game_id: game_id.clone(),
                 outcome: GameOutcome::Victory(Color::Black),
             }]
@@ -915,8 +915,8 @@ async fn test_no_elo_if_not_human() -> anyhow::Result<()> {
     let block_height = game_id.0;
     let game_id = GameId(
         block_height,
-        player_a.id().clone().parse()?,
-        Some(player_b.id().clone().parse()?),
+        player_a.id().clone(),
+        Some(player_b.id().clone()),
     );
     call::resign(&contract, &player_a, &game_id).await?;
 
@@ -938,8 +938,8 @@ async fn test_no_elo_if_not_human() -> anyhow::Result<()> {
     let block_height = game_id.0;
     let game_id = GameId(
         block_height,
-        player_a.id().clone().parse()?,
-        Some(player_b.id().clone().parse()?),
+        player_a.id().clone(),
+        Some(player_b.id().clone()),
     );
     call::resign(&contract, &player_a, &game_id).await?;
 
@@ -961,8 +961,8 @@ async fn test_no_elo_if_not_human() -> anyhow::Result<()> {
     let block_height = game_id.0;
     let game_id = GameId(
         block_height,
-        player_a.id().clone().parse()?,
-        Some(player_b.id().clone().parse()?),
+        player_a.id().clone(),
+        Some(player_b.id().clone()),
     );
     call::resign(&contract, &player_a, &game_id).await?;
 

@@ -7,8 +7,8 @@ macro_rules! bet {
             $contract_id,
             $amount.into(),
             BetMsg {
-                players: ($winner.id().parse()?, $looser.id().parse()?),
-                winner: $winner.id().parse()?,
+                players: ($winner.id().clone(), $looser.id().clone()),
+                winner: $winner.id().clone(),
             },
         )
     };

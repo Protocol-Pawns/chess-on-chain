@@ -379,7 +379,7 @@ impl Board {
             Either::Left(0) => {
                 return self.value_for(getting_move_for);
             }
-            Either::Right((depth, _)) if depth.is_empty() => {
+            Either::Right(([], _)) => {
                 return self.value_for(getting_move_for);
             }
             Either::Left(depth) => (Either::Left(depth - 1), None),

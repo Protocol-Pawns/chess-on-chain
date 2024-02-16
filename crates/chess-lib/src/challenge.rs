@@ -4,7 +4,7 @@ use near_sdk::{
     env,
     json_types::U128,
     serde::{Deserialize, Serialize},
-    AccountId, Balance,
+    AccountId,
 };
 use std::fmt;
 
@@ -51,7 +51,7 @@ impl Challenge {
         &self,
         challenged_id: &AccountId,
         paid_wager: &Wager,
-    ) -> Result<Option<Balance>, ContractError> {
+    ) -> Result<Option<u128>, ContractError> {
         if challenged_id != &self.challenged {
             return Err(ContractError::WrongChallengedId);
         }

@@ -1,12 +1,12 @@
 use crate::{
     calculate_elo, create_challenge_id, Account, Achievement, BetId, Challenge, ChallengeId, Chess,
     ChessEvent, ChessNotification, ContractError, Difficulty, EloConfig, EloOutcome, Game, GameId,
-    GameOutcome, Player, Wager,
+    GameOutcome, Player, Wager, ONE_YOCTO,
 };
 use chess_engine::Color;
 use maplit::hashmap;
 use near_contract_standards::fungible_token::core::ext_ft_core;
-use near_sdk::{AccountId, Balance};
+use near_sdk::{AccountId, NearToken};
 use primitive_types::U128;
 use std::{cmp, collections::HashMap, ops::Div};
 
@@ -61,7 +61,7 @@ impl Chess {
         challenged_id: AccountId,
         challenge_id: ChallengeId,
         paid_wager: Wager,
-    ) -> Result<(GameId, Option<Balance>), ContractError> {
+    ) -> Result<(GameId, Option<u128>), ContractError> {
         let challenge = self
             .challenges
             .remove(&challenge_id)
@@ -178,7 +178,7 @@ impl Chess {
                 GameOutcome::Victory(color) => {
                     let wager_amount = 2 * amount.0 - self.deduct_fees(&token_id, amount.0);
                     ext_ft_core::ext(token_id)
-                        .with_attached_deposit(1)
+                        .with_attached_deposit(ONE_YOCTO)
                         .with_unused_gas_weight(1)
                         .ft_transfer(
                             match color {
@@ -191,7 +191,7 @@ impl Chess {
                 }
                 GameOutcome::Stalemate => {
                     ext_ft_core::ext(token_id.clone())
-                        .with_attached_deposit(1)
+                        .with_attached_deposit(ONE_YOCTO)
                         .with_unused_gas_weight(1)
                         .ft_transfer(
                             game.get_white().get_account_id().unwrap(),
@@ -200,7 +200,7 @@ impl Chess {
                         )
                         .then(
                             ext_ft_core::ext(token_id)
-                                .with_attached_deposit(1)
+                                .with_attached_deposit(ONE_YOCTO)
                                 .with_unused_gas_weight(1)
                                 .ft_transfer(
                                     game.get_black().get_account_id().unwrap(),
@@ -363,14 +363,14 @@ impl Chess {
     pub(crate) fn internal_register_account(
         &mut self,
         account_id: AccountId,
-        amount: Balance,
+        amount: NearToken,
         is_human: bool,
     ) {
         let account = Account::new(account_id.clone(), amount, is_human);
         self.accounts.insert(account_id, account);
     }
 
-    fn deduct_fees(&mut self, token_id: &AccountId, amount: Balance) -> Balance {
+    fn deduct_fees(&mut self, token_id: &AccountId, amount: u128) -> u128 {
         let fees = self.fees.get();
         let treasury_amount = U128::from(amount)
             .full_mul(fees.treasury.into())
@@ -393,7 +393,7 @@ impl Chess {
                 total_royalty += royalty_amount;
 
                 ext_ft_core::ext(token_id.clone())
-                    .with_attached_deposit(1)
+                    .with_attached_deposit(ONE_YOCTO)
                     .with_unused_gas_weight(1)
                     .ft_transfer(royalty_account.clone(), royalty_amount.into(), None);
             });

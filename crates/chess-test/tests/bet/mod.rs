@@ -1,7 +1,8 @@
 use crate::{bet, util::*};
 use chess_engine::Color;
-use chess_lib::{create_challenge_id, Bet, BetInfo, BetMsg, ChessEvent, GameId, GameOutcome};
+use chess_lib::{create_challenge_id, BetInfo, BetMsg, BetView, ChessEvent, GameId, GameOutcome};
 use maplit::hashmap;
+use near_sdk::json_types::U128;
 use near_workspaces::{types::NearToken, Account, Contract};
 
 #[tokio::test]
@@ -71,12 +72,12 @@ async fn test_bet_basic() -> anyhow::Result<()> {
     let expected = serde_json::to_value(BetInfo {
         is_locked: false,
         bets: hashmap! {
-            test_token.id().parse()? => vec![(
-                better_a.id().parse()?,
-                Bet { amount: bet_amount, winner: player_a.id().parse()? }
+            test_token.id().clone() => vec![(
+                better_a.id().clone(),
+                BetView { amount: U128(bet_amount), winner: player_a.id().clone() }
             ), (
-                better_b.id().parse()?,
-                Bet { amount: bet_amount, winner: player_b.id().parse()? }
+                better_b.id().clone(),
+                BetView { amount: U128(bet_amount), winner: player_b.id().clone() }
             )]
         },
     })?;
@@ -89,8 +90,8 @@ async fn test_bet_basic() -> anyhow::Result<()> {
     let block_height = game_id.0;
     let game_id = GameId(
         block_height,
-        player_a.id().clone().parse()?,
-        Some(player_b.id().clone().parse()?),
+        player_a.id().clone(),
+        Some(player_b.id().clone()),
     );
 
     let bet_info = view::get_bet_info(&contract, (player_a.id(), player_b.id())).await?;
@@ -288,12 +289,12 @@ async fn test_bet_increase() -> anyhow::Result<()> {
     let expected = serde_json::to_value(BetInfo {
         is_locked: false,
         bets: hashmap! {
-            test_token.id().parse()? => vec![(
-                better_a.id().parse()?,
-                Bet { amount: bet_amount, winner: player_a.id().parse()? }
+            test_token.id().clone() => vec![(
+                better_a.id().clone(),
+                BetView { amount: U128(bet_amount), winner: player_a.id().clone() }
             ), (
-                better_b.id().parse()?,
-                Bet { amount: bet_amount * 4, winner: player_b.id().parse()? }
+                better_b.id().clone(),
+                BetView { amount: U128(bet_amount * 4), winner: player_b.id().clone() }
             )]
         },
     })?;
@@ -728,11 +729,7 @@ async fn play_game(contract: &Contract, winner: &Account, looser: &Account) -> a
 
     let (game_id, _) = call::accept_challenge(contract, looser, &challenge_id).await?;
     let block_height = game_id.0;
-    let game_id = GameId(
-        block_height,
-        winner.id().clone().parse()?,
-        Some(looser.id().clone().parse()?),
-    );
+    let game_id = GameId(block_height, winner.id().clone(), Some(looser.id().clone()));
 
     call::play_move(contract, winner, &game_id, "e2e4".to_string()).await?;
     call::play_move(contract, looser, &game_id, "a7a6".to_string()).await?;

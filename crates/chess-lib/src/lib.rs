@@ -8,6 +8,7 @@ mod ft_receiver;
 mod game;
 mod iah;
 mod internal;
+mod old;
 mod points;
 mod social;
 mod storage;
@@ -22,6 +23,7 @@ pub use event::*;
 pub use ft_receiver::*;
 pub use game::*;
 pub use iah::*;
+use old::*;
 pub use points::*;
 pub use social::*;
 pub use storage::*;
@@ -37,7 +39,7 @@ use near_sdk::{
     near_bindgen,
     serde::{Deserialize, Serialize},
     store::{Lazy, UnorderedMap},
-    AccountId, Balance, BorshStorageKey, Gas, GasWeight, PanicOnDefault, PromiseOrValue,
+    AccountId, BorshStorageKey, Gas, GasWeight, NearToken, PanicOnDefault, PromiseOrValue,
 };
 use std::collections::{HashMap, VecDeque};
 
@@ -51,6 +53,9 @@ pub const MIN_BLOCK_DIFF_CANCEL: u64 = 100;
 
 pub const GAS_FOR_SOCIAL_NOTIFY_CALL: Gas = Gas::from_tgas(20);
 pub const GAS_FOR_IS_HUMAN_CALL: Gas = Gas::from_tgas(12);
+
+pub const NO_DEPOSIT: NearToken = NearToken::from_yoctonear(0);
+pub const ONE_YOCTO: NearToken = NearToken::from_yoctonear(1);
 
 #[derive(BorshStorageKey, BorshSerialize)]
 #[borsh(crate = "near_sdk::borsh")]
@@ -84,25 +89,10 @@ pub struct Chess {
     pub games: UnorderedMap<GameId, Game>,
     pub challenges: UnorderedMap<ChallengeId, Challenge>,
     pub recent_finished_games: Lazy<VecDeque<GameId>>,
-    pub treasury: UnorderedMap<AccountId, Balance>,
+    pub treasury: UnorderedMap<AccountId, u128>,
     pub fees: Lazy<Fees>,
     pub token_whitelist: Lazy<Vec<AccountId>>,
     pub bets: UnorderedMap<BetId, Bets>,
-}
-
-#[near_bindgen]
-#[derive(BorshDeserialize, BorshSerialize, PanicOnDefault)]
-#[borsh(crate = "near_sdk::borsh")]
-pub struct OldChess {
-    pub social_db: AccountId,
-    pub iah_registry: AccountId,
-    pub accounts: UnorderedMap<AccountId, Account>,
-    pub games: UnorderedMap<GameId, Game>,
-    pub challenges: UnorderedMap<ChallengeId, Challenge>,
-    pub recent_finished_games: Lazy<VecDeque<GameId>>,
-    pub treasury: UnorderedMap<AccountId, Balance>,
-    pub fees: Lazy<Fees>,
-    pub wager_whitelist: Lazy<Vec<AccountId>>,
 }
 
 #[derive(
@@ -229,7 +219,7 @@ impl Chess {
     ) -> Result<(), ContractError> {
         let fees = self.fees.get();
 
-        let actual_deposit = env::attached_deposit();
+        let actual_deposit = env::attached_deposit().as_yoctonear();
         let expected_deposit = (1 + fees.royalties.len() as u128) * amount.0;
         if expected_deposit < actual_deposit {
             return Err(ContractError::NotEnoughDeposit(
@@ -238,6 +228,7 @@ impl Chess {
             ));
         }
 
+        let amount = NearToken::from_yoctonear(amount.0);
         let promise_index = env::promise_batch_create(&token_id);
         env::promise_batch_action_function_call_weight(
             promise_index,
@@ -248,7 +239,7 @@ impl Chess {
             })
             .to_string()
             .as_bytes(),
-            amount.0,
+            amount,
             Gas::from_tgas(0),
             GasWeight::default(),
         );
@@ -262,7 +253,7 @@ impl Chess {
                 })
                 .to_string()
                 .as_bytes(),
-                amount.0,
+                amount,
                 Gas::from_tgas(0),
                 GasWeight::default(),
             );
@@ -372,7 +363,7 @@ impl Chess {
         Ok(if let Some((token_id, amount)) = wager {
             PromiseOrValue::Promise(
                 ext_ft_core::ext(token_id)
-                    .with_attached_deposit(1)
+                    .with_attached_deposit(ONE_YOCTO)
                     .with_unused_gas_weight(1)
                     .ft_transfer(
                         challenger_id.clone(),
@@ -531,7 +522,7 @@ impl Chess {
         Ok(if let Some((token_id, amount)) = game.get_wager().clone() {
             PromiseOrValue::Promise(
                 ext_ft_core::ext(token_id.clone())
-                    .with_attached_deposit(1)
+                    .with_attached_deposit(ONE_YOCTO)
                     .with_unused_gas_weight(1)
                     .ft_transfer(
                         game.get_white().get_account_id().unwrap(),
@@ -540,7 +531,7 @@ impl Chess {
                     )
                     .then(
                         ext_ft_core::ext(token_id)
-                            .with_attached_deposit(1)
+                            .with_attached_deposit(ONE_YOCTO)
                             .with_unused_gas_weight(1)
                             .ft_transfer(
                                 game.get_black().get_account_id().unwrap(),
@@ -572,7 +563,7 @@ impl Chess {
             PromiseOrValue::Promise(
                 ext_ft_core::ext(token_id)
                     .with_unused_gas_weight(1)
-                    .with_attached_deposit(1)
+                    .with_attached_deposit(NearToken::from_yoctonear(1))
                     .ft_transfer(signer_id, amount.into(), Some("withdraw".to_string())),
             )
         })

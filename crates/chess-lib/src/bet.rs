@@ -2,9 +2,10 @@ use crate::{Account, Chess, ContractError, StorageKey};
 use near_sdk::{
     borsh::{self, BorshDeserialize, BorshSerialize},
     env,
+    json_types::U128,
     serde::{Deserialize, Serialize},
     store::UnorderedMap,
-    AccountId, Balance,
+    AccountId,
 };
 use std::{
     cmp::Ordering,
@@ -43,7 +44,7 @@ pub struct Bets {
 #[serde(crate = "near_sdk::serde")]
 pub struct BetInfo {
     pub is_locked: bool,
-    pub bets: HashMap<AccountId, Vec<(AccountId, Bet)>>,
+    pub bets: HashMap<AccountId, Vec<(AccountId, BetView)>>,
 }
 
 impl From<&Bets> for BetInfo {
@@ -53,7 +54,14 @@ impl From<&Bets> for BetInfo {
             bets: bets
                 .bets
                 .iter()
-                .map(|(a, b)| (a.clone(), b.clone()))
+                .map(|(a, b)| {
+                    (
+                        a.clone(),
+                        b.iter()
+                            .map(|(id, bet)| (id.clone(), bet.clone().into()))
+                            .collect(),
+                    )
+                })
                 .collect::<HashMap<_, _>>(),
         }
     }
@@ -82,21 +90,38 @@ impl Bets {
     }
 }
 
-#[derive(BorshDeserialize, BorshSerialize, Clone, Debug, Deserialize, Serialize)]
-#[serde(crate = "near_sdk::serde")]
+#[derive(BorshDeserialize, BorshSerialize, Clone, Debug)]
 #[borsh(crate = "near_sdk::borsh")]
 pub struct Bet {
-    pub amount: Balance,
+    pub amount: u128,
     pub winner: AccountId,
 }
 
+#[derive(Deserialize, Serialize, Debug)]
+#[serde(crate = "near_sdk::serde")]
+pub struct BetView {
+    pub amount: U128,
+    pub winner: AccountId,
+}
+
+impl From<Bet> for BetView {
+    fn from(bet: Bet) -> Self {
+        BetView {
+            amount: bet.amount.into(),
+            winner: bet.winner,
+        }
+    }
+}
+
 // TODO `cancel_bet`
+// TODO BOS notifications
+// TODO message instead of poke?
 impl Chess {
     pub fn internal_bet(
         &mut self,
         sender_id: AccountId,
         token_id: AccountId,
-        amount: Balance,
+        amount: u128,
         players: (AccountId, AccountId),
         winner: AccountId,
     ) -> Result<(), ContractError> {

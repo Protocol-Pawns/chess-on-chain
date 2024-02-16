@@ -95,23 +95,13 @@ pub async fn initialize_contracts(
         .await?
         .into_result()?;
 
-    if path.is_some() {
-        contract
-            .call("new")
-            .args_json((social_contract.id(), iah_contract.id()))
-            .max_gas()
-            .transact()
-            .await?
-            .into_result()?;
-    } else {
-        contract
-            .call("new")
-            .args_json((social_contract.id(), iah_contract.id()))
-            .max_gas()
-            .transact()
-            .await?
-            .into_result()?;
-    }
+    contract
+        .call("new")
+        .args_json((social_contract.id(), iah_contract.id()))
+        .max_gas()
+        .transact()
+        .await?
+        .into_result()?;
 
     contract
         .as_account()

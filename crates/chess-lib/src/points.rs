@@ -8,7 +8,7 @@ use near_sdk::{
     json_types::U128,
     near_bindgen,
     serde::{Deserialize, Serialize},
-    AccountId, Balance, PromiseOrValue,
+    AccountId, PromiseOrValue,
 };
 
 #[derive(Debug, PartialEq, Eq, BorshDeserialize, BorshSerialize, Deserialize, Serialize)]
@@ -27,7 +27,7 @@ const DAILY_COOLDOWN: u64 = 1_000 * 60 * 60 * 24 - DAYLIGHT_DIFF;
 const WEEKLY_COOLDOWN: u64 = 1_000 * 60 * 60 * 24 * 7 - DAYLIGHT_DIFF;
 
 impl Quest {
-    pub fn get_points(&self, on_cooldown: bool) -> Balance {
+    pub fn get_points(&self, on_cooldown: bool) -> u128 {
         match (self, on_cooldown) {
             (Quest::DailyPlayMove, true) => 1_000,
             (Quest::DailyPlayMove, false) => 100_000,
@@ -68,7 +68,7 @@ pub enum Achievement {
 }
 
 impl Achievement {
-    pub fn get_points(&self) -> Balance {
+    pub fn get_points(&self) -> u128 {
         match self {
             Achievement::FirstWinHuman => 8_000_000,
             Achievement::FirstWinAiEasy => 1_000_000,
