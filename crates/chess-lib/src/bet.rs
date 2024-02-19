@@ -3,6 +3,7 @@ use near_sdk::{
     borsh::{self, BorshDeserialize, BorshSerialize},
     env,
     json_types::U128,
+    schemars::JsonSchema,
     serde::{Deserialize, Serialize},
     store::UnorderedMap,
     AccountId,
@@ -40,8 +41,9 @@ pub struct Bets {
     pub bets: UnorderedMap<AccountId, Vec<(AccountId, Bet)>>,
 }
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize, JsonSchema)]
 #[serde(crate = "near_sdk::serde")]
+#[schemars(crate = "near_sdk::schemars")]
 pub struct BetInfo {
     pub is_locked: bool,
     pub bets: HashMap<AccountId, Vec<(AccountId, BetView)>>,
@@ -97,8 +99,9 @@ pub struct Bet {
     pub winner: AccountId,
 }
 
-#[derive(Deserialize, Serialize, Debug)]
+#[derive(Deserialize, Serialize, Debug, JsonSchema)]
 #[serde(crate = "near_sdk::serde")]
+#[schemars(crate = "near_sdk::schemars")]
 pub struct BetView {
     pub amount: U128,
     pub winner: AccountId,

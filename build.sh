@@ -7,6 +7,9 @@ cargo build --release -p test-token --target wasm32-unknown-unknown
 cargo build --release -p iah-registry-stub --target wasm32-unknown-unknown
 cp target/wasm32-unknown-unknown/release/*.wasm ./res/
 
+cargo near abi --manifest-path ./crates/chess/Cargo.toml
+cp target/near/chess/chess_abi.json ./res/
+
 cargo build --release -p chess --target wasm32-unknown-unknown --features=integration-test
 cp target/wasm32-unknown-unknown/release/chess.wasm ./res/chess_testing.wasm
 

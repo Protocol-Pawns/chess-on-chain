@@ -1,0 +1,1661 @@
+{
+  "schema_version": "0.4.0",
+  "metadata": {
+    "name": "chess",
+    "version": "1.0.0",
+    "authors": [
+      "Mario Reder <mario.reder@pm.me>"
+    ]
+  },
+  "body": {
+    "functions": [
+      {
+        "name": "accept_challenge",
+        "doc": " Accepts a challenge.\n\n Only works on non-money matches. Otherwise `ft_transfer_call` needs to be used for the\n respective token that is used as wager.",
+        "kind": "call",
+        "params": {
+          "serialization_type": "json",
+          "args": [
+            {
+              "name": "challenge_id",
+              "type_schema": {
+                "type": "string"
+              }
+            }
+          ]
+        },
+        "result": {
+          "serialization_type": "json",
+          "type_schema": {
+            "$ref": "#/definitions/GameId"
+          }
+        }
+      },
+      {
+        "name": "bet_info",
+        "kind": "view",
+        "params": {
+          "serialization_type": "json",
+          "args": [
+            {
+              "name": "players",
+              "type_schema": {
+                "type": "array",
+                "items": [
+                  {
+                    "$ref": "#/definitions/AccountId"
+                  },
+                  {
+                    "$ref": "#/definitions/AccountId"
+                  }
+                ],
+                "maxItems": 2,
+                "minItems": 2
+              }
+            }
+          ]
+        },
+        "result": {
+          "serialization_type": "json",
+          "type_schema": {
+            "$ref": "#/definitions/BetInfo"
+          }
+        }
+      },
+      {
+        "name": "cancel",
+        "doc": " Cancel a game, resulting in no player winning or loosing.\n\n Players can only cancel a game, if the opponent is human\n and hasn't been doing a move for the last approx. 3days (measured in block height)",
+        "kind": "call",
+        "params": {
+          "serialization_type": "json",
+          "args": [
+            {
+              "name": "game_id",
+              "type_schema": {
+                "$ref": "#/definitions/GameId"
+              }
+            }
+          ]
+        },
+        "result": {
+          "serialization_type": "json",
+          "type_schema": {
+            "$ref": "#/definitions/PromiseOrValueNull"
+          }
+        }
+      },
+      {
+        "name": "challenge",
+        "doc": " Challenges a player to a non-money match.\n\n Returns game ID.\n There can only ever be 10 open games due to storage limitations.",
+        "kind": "call",
+        "params": {
+          "serialization_type": "json",
+          "args": [
+            {
+              "name": "challenged_id",
+              "type_schema": {
+                "$ref": "#/definitions/AccountId"
+              }
+            }
+          ]
+        },
+        "result": {
+          "serialization_type": "json",
+          "type_schema": {
+            "type": "null"
+          }
+        }
+      },
+      {
+        "name": "clear_all_games",
+        "kind": "call",
+        "modifiers": [
+          "private"
+        ]
+      },
+      {
+        "name": "contract_source_metadata",
+        "kind": "view"
+      },
+      {
+        "name": "create_ai_game",
+        "doc": " Create a new game against an AI player.\n\n Returns game ID.\n There can only ever be 10 open games due to storage limitations.",
+        "kind": "call",
+        "params": {
+          "serialization_type": "json",
+          "args": [
+            {
+              "name": "difficulty",
+              "type_schema": {
+                "$ref": "#/definitions/Difficulty"
+              }
+            }
+          ]
+        },
+        "result": {
+          "serialization_type": "json",
+          "type_schema": {
+            "$ref": "#/definitions/GameId"
+          }
+        }
+      },
+      {
+        "name": "finished_games",
+        "doc": " Returns game IDs of finished games for given account ID.\n\n Output is NOT ordered, but client side can do so by looking at block height of game ID (first array entry).",
+        "kind": "view",
+        "params": {
+          "serialization_type": "json",
+          "args": [
+            {
+              "name": "account_id",
+              "type_schema": {
+                "$ref": "#/definitions/AccountId"
+              }
+            }
+          ]
+        },
+        "result": {
+          "serialization_type": "json",
+          "type_schema": {
+            "type": "array",
+            "items": {
+              "$ref": "#/definitions/GameId"
+            }
+          }
+        }
+      },
+      {
+        "name": "ft_balance_of",
+        "kind": "view",
+        "params": {
+          "serialization_type": "json",
+          "args": [
+            {
+              "name": "account_id",
+              "type_schema": {
+                "$ref": "#/definitions/AccountId"
+              }
+            }
+          ]
+        },
+        "result": {
+          "serialization_type": "json",
+          "type_schema": {
+            "type": "string"
+          }
+        }
+      },
+      {
+        "name": "ft_metadata",
+        "kind": "view",
+        "result": {
+          "serialization_type": "json",
+          "type_schema": {
+            "$ref": "#/definitions/FungibleTokenMetadata"
+          }
+        }
+      },
+      {
+        "name": "ft_on_transfer",
+        "kind": "call",
+        "params": {
+          "serialization_type": "json",
+          "args": [
+            {
+              "name": "sender_id",
+              "type_schema": {
+                "$ref": "#/definitions/AccountId"
+              }
+            },
+            {
+              "name": "amount",
+              "type_schema": {
+                "type": "string"
+              }
+            },
+            {
+              "name": "msg",
+              "type_schema": {
+                "type": "string"
+              }
+            }
+          ]
+        },
+        "result": {
+          "serialization_type": "json",
+          "type_schema": {
+            "$ref": "#/definitions/PromiseOrValueString"
+          }
+        }
+      },
+      {
+        "name": "ft_total_supply",
+        "kind": "view",
+        "result": {
+          "serialization_type": "json",
+          "type_schema": {
+            "type": "string"
+          }
+        }
+      },
+      {
+        "name": "ft_transfer",
+        "kind": "call",
+        "params": {
+          "serialization_type": "json",
+          "args": [
+            {
+              "name": "receiver_id",
+              "type_schema": {
+                "$ref": "#/definitions/AccountId"
+              }
+            },
+            {
+              "name": "amount",
+              "type_schema": {
+                "type": "string"
+              }
+            },
+            {
+              "name": "memo",
+              "type_schema": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            }
+          ]
+        }
+      },
+      {
+        "name": "ft_transfer_call",
+        "kind": "call",
+        "params": {
+          "serialization_type": "json",
+          "args": [
+            {
+              "name": "receiver_id",
+              "type_schema": {
+                "$ref": "#/definitions/AccountId"
+              }
+            },
+            {
+              "name": "amount",
+              "type_schema": {
+                "type": "string"
+              }
+            },
+            {
+              "name": "memo",
+              "type_schema": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            },
+            {
+              "name": "msg",
+              "type_schema": {
+                "type": "string"
+              }
+            }
+          ]
+        },
+        "result": {
+          "serialization_type": "json",
+          "type_schema": {
+            "$ref": "#/definitions/PromiseOrValueString"
+          }
+        }
+      },
+      {
+        "name": "game_info",
+        "doc": " Returns information about a game including players and turn color.",
+        "kind": "view",
+        "params": {
+          "serialization_type": "json",
+          "args": [
+            {
+              "name": "game_id",
+              "type_schema": {
+                "$ref": "#/definitions/GameId"
+              }
+            }
+          ]
+        },
+        "result": {
+          "serialization_type": "json",
+          "type_schema": {
+            "$ref": "#/definitions/GameInfo"
+          }
+        }
+      },
+      {
+        "name": "get_accounts",
+        "kind": "view",
+        "params": {
+          "serialization_type": "json",
+          "args": [
+            {
+              "name": "skip",
+              "type_schema": {
+                "type": [
+                  "integer",
+                  "null"
+                ],
+                "format": "uint",
+                "minimum": 0.0
+              }
+            },
+            {
+              "name": "limit",
+              "type_schema": {
+                "type": [
+                  "integer",
+                  "null"
+                ],
+                "format": "uint",
+                "minimum": 0.0
+              }
+            }
+          ]
+        },
+        "result": {
+          "serialization_type": "json",
+          "type_schema": {
+            "type": "array",
+            "items": {
+              "$ref": "#/definitions/AccountId"
+            }
+          }
+        }
+      },
+      {
+        "name": "get_achievements",
+        "kind": "view",
+        "params": {
+          "serialization_type": "json",
+          "args": [
+            {
+              "name": "account_id",
+              "type_schema": {
+                "$ref": "#/definitions/AccountId"
+              }
+            }
+          ]
+        },
+        "result": {
+          "serialization_type": "json",
+          "type_schema": {
+            "type": "array",
+            "items": {
+              "type": "array",
+              "items": [
+                {
+                  "type": "integer",
+                  "format": "uint64",
+                  "minimum": 0.0
+                },
+                {
+                  "$ref": "#/definitions/Achievement"
+                }
+              ],
+              "maxItems": 2,
+              "minItems": 2
+            }
+          }
+        }
+      },
+      {
+        "name": "get_board",
+        "doc": " Returns an array of strings representing the board",
+        "kind": "view",
+        "params": {
+          "serialization_type": "json",
+          "args": [
+            {
+              "name": "game_id",
+              "type_schema": {
+                "$ref": "#/definitions/GameId"
+              }
+            }
+          ]
+        },
+        "result": {
+          "serialization_type": "json",
+          "type_schema": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 8,
+            "minItems": 8
+          }
+        }
+      },
+      {
+        "name": "get_challenge",
+        "doc": " Returns info about open challenge.",
+        "kind": "view",
+        "params": {
+          "serialization_type": "json",
+          "args": [
+            {
+              "name": "challenge_id",
+              "type_schema": {
+                "type": "string"
+              }
+            }
+          ]
+        },
+        "result": {
+          "serialization_type": "json",
+          "type_schema": {
+            "$ref": "#/definitions/Challenge"
+          }
+        }
+      },
+      {
+        "name": "get_challenges",
+        "doc": " Returns all open challenges.",
+        "kind": "view",
+        "params": {
+          "serialization_type": "json",
+          "args": [
+            {
+              "name": "account_id",
+              "type_schema": {
+                "$ref": "#/definitions/AccountId"
+              }
+            },
+            {
+              "name": "is_challenger",
+              "type_schema": {
+                "type": "boolean"
+              }
+            }
+          ]
+        },
+        "result": {
+          "serialization_type": "json",
+          "type_schema": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      {
+        "name": "get_elo",
+        "doc": " Returns ELO rating for given wallet ID.\n Only I-Am-Human verified accounts have an ELO.",
+        "kind": "view",
+        "params": {
+          "serialization_type": "json",
+          "args": [
+            {
+              "name": "account_id",
+              "type_schema": {
+                "$ref": "#/definitions/AccountId"
+              }
+            }
+          ]
+        },
+        "result": {
+          "serialization_type": "json",
+          "type_schema": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "format": "double"
+          }
+        }
+      },
+      {
+        "name": "get_elo_ratings",
+        "kind": "view",
+        "params": {
+          "serialization_type": "json",
+          "args": [
+            {
+              "name": "skip",
+              "type_schema": {
+                "type": [
+                  "integer",
+                  "null"
+                ],
+                "format": "uint",
+                "minimum": 0.0
+              }
+            },
+            {
+              "name": "limit",
+              "type_schema": {
+                "type": [
+                  "integer",
+                  "null"
+                ],
+                "format": "uint",
+                "minimum": 0.0
+              }
+            }
+          ]
+        },
+        "result": {
+          "serialization_type": "json",
+          "type_schema": {
+            "type": "array",
+            "items": {
+              "type": "array",
+              "items": [
+                {
+                  "$ref": "#/definitions/AccountId"
+                },
+                {
+                  "type": "number",
+                  "format": "double"
+                }
+              ],
+              "maxItems": 2,
+              "minItems": 2
+            }
+          }
+        }
+      },
+      {
+        "name": "get_fees",
+        "kind": "view",
+        "result": {
+          "serialization_type": "json",
+          "type_schema": {
+            "$ref": "#/definitions/Fees"
+          }
+        }
+      },
+      {
+        "name": "get_game_ids",
+        "doc": " Returns all open game IDs for given wallet ID.",
+        "kind": "view",
+        "params": {
+          "serialization_type": "json",
+          "args": [
+            {
+              "name": "account_id",
+              "type_schema": {
+                "$ref": "#/definitions/AccountId"
+              }
+            }
+          ]
+        },
+        "result": {
+          "serialization_type": "json",
+          "type_schema": {
+            "type": "array",
+            "items": {
+              "$ref": "#/definitions/GameId"
+            }
+          }
+        }
+      },
+      {
+        "name": "get_points",
+        "kind": "view",
+        "params": {
+          "serialization_type": "json",
+          "args": [
+            {
+              "name": "account_id",
+              "type_schema": {
+                "$ref": "#/definitions/AccountId"
+              }
+            }
+          ]
+        },
+        "result": {
+          "serialization_type": "json",
+          "type_schema": {
+            "type": "string"
+          }
+        }
+      },
+      {
+        "name": "get_quest_cooldowns",
+        "kind": "view",
+        "params": {
+          "serialization_type": "json",
+          "args": [
+            {
+              "name": "account_id",
+              "type_schema": {
+                "$ref": "#/definitions/AccountId"
+              }
+            }
+          ]
+        },
+        "result": {
+          "serialization_type": "json",
+          "type_schema": {
+            "type": "array",
+            "items": {
+              "type": "array",
+              "items": [
+                {
+                  "type": "integer",
+                  "format": "uint64",
+                  "minimum": 0.0
+                },
+                {
+                  "$ref": "#/definitions/Quest"
+                }
+              ],
+              "maxItems": 2,
+              "minItems": 2
+            }
+          }
+        }
+      },
+      {
+        "name": "get_token_amount",
+        "kind": "call",
+        "params": {
+          "serialization_type": "json",
+          "args": [
+            {
+              "name": "account_id",
+              "type_schema": {
+                "$ref": "#/definitions/AccountId"
+              }
+            },
+            {
+              "name": "token_id",
+              "type_schema": {
+                "$ref": "#/definitions/AccountId"
+              }
+            }
+          ]
+        },
+        "result": {
+          "serialization_type": "json",
+          "type_schema": {
+            "type": "string"
+          }
+        }
+      },
+      {
+        "name": "get_tokens",
+        "kind": "call",
+        "params": {
+          "serialization_type": "json",
+          "args": [
+            {
+              "name": "account_id",
+              "type_schema": {
+                "$ref": "#/definitions/AccountId"
+              }
+            }
+          ]
+        },
+        "result": {
+          "serialization_type": "json",
+          "type_schema": {
+            "type": "array",
+            "items": {
+              "type": "array",
+              "items": [
+                {
+                  "$ref": "#/definitions/AccountId"
+                },
+                {
+                  "type": "string"
+                }
+              ],
+              "maxItems": 2,
+              "minItems": 2
+            }
+          }
+        }
+      },
+      {
+        "name": "get_treasury_tokens",
+        "kind": "view",
+        "result": {
+          "serialization_type": "json",
+          "type_schema": {
+            "type": "array",
+            "items": {
+              "type": "array",
+              "items": [
+                {
+                  "$ref": "#/definitions/AccountId"
+                },
+                {
+                  "type": "string"
+                }
+              ],
+              "maxItems": 2,
+              "minItems": 2
+            }
+          }
+        }
+      },
+      {
+        "name": "get_wager_whitelist",
+        "kind": "view",
+        "result": {
+          "serialization_type": "json",
+          "type_schema": {
+            "type": "array",
+            "items": {
+              "$ref": "#/definitions/AccountId"
+            }
+          }
+        }
+      },
+      {
+        "name": "is_human",
+        "doc": " Returns whether account has been I-Am-Human verified.",
+        "kind": "view",
+        "params": {
+          "serialization_type": "json",
+          "args": [
+            {
+              "name": "account_id",
+              "type_schema": {
+                "$ref": "#/definitions/AccountId"
+              }
+            }
+          ]
+        },
+        "result": {
+          "serialization_type": "json",
+          "type_schema": {
+            "type": "boolean"
+          }
+        }
+      },
+      {
+        "name": "migrate",
+        "kind": "call",
+        "modifiers": [
+          "init"
+        ]
+      },
+      {
+        "name": "new",
+        "kind": "call",
+        "modifiers": [
+          "init"
+        ],
+        "params": {
+          "serialization_type": "json",
+          "args": [
+            {
+              "name": "social_db",
+              "type_schema": {
+                "$ref": "#/definitions/AccountId"
+              }
+            },
+            {
+              "name": "iah_registry",
+              "type_schema": {
+                "$ref": "#/definitions/AccountId"
+              }
+            }
+          ]
+        }
+      },
+      {
+        "name": "on_register_account",
+        "kind": "call",
+        "modifiers": [
+          "private"
+        ],
+        "params": {
+          "serialization_type": "json",
+          "args": [
+            {
+              "name": "account_id",
+              "type_schema": {
+                "$ref": "#/definitions/AccountId"
+              }
+            },
+            {
+              "name": "min_balance",
+              "type_schema": {
+                "type": "string"
+              }
+            }
+          ]
+        },
+        "callbacks": [
+          {
+            "serialization_type": "json",
+            "type_schema": {
+              "type": "array",
+              "items": {
+                "type": "array",
+                "items": [
+                  {
+                    "$ref": "#/definitions/AccountId"
+                  },
+                  {
+                    "type": "array",
+                    "items": {
+                      "type": "integer",
+                      "format": "uint64",
+                      "minimum": 0.0
+                    }
+                  }
+                ],
+                "maxItems": 2,
+                "minItems": 2
+              }
+            }
+          }
+        ]
+      },
+      {
+        "name": "on_update_is_human",
+        "kind": "call",
+        "modifiers": [
+          "private"
+        ],
+        "params": {
+          "serialization_type": "json",
+          "args": [
+            {
+              "name": "account_id",
+              "type_schema": {
+                "$ref": "#/definitions/AccountId"
+              }
+            }
+          ]
+        },
+        "callbacks": [
+          {
+            "serialization_type": "json",
+            "type_schema": {
+              "type": "array",
+              "items": {
+                "type": "array",
+                "items": [
+                  {
+                    "$ref": "#/definitions/AccountId"
+                  },
+                  {
+                    "type": "array",
+                    "items": {
+                      "type": "integer",
+                      "format": "uint64",
+                      "minimum": 0.0
+                    }
+                  }
+                ],
+                "maxItems": 2,
+                "minItems": 2
+              }
+            }
+          }
+        ],
+        "result": {
+          "serialization_type": "json",
+          "type_schema": {
+            "type": "null"
+          }
+        }
+      },
+      {
+        "name": "play_move",
+        "doc": " Plays a move.\n\n Only works, if it is your turn. Panics otherwise.",
+        "kind": "call",
+        "params": {
+          "serialization_type": "json",
+          "args": [
+            {
+              "name": "game_id",
+              "type_schema": {
+                "$ref": "#/definitions/GameId"
+              }
+            },
+            {
+              "name": "mv",
+              "type_schema": {
+                "type": "string"
+              }
+            }
+          ]
+        },
+        "result": {
+          "serialization_type": "json",
+          "type_schema": {
+            "type": "array",
+            "items": [
+              {
+                "anyOf": [
+                  {
+                    "$ref": "#/definitions/GameOutcome"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "maxItems": 8,
+                "minItems": 8
+              }
+            ],
+            "maxItems": 2,
+            "minItems": 2
+          }
+        }
+      },
+      {
+        "name": "recent_finished_games",
+        "doc": " Returns game IDs of recently finished games (max 100).\n\n Output is ordered with newest game ID as first elemtn.",
+        "kind": "view",
+        "result": {
+          "serialization_type": "json",
+          "type_schema": {
+            "type": "array",
+            "items": {
+              "$ref": "#/definitions/GameId"
+            }
+          }
+        }
+      },
+      {
+        "name": "register_token",
+        "kind": "call",
+        "modifiers": [
+          "payable"
+        ],
+        "params": {
+          "serialization_type": "json",
+          "args": [
+            {
+              "name": "token_id",
+              "type_schema": {
+                "$ref": "#/definitions/AccountId"
+              }
+            },
+            {
+              "name": "amount",
+              "type_schema": {
+                "type": "string"
+              }
+            }
+          ]
+        },
+        "result": {
+          "serialization_type": "json",
+          "type_schema": {
+            "type": "null"
+          }
+        }
+      },
+      {
+        "name": "reject_challenge",
+        "doc": " Rejects a challenge.",
+        "kind": "call",
+        "params": {
+          "serialization_type": "json",
+          "args": [
+            {
+              "name": "challenge_id",
+              "type_schema": {
+                "type": "string"
+              }
+            },
+            {
+              "name": "is_challenger",
+              "type_schema": {
+                "type": "boolean"
+              }
+            }
+          ]
+        },
+        "result": {
+          "serialization_type": "json",
+          "type_schema": {
+            "$ref": "#/definitions/PromiseOrValueNull"
+          }
+        }
+      },
+      {
+        "name": "render_board",
+        "doc": " Renders a game as a string.",
+        "kind": "view",
+        "params": {
+          "serialization_type": "json",
+          "args": [
+            {
+              "name": "game_id",
+              "type_schema": {
+                "$ref": "#/definitions/GameId"
+              }
+            }
+          ]
+        },
+        "result": {
+          "serialization_type": "json",
+          "type_schema": {
+            "type": "string"
+          }
+        }
+      },
+      {
+        "name": "resign",
+        "doc": " Resigns a game.\n\n Can be called even if it is not your turn.\n You might need to call this if a game is stuck and the AI refuses to work.\n You can also only have 10 open games due to storage limitations.",
+        "kind": "call",
+        "params": {
+          "serialization_type": "json",
+          "args": [
+            {
+              "name": "game_id",
+              "type_schema": {
+                "$ref": "#/definitions/GameId"
+              }
+            }
+          ]
+        },
+        "result": {
+          "serialization_type": "json",
+          "type_schema": {
+            "$ref": "#/definitions/GameOutcome"
+          }
+        }
+      },
+      {
+        "name": "set_fees",
+        "kind": "call",
+        "modifiers": [
+          "private"
+        ],
+        "params": {
+          "serialization_type": "json",
+          "args": [
+            {
+              "name": "treasury",
+              "type_schema": {
+                "type": "integer",
+                "format": "uint16",
+                "minimum": 0.0
+              }
+            },
+            {
+              "name": "royalties",
+              "type_schema": {
+                "type": "array",
+                "items": {
+                  "type": "array",
+                  "items": [
+                    {
+                      "$ref": "#/definitions/AccountId"
+                    },
+                    {
+                      "type": "integer",
+                      "format": "uint16",
+                      "minimum": 0.0
+                    }
+                  ],
+                  "maxItems": 2,
+                  "minItems": 2
+                }
+              }
+            }
+          ]
+        }
+      },
+      {
+        "name": "set_wager_whitelist",
+        "kind": "call",
+        "modifiers": [
+          "private"
+        ],
+        "params": {
+          "serialization_type": "json",
+          "args": [
+            {
+              "name": "whitelist",
+              "type_schema": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/definitions/AccountId"
+                }
+              }
+            }
+          ]
+        }
+      },
+      {
+        "name": "storage_balance_bounds",
+        "kind": "view",
+        "result": {
+          "serialization_type": "json",
+          "type_schema": {
+            "$ref": "#/definitions/StorageBalanceBounds"
+          }
+        }
+      },
+      {
+        "name": "storage_balance_of",
+        "kind": "view",
+        "params": {
+          "serialization_type": "json",
+          "args": [
+            {
+              "name": "account_id",
+              "type_schema": {
+                "$ref": "#/definitions/AccountId"
+              }
+            }
+          ]
+        },
+        "result": {
+          "serialization_type": "json",
+          "type_schema": {
+            "anyOf": [
+              {
+                "$ref": "#/definitions/StorageBalance"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "name": "storage_deposit",
+        "kind": "call",
+        "modifiers": [
+          "payable"
+        ],
+        "params": {
+          "serialization_type": "json",
+          "args": [
+            {
+              "name": "account_id",
+              "type_schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/definitions/AccountId"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            {
+              "name": "registration_only",
+              "type_schema": {
+                "type": [
+                  "boolean",
+                  "null"
+                ]
+              }
+            }
+          ]
+        },
+        "result": {
+          "serialization_type": "json",
+          "type_schema": {
+            "$ref": "#/definitions/StorageBalance"
+          }
+        }
+      },
+      {
+        "name": "storage_unregister",
+        "kind": "call",
+        "modifiers": [
+          "payable"
+        ],
+        "params": {
+          "serialization_type": "json",
+          "args": [
+            {
+              "name": "force",
+              "type_schema": {
+                "type": [
+                  "boolean",
+                  "null"
+                ]
+              }
+            }
+          ]
+        },
+        "result": {
+          "serialization_type": "json",
+          "type_schema": {
+            "type": "boolean"
+          }
+        }
+      },
+      {
+        "name": "storage_withdraw",
+        "kind": "call",
+        "modifiers": [
+          "payable"
+        ],
+        "params": {
+          "serialization_type": "json",
+          "args": [
+            {
+              "name": "amount",
+              "type_schema": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            }
+          ]
+        },
+        "result": {
+          "serialization_type": "json",
+          "type_schema": {
+            "$ref": "#/definitions/StorageBalance"
+          }
+        }
+      },
+      {
+        "name": "update_is_human",
+        "kind": "call",
+        "params": {
+          "serialization_type": "json",
+          "args": [
+            {
+              "name": "account_id",
+              "type_schema": {
+                "$ref": "#/definitions/AccountId"
+              }
+            }
+          ]
+        },
+        "result": {
+          "serialization_type": "json",
+          "type_schema": {
+            "$ref": "#/definitions/Promise"
+          }
+        }
+      },
+      {
+        "name": "withdraw_token",
+        "kind": "call",
+        "modifiers": [
+          "payable"
+        ],
+        "params": {
+          "serialization_type": "json",
+          "args": [
+            {
+              "name": "token_id",
+              "type_schema": {
+                "$ref": "#/definitions/AccountId"
+              }
+            }
+          ]
+        },
+        "result": {
+          "serialization_type": "json",
+          "type_schema": {
+            "$ref": "#/definitions/PromiseOrValueNull"
+          }
+        }
+      }
+    ],
+    "root_schema": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "String",
+      "type": "string",
+      "definitions": {
+        "AccountId": {
+          "description": "NEAR Account Identifier.\n\nThis is a unique, syntactically valid, human-readable account identifier on the NEAR network.\n\n[See the crate-level docs for information about validation.](index.html#account-id-rules)\n\nAlso see [Error kind precedence](AccountId#error-kind-precedence).\n\n## Examples\n\n``` use near_account_id::AccountId;\n\nlet alice: AccountId = \"alice.near\".parse().unwrap();\n\nassert!(\"ƒelicia.near\".parse::<AccountId>().is_err()); // (ƒ is not f) ```",
+          "type": "string"
+        },
+        "Achievement": {
+          "type": "string",
+          "enum": [
+            "FirstWinHuman",
+            "FirstWinAiEasy",
+            "FirstWinAiMedium",
+            "FirstWinAiHard"
+          ]
+        },
+        "BetInfo": {
+          "type": "object",
+          "required": [
+            "bets",
+            "is_locked"
+          ],
+          "properties": {
+            "bets": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "array",
+                "items": {
+                  "type": "array",
+                  "items": [
+                    {
+                      "$ref": "#/definitions/AccountId"
+                    },
+                    {
+                      "$ref": "#/definitions/BetView"
+                    }
+                  ],
+                  "maxItems": 2,
+                  "minItems": 2
+                }
+              }
+            },
+            "is_locked": {
+              "type": "boolean"
+            }
+          }
+        },
+        "BetView": {
+          "type": "object",
+          "required": [
+            "amount",
+            "winner"
+          ],
+          "properties": {
+            "amount": {
+              "type": "string"
+            },
+            "winner": {
+              "$ref": "#/definitions/AccountId"
+            }
+          }
+        },
+        "Challenge": {
+          "type": "object",
+          "required": [
+            "challenged",
+            "challenger",
+            "id"
+          ],
+          "properties": {
+            "challenged": {
+              "$ref": "#/definitions/AccountId"
+            },
+            "challenger": {
+              "$ref": "#/definitions/AccountId"
+            },
+            "id": {
+              "type": "string"
+            },
+            "wager": {
+              "type": [
+                "array",
+                "null"
+              ],
+              "items": [
+                {
+                  "$ref": "#/definitions/AccountId"
+                },
+                {
+                  "type": "string"
+                }
+              ],
+              "maxItems": 2,
+              "minItems": 2
+            }
+          }
+        },
+        "Color": {
+          "description": "The color of a piece.",
+          "type": "string",
+          "enum": [
+            "White",
+            "Black"
+          ]
+        },
+        "Difficulty": {
+          "description": "AI difficulty setting.\n\nThe AI uses the [Minimax algorithm, along with Alpha-Beta pruning](https://github.com/Tarnadas/chess-engine#how-does-it-work) The higher the difficulty the more moves will be calculated in advance.\n\nPlease be aware, that gas usage increases on higher difficulties: - Easy: ~8TGas - Medium: ~30TGas - Hard: ~110TGas",
+          "type": "string",
+          "enum": [
+            "Easy",
+            "Medium",
+            "Hard"
+          ]
+        },
+        "Fees": {
+          "type": "object",
+          "required": [
+            "royalties",
+            "treasury"
+          ],
+          "properties": {
+            "royalties": {
+              "type": "array",
+              "items": {
+                "type": "array",
+                "items": [
+                  {
+                    "$ref": "#/definitions/AccountId"
+                  },
+                  {
+                    "type": "integer",
+                    "format": "uint16",
+                    "minimum": 0.0
+                  }
+                ],
+                "maxItems": 2,
+                "minItems": 2
+              }
+            },
+            "treasury": {
+              "type": "integer",
+              "format": "uint16",
+              "minimum": 0.0
+            }
+          }
+        },
+        "FungibleTokenMetadata": {
+          "type": "object",
+          "required": [
+            "decimals",
+            "name",
+            "spec",
+            "symbol"
+          ],
+          "properties": {
+            "decimals": {
+              "type": "integer",
+              "format": "uint8",
+              "minimum": 0.0
+            },
+            "icon": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "name": {
+              "type": "string"
+            },
+            "reference": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "reference_hash": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "spec": {
+              "type": "string"
+            },
+            "symbol": {
+              "type": "string"
+            }
+          }
+        },
+        "GameId": {
+          "description": "Unique game ID, which consists of:\n\n- block height - wallet ID, e.g. \"my-wallet.near\" - enemy wallet ID if player or empty if AI",
+          "type": "array",
+          "items": [
+            {
+              "type": "integer",
+              "format": "uint64",
+              "minimum": 0.0
+            },
+            {
+              "$ref": "#/definitions/AccountId"
+            },
+            {
+              "anyOf": [
+                {
+                  "$ref": "#/definitions/AccountId"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          ],
+          "maxItems": 3,
+          "minItems": 3
+        },
+        "GameInfo": {
+          "type": "object",
+          "required": [
+            "black",
+            "has_bets",
+            "last_block_height",
+            "turn_color",
+            "white"
+          ],
+          "properties": {
+            "black": {
+              "$ref": "#/definitions/Player"
+            },
+            "has_bets": {
+              "type": "boolean"
+            },
+            "last_block_height": {
+              "type": "integer",
+              "format": "uint64",
+              "minimum": 0.0
+            },
+            "turn_color": {
+              "$ref": "#/definitions/Color"
+            },
+            "white": {
+              "$ref": "#/definitions/Player"
+            }
+          }
+        },
+        "GameOutcome": {
+          "oneOf": [
+            {
+              "type": "string",
+              "enum": [
+                "Stalemate"
+              ]
+            },
+            {
+              "type": "object",
+              "required": [
+                "Victory"
+              ],
+              "properties": {
+                "Victory": {
+                  "$ref": "#/definitions/Color"
+                }
+              },
+              "additionalProperties": false
+            }
+          ]
+        },
+        "Player": {
+          "oneOf": [
+            {
+              "type": "object",
+              "required": [
+                "Human"
+              ],
+              "properties": {
+                "Human": {
+                  "$ref": "#/definitions/AccountId"
+                }
+              },
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "required": [
+                "Ai"
+              ],
+              "properties": {
+                "Ai": {
+                  "$ref": "#/definitions/Difficulty"
+                }
+              },
+              "additionalProperties": false
+            }
+          ]
+        },
+        "Promise": true,
+        "PromiseOrValueNull": {
+          "type": "null"
+        },
+        "PromiseOrValueString": {
+          "type": "string"
+        },
+        "Quest": {
+          "type": "string",
+          "enum": [
+            "DailyPlayMove",
+            "WeeklyWinHuman"
+          ]
+        },
+        "StorageBalance": {
+          "type": "object",
+          "required": [
+            "available",
+            "total"
+          ],
+          "properties": {
+            "available": {
+              "type": "string"
+            },
+            "total": {
+              "type": "string"
+            }
+          }
+        },
+        "StorageBalanceBounds": {
+          "type": "object",
+          "required": [
+            "min"
+          ],
+          "properties": {
+            "max": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "min": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    }
+  }
+}

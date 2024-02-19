@@ -1,9 +1,7 @@
-use crate::CoroutineIteratorAdapter;
-
 use super::{Board, Color, Move, Position};
-use alloc::string::String;
-use core::{convert::TryFrom, ops::Coroutine};
+use crate::CoroutineIteratorAdapter;
 use near_sdk::borsh::{BorshDeserialize, BorshSerialize};
+use std::{convert::TryFrom, ops::Coroutine};
 
 /// A piece on a board.
 ///

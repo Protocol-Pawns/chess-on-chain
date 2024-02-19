@@ -10,5 +10,9 @@ crate-type = ["cdylib"]
 [dependencies]
 chess-lib = { path = "../chess-lib" }
 
+[dependencies.near-sdk]
+workspace = true
+features = ["abi"]
+
 [features]
 integration-test = ["chess-lib/integration-test"]

@@ -1,5 +1,4 @@
 #![feature(coroutines, coroutine_trait)]
-#![no_std]
 
 #[macro_use]
 extern crate alloc;
@@ -8,19 +7,15 @@ extern crate near_sdk;
 extern crate rand;
 extern crate rand_chacha;
 
-use alloc::{
-    boxed::Box,
-    string::{String, ToString},
-    vec::Vec,
+use near_sdk::{
+    borsh::{BorshDeserialize, BorshSerialize},
+    schemars::JsonSchema,
+    serde::{Deserialize, Serialize},
 };
-use core::{
+use std::{
     convert::TryFrom,
     ops::{Coroutine, CoroutineState},
     pin::Pin,
-};
-use near_sdk::{
-    borsh::{BorshDeserialize, BorshSerialize},
-    serde::{Deserialize, Serialize},
 };
 
 mod board;
@@ -91,9 +86,11 @@ pub enum GameResult {
     BorshSerialize,
     Deserialize,
     Serialize,
+    JsonSchema,
 )]
 #[serde(crate = "near_sdk::serde")]
 #[borsh(crate = "near_sdk::borsh")]
+#[schemars(crate = "near_sdk::schemars")]
 pub enum Color {
     White,
     Black,

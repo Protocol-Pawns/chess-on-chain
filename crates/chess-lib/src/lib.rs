@@ -37,6 +37,7 @@ use near_sdk::{
     env,
     json_types::U128,
     near_bindgen,
+    schemars::JsonSchema,
     serde::{Deserialize, Serialize},
     store::{Lazy, UnorderedMap},
     AccountId, BorshStorageKey, Gas, GasWeight, NearToken, PanicOnDefault, PromiseOrValue,
@@ -105,9 +106,11 @@ pub struct Chess {
     PanicOnDefault,
     Deserialize,
     Serialize,
+    JsonSchema,
 )]
 #[serde(crate = "near_sdk::serde")]
 #[borsh(crate = "near_sdk::borsh")]
+#[schemars(crate = "near_sdk::schemars")]
 pub struct Fees {
     pub treasury: u16,
     pub royalties: Vec<(AccountId, u16)>,

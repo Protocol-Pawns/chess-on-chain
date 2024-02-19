@@ -1,8 +1,4 @@
 use super::Color;
-use alloc::{
-    string::{String, ToString},
-    vec::Vec,
-};
 use near_sdk::borsh::{BorshDeserialize, BorshSerialize};
 
 pub const A1: Position = Position::new(0, 0);

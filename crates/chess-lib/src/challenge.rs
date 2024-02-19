@@ -3,6 +3,7 @@ use near_sdk::{
     borsh::{BorshDeserialize, BorshSerialize},
     env,
     json_types::U128,
+    schemars::JsonSchema,
     serde::{Deserialize, Serialize},
     AccountId,
 };
@@ -23,9 +24,11 @@ pub type Wager = Option<(AccountId, U128)>;
     PartialOrd,
     Serialize,
     Deserialize,
+    JsonSchema,
 )]
 #[serde(crate = "near_sdk::serde")]
 #[borsh(crate = "near_sdk::borsh")]
+#[schemars(crate = "near_sdk::schemars")]
 pub struct Challenge {
     id: String,
     challenger: AccountId,

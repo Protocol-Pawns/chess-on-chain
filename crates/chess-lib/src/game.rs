@@ -7,6 +7,7 @@ use chess_engine::{Board, Color, GameResult, Move, Piece, Position};
 use near_sdk::{
     borsh::{BorshDeserialize, BorshSerialize},
     env,
+    schemars::JsonSchema,
     serde::{Deserialize, Serialize},
     AccountId,
 };
@@ -28,14 +29,17 @@ use near_sdk::{
     PartialOrd,
     PartialEq,
     Eq,
+    JsonSchema,
 )]
 #[serde(crate = "near_sdk::serde")]
 #[borsh(crate = "near_sdk::borsh")]
+#[schemars(crate = "near_sdk::schemars")]
 pub struct GameId(pub u64, pub AccountId, pub Option<AccountId>);
 
-#[derive(BorshDeserialize, BorshSerialize, Clone, Debug, Serialize, Deserialize)]
+#[derive(BorshDeserialize, BorshSerialize, Clone, Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(crate = "near_sdk::serde")]
 #[borsh(crate = "near_sdk::borsh")]
+#[schemars(crate = "near_sdk::schemars")]
 pub enum Player {
     Human(AccountId),
     Ai(Difficulty),
@@ -70,9 +74,10 @@ impl Player {
 /// - Easy: ~8TGas
 /// - Medium: ~30TGas
 /// - Hard: ~110TGas
-#[derive(BorshDeserialize, BorshSerialize, Clone, Debug, Deserialize, Serialize)]
+#[derive(BorshDeserialize, BorshSerialize, Clone, Debug, Deserialize, Serialize, JsonSchema)]
 #[serde(crate = "near_sdk::serde")]
 #[borsh(crate = "near_sdk::borsh")]
+#[schemars(crate = "near_sdk::schemars")]
 
 pub enum Difficulty {
     Easy,
@@ -101,8 +106,9 @@ pub struct GameV4 {
     has_bets: bool,
 }
 
-#[derive(Deserialize, Serialize)]
+#[derive(Deserialize, Serialize, JsonSchema)]
 #[serde(crate = "near_sdk::serde")]
+#[schemars(crate = "near_sdk::schemars")]
 pub struct GameInfo {
     pub white: Player,
     pub black: Player,
@@ -111,9 +117,20 @@ pub struct GameInfo {
     pub has_bets: bool,
 }
 
-#[derive(BorshDeserialize, BorshSerialize, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+#[derive(
+    BorshDeserialize,
+    BorshSerialize,
+    Clone,
+    Debug,
+    Deserialize,
+    Serialize,
+    PartialEq,
+    Eq,
+    JsonSchema,
+)]
 #[serde(crate = "near_sdk::serde")]
 #[borsh(crate = "near_sdk::borsh")]
+#[schemars(crate = "near_sdk::schemars")]
 pub enum GameOutcome {
     Victory(Color),
     Stalemate,

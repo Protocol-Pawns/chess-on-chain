@@ -7,13 +7,17 @@ use near_sdk::{
     borsh::{BorshDeserialize, BorshSerialize},
     json_types::U128,
     near_bindgen,
+    schemars::JsonSchema,
     serde::{Deserialize, Serialize},
     AccountId, PromiseOrValue,
 };
 
-#[derive(Debug, PartialEq, Eq, BorshDeserialize, BorshSerialize, Deserialize, Serialize)]
+#[derive(
+    Debug, PartialEq, Eq, BorshDeserialize, BorshSerialize, Deserialize, Serialize, JsonSchema,
+)]
 #[serde(crate = "near_sdk::serde")]
 #[borsh(crate = "near_sdk::borsh")]
+#[schemars(crate = "near_sdk::schemars")]
 pub enum Quest {
     DailyPlayMove,
     WeeklyWinHuman,
@@ -57,9 +61,12 @@ impl Quest {
     }
 }
 
-#[derive(Debug, PartialEq, Eq, BorshDeserialize, BorshSerialize, Deserialize, Serialize)]
+#[derive(
+    Debug, PartialEq, Eq, BorshDeserialize, BorshSerialize, Deserialize, Serialize, JsonSchema,
+)]
 #[serde(crate = "near_sdk::serde")]
 #[borsh(crate = "near_sdk::borsh")]
+#[schemars(crate = "near_sdk::schemars")]
 pub enum Achievement {
     FirstWinHuman,
     FirstWinAiEasy,

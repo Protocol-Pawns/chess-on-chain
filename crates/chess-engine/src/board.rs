@@ -1,10 +1,9 @@
 use super::*;
-use alloc::string::{String, ToString};
-use core::cmp::Ordering;
 use either::Either;
 use near_sdk::borsh::{BorshDeserialize, BorshSerialize};
 use rand::{seq::IteratorRandom, SeedableRng};
 use rand_chacha::ChaCha20Rng;
+use std::cmp::Ordering;
 
 pub struct BoardBuilder {
     board: Board,

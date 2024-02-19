@@ -1,8 +1,7 @@
-use alloc::string::String;
-
-use crate::board::Board;
-use crate::util::{format_fen, parse_fen, parse_san_move};
-use crate::{Color, GameResult};
+use crate::{
+    util::{format_fen, parse_fen, parse_san_move},
+    Board, Color, GameResult,
+};
 
 pub enum GameAction {
     // accept draw if previous action was OfferDraw

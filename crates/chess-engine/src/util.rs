@@ -1,10 +1,4 @@
-use alloc::string::{String, ToString};
-use alloc::vec::Vec;
-
-use crate::board::{Board, BoardBuilder};
-use crate::piece::Piece;
-use crate::position::Position;
-use crate::{Color, Move};
+use crate::{Board, BoardBuilder, Color, Move, Piece, Position};
 
 // generate FEN
 // cannot calculate halfmove or fullmove based on board state,

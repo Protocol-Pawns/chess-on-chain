@@ -5,3 +5,7 @@ node_modules
 !.env.example
 
 dist
+build
+abi-gen
+
+.svelte-kit

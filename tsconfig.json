@@ -1,0 +1,17 @@
+{
+  "compilerOptions": {
+    "target": "esnext",
+    "module": "esnext",
+    "moduleResolution": "node",
+    "esModuleInterop": true,
+    "sourceMap": true,
+    "strict": true,
+    "skipLibCheck": true,
+    "lib": ["esnext", "webworker"],
+    "allowSyntheticDefaultImports": true,
+    "resolveJsonModule": true,
+    "types": ["@cloudflare/workers-types"],
+    "baseUrl": "."
+  },
+  "exclude": ["node_modules", "api/dist/**/*"]
+}
