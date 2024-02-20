@@ -441,6 +441,177 @@ async fn test_resign() -> anyhow::Result<()> {
 }
 
 #[tokio::test]
+async fn test_cleanup_success() -> anyhow::Result<()> {
+    let (worker, _, contract, _, iah_contract) = initialize_contracts(None).await?;
+
+    let player_a = worker.dev_create_account().await?;
+    let player_b = worker.dev_create_account().await?;
+    let player_c = worker.dev_create_account().await?;
+    let player_d = worker.dev_create_account().await?;
+
+    tokio::try_join!(
+        call::add_human(&iah_contract, &player_a, player_a.id()),
+        call::add_human(&iah_contract, &player_b, player_b.id()),
+        call::add_human(&iah_contract, &player_c, player_c.id()),
+        call::add_human(&iah_contract, &player_d, player_d.id())
+    )?;
+    tokio::try_join!(
+        call::storage_deposit(&contract, &player_a, None, None),
+        call::storage_deposit(&contract, &player_b, None, None),
+        call::storage_deposit(&contract, &player_c, None, None),
+        call::storage_deposit(&contract, &player_d, None, None)
+    )?;
+
+    let game_id_ab = call::create_pvp_game(&contract, &player_a, &player_b).await?;
+    let game_id_ac = call::create_pvp_game(&contract, &player_a, &player_c).await?;
+    let game_id_ad = call::create_pvp_game(&contract, &player_a, &player_d).await?;
+    let game_id_bc = call::create_pvp_game(&contract, &player_b, &player_c).await?;
+    let game_id_bd = call::create_pvp_game(&contract, &player_b, &player_d).await?;
+    let game_id_cd = call::create_pvp_game(&contract, &player_c, &player_d).await?;
+
+    worker.fast_forward(100).await?;
+
+    let (_res, events) = call::cleanup(&contract).await?;
+    assert_event_emits(
+        events,
+        vec![
+            ChessEvent::CancelGame {
+                game_id: game_id_ab.clone(),
+                cancelled_by: contract.id().clone(),
+            },
+            ChessEvent::CancelGame {
+                game_id: game_id_ac.clone(),
+                cancelled_by: contract.id().clone(),
+            },
+            ChessEvent::CancelGame {
+                game_id: game_id_ad.clone(),
+                cancelled_by: contract.id().clone(),
+            },
+            ChessEvent::CancelGame {
+                game_id: game_id_bc.clone(),
+                cancelled_by: contract.id().clone(),
+            },
+            ChessEvent::CancelGame {
+                game_id: game_id_bd.clone(),
+                cancelled_by: contract.id().clone(),
+            },
+            ChessEvent::CancelGame {
+                game_id: game_id_cd.clone(),
+                cancelled_by: contract.id().clone(),
+            },
+        ],
+    )?;
+    let game_ids = view::get_game_ids(&contract, player_a.id()).await?;
+    assert!(game_ids.is_empty());
+    let game_ids = view::get_game_ids(&contract, player_b.id()).await?;
+    assert!(game_ids.is_empty());
+    let game_ids = view::get_game_ids(&contract, player_c.id()).await?;
+    assert!(game_ids.is_empty());
+    let game_ids = view::get_game_ids(&contract, player_d.id()).await?;
+    assert!(game_ids.is_empty());
+    let elo = view::get_elo(&contract, player_a.id()).await?.unwrap();
+    assert_eq!(elo, 1000.);
+    let elo = view::get_elo(&contract, player_b.id()).await?.unwrap();
+    assert_eq!(elo, 1000.);
+    let elo = view::get_elo(&contract, player_c.id()).await?.unwrap();
+    assert_eq!(elo, 1000.);
+    let elo = view::get_elo(&contract, player_d.id()).await?.unwrap();
+    assert_eq!(elo, 1000.);
+    let games = view::recent_finished_games(&contract).await?;
+    assert!(games.is_empty());
+    let games = view::finished_games(&contract, player_a.id()).await?;
+    assert!(games.is_empty());
+    let games = view::finished_games(&contract, player_b.id()).await?;
+    assert!(games.is_empty());
+    let games = view::finished_games(&contract, player_c.id()).await?;
+    assert!(games.is_empty());
+    let games = view::finished_games(&contract, player_d.id()).await?;
+    assert!(games.is_empty());
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn test_cleanup_partial() -> anyhow::Result<()> {
+    let (worker, _, contract, _, iah_contract) = initialize_contracts(None).await?;
+
+    let player_a = worker.dev_create_account().await?;
+    let player_b = worker.dev_create_account().await?;
+    let player_c = worker.dev_create_account().await?;
+    let player_d = worker.dev_create_account().await?;
+
+    tokio::try_join!(
+        call::add_human(&iah_contract, &player_a, player_a.id()),
+        call::add_human(&iah_contract, &player_b, player_b.id()),
+        call::add_human(&iah_contract, &player_c, player_c.id()),
+        call::add_human(&iah_contract, &player_d, player_d.id())
+    )?;
+    tokio::try_join!(
+        call::storage_deposit(&contract, &player_a, None, None),
+        call::storage_deposit(&contract, &player_b, None, None),
+        call::storage_deposit(&contract, &player_c, None, None),
+        call::storage_deposit(&contract, &player_d, None, None)
+    )?;
+
+    let game_id_ab = call::create_pvp_game(&contract, &player_a, &player_b).await?;
+    let game_id_ac = call::create_pvp_game(&contract, &player_a, &player_c).await?;
+    let game_id_ad = call::create_pvp_game(&contract, &player_a, &player_d).await?;
+
+    worker.fast_forward(100).await?;
+
+    let game_id_bc = call::create_pvp_game(&contract, &player_b, &player_c).await?;
+    let game_id_bd = call::create_pvp_game(&contract, &player_b, &player_d).await?;
+    let game_id_cd = call::create_pvp_game(&contract, &player_c, &player_d).await?;
+
+    let (_res, events) = call::cleanup(&contract).await?;
+    assert_event_emits(
+        events,
+        vec![
+            ChessEvent::CancelGame {
+                game_id: game_id_ab.clone(),
+                cancelled_by: contract.id().clone(),
+            },
+            ChessEvent::CancelGame {
+                game_id: game_id_ac.clone(),
+                cancelled_by: contract.id().clone(),
+            },
+            ChessEvent::CancelGame {
+                game_id: game_id_ad.clone(),
+                cancelled_by: contract.id().clone(),
+            },
+        ],
+    )?;
+    let game_ids = view::get_game_ids(&contract, player_a.id()).await?;
+    assert!(game_ids.is_empty());
+    let game_ids = view::get_game_ids(&contract, player_b.id()).await?;
+    assert_eq!(game_ids, vec![game_id_bc.clone(), game_id_bd.clone()]);
+    let game_ids = view::get_game_ids(&contract, player_c.id()).await?;
+    assert_eq!(game_ids, vec![game_id_bc, game_id_cd.clone()]);
+    let game_ids = view::get_game_ids(&contract, player_d.id()).await?;
+    assert_eq!(game_ids, vec![game_id_bd, game_id_cd]);
+    let elo = view::get_elo(&contract, player_a.id()).await?.unwrap();
+    assert_eq!(elo, 1000.);
+    let elo = view::get_elo(&contract, player_b.id()).await?.unwrap();
+    assert_eq!(elo, 1000.);
+    let elo = view::get_elo(&contract, player_c.id()).await?.unwrap();
+    assert_eq!(elo, 1000.);
+    let elo = view::get_elo(&contract, player_d.id()).await?.unwrap();
+    assert_eq!(elo, 1000.);
+    let games = view::recent_finished_games(&contract).await?;
+    assert!(games.is_empty());
+    let games = view::finished_games(&contract, player_a.id()).await?;
+    assert!(games.is_empty());
+    let games = view::finished_games(&contract, player_b.id()).await?;
+    assert!(games.is_empty());
+    let games = view::finished_games(&contract, player_c.id()).await?;
+    assert!(games.is_empty());
+    let games = view::finished_games(&contract, player_d.id()).await?;
+    assert!(games.is_empty());
+
+    Ok(())
+}
+
+#[tokio::test]
 async fn test_cancel_success() -> anyhow::Result<()> {
     let (worker, _, contract, _, iah_contract) = initialize_contracts(None).await?;
 

@@ -107,7 +107,7 @@
         }
       },
       {
-        "name": "clear_all_games",
+        "name": "cleanup",
         "kind": "call",
         "modifiers": [
           "private"

@@ -52,6 +52,13 @@ pub const MIN_BLOCK_DIFF_CANCEL: u64 = 60 * 60 * 24 * 3; // ~3 days
 #[cfg(feature = "integration-test")]
 pub const MIN_BLOCK_DIFF_CANCEL: u64 = 100;
 
+#[cfg(not(feature = "integration-test"))]
+pub const MIN_BLOCK_DIFF_CLEANUP: u64 = 60 * 60 * 24 * 14; // ~14 days
+#[cfg(feature = "integration-test")]
+pub const MIN_BLOCK_DIFF_CLEANUP: u64 = 100;
+
+pub const MAX_GAMES_CLEANUP: usize = 50;
+
 pub const GAS_FOR_SOCIAL_NOTIFY_CALL: Gas = Gas::from_tgas(20);
 pub const GAS_FOR_IS_HUMAN_CALL: Gas = Gas::from_tgas(12);
 
@@ -190,13 +197,34 @@ impl Chess {
     }
 
     #[private]
-    pub fn clear_all_games(&mut self) {
-        for (game_id, game) in self.games.drain() {
-            let Player::Human(account_id) = game.get_white() else {
-                panic!()
+    pub fn cleanup(&mut self) {
+        let mut game_ids = Vec::with_capacity((self.games.len() / 2) as usize);
+        for (game_id, game) in self.games.iter() {
+            if env::block_height() - game.get_last_block_height() < MIN_BLOCK_DIFF_CLEANUP {
+                continue;
+            }
+            if game.get_wager().is_some() {
+                continue;
+            }
+            game_ids.push(game_id.clone());
+            if game_ids.len() > MAX_GAMES_CLEANUP {
+                break;
+            }
+        }
+        for game_id in &game_ids {
+            let game = self.games.remove(game_id).unwrap();
+            if let Some(account) = game.get_white().as_account_mut(self) {
+                account.remove_game_id(game_id);
+            }
+            if let Some(account) = game.get_black().as_account_mut(self) {
+                account.remove_game_id(game_id);
+            }
+
+            let event = ChessEvent::CancelGame {
+                game_id: game_id.clone(),
+                cancelled_by: env::current_account_id(),
             };
-            let account = self.accounts.get_mut(account_id).unwrap();
-            account.remove_game_id(&game_id);
+            event.emit();
         }
     }
 

@@ -1,7 +1,7 @@
 use super::{event, log_tx_result};
 use chess_lib::{
-    AcceptChallengeMsg, BetMsg, ChallengeId, ChallengeMsg, Difficulty, Fees, FtReceiverMsg, GameId,
-    GameOutcome, MoveStr,
+    create_challenge_id, AcceptChallengeMsg, BetMsg, ChallengeId, ChallengeMsg, Difficulty, Fees,
+    FtReceiverMsg, GameId, GameOutcome, MoveStr,
 };
 use near_sdk::json_types::U128;
 use near_workspaces::{
@@ -300,6 +300,16 @@ pub async fn resign(
     Ok((res.json()?, events))
 }
 
+pub async fn cleanup(
+    contract: &Contract,
+) -> anyhow::Result<(ExecutionResult<Value>, Vec<event::ContractEvent>)> {
+    let (res, events) = log_tx_result(
+        Some("cleanup"),
+        contract.call("cleanup").max_gas().transact().await?,
+    )?;
+    Ok((res, events))
+}
+
 pub async fn cancel(
     contract: &Contract,
     sender: &Account,
@@ -375,4 +385,20 @@ async fn ft_transfer_call<T: Serialize>(
         .deposit(NearToken::from_yoctonear(1))
         .transact()
         .await?)
+}
+
+pub async fn create_pvp_game(
+    contract: &Contract,
+    player_a: &Account,
+    player_b: &Account,
+) -> anyhow::Result<GameId> {
+    challenge(contract, player_a, player_b.id()).await?;
+    let challenge_id = create_challenge_id(player_a.id(), player_b.id());
+    let (game_id, _) = accept_challenge(contract, player_b, &challenge_id).await?;
+    let block_height = game_id.0;
+    Ok(GameId(
+        block_height,
+        player_a.id().clone(),
+        Some(player_b.id().clone()),
+    ))
 }
