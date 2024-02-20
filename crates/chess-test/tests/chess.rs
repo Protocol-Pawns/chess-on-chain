@@ -115,9 +115,6 @@ async fn test_ai_game() -> anyhow::Result<()> {
                 game_id: game_id.clone(),
                 color: Color::White,
                 mv: "e2 to e4".to_string(),
-            },
-            ChessEvent::ChangeBoard {
-                game_id: game_id.clone(),
                 board: [
                     "RNBQKBNR".to_string(),
                     "PPPP PPP".to_string(),
@@ -128,14 +125,12 @@ async fn test_ai_game() -> anyhow::Result<()> {
                     "pppppppp".to_string(),
                     "rnbqkbnr".to_string(),
                 ],
+                outcome: None,
             },
             ChessEvent::PlayMove {
                 game_id: game_id.clone(),
                 color: Color::Black,
                 mv: "g8 to f6".to_string(),
-            },
-            ChessEvent::ChangeBoard {
-                game_id: game_id.clone(),
                 board: [
                     "RNBQKBNR".to_string(),
                     "PPPP PPP".to_string(),
@@ -146,6 +141,7 @@ async fn test_ai_game() -> anyhow::Result<()> {
                     "pppppppp".to_string(),
                     "rnbqkb r".to_string(),
                 ],
+                outcome: None,
             },
         ],
     )?;
@@ -164,17 +160,12 @@ async fn test_ai_game() -> anyhow::Result<()> {
     ];
     assert_event_emits(
         events,
-        vec![
-            ChessEvent::ResignGame {
-                game_id: game_id.clone(),
-                resigner: player_a.id().clone(),
-            },
-            ChessEvent::FinishGame {
-                game_id: game_id.clone(),
-                outcome: GameOutcome::Victory(Color::Black),
-                board: expected_board,
-            },
-        ],
+        vec![ChessEvent::ResignGame {
+            game_id: game_id.clone(),
+            resigner: Color::White,
+            board: expected_board,
+            outcome: GameOutcome::Victory(Color::Black),
+        }],
     )?;
     let game_ids = view::get_game_ids(&contract, player_a.id()).await?;
     assert!(game_ids.is_empty());
@@ -251,26 +242,22 @@ async fn test_accept_challenge() -> anyhow::Result<()> {
     assert!(outcome.is_none());
     assert_event_emits(
         events,
-        vec![
-            ChessEvent::PlayMove {
-                game_id: game_id.clone(),
-                color: Color::White,
-                mv: "e2 to e4".to_string(),
-            },
-            ChessEvent::ChangeBoard {
-                game_id: game_id.clone(),
-                board: [
-                    "RNBQKBNR".to_string(),
-                    "PPPP PPP".to_string(),
-                    "        ".to_string(),
-                    "    P   ".to_string(),
-                    "        ".to_string(),
-                    "        ".to_string(),
-                    "pppppppp".to_string(),
-                    "rnbqkbnr".to_string(),
-                ],
-            },
-        ],
+        vec![ChessEvent::PlayMove {
+            game_id: game_id.clone(),
+            color: Color::White,
+            mv: "e2 to e4".to_string(),
+            board: [
+                "RNBQKBNR".to_string(),
+                "PPPP PPP".to_string(),
+                "        ".to_string(),
+                "    P   ".to_string(),
+                "        ".to_string(),
+                "        ".to_string(),
+                "pppppppp".to_string(),
+                "rnbqkbnr".to_string(),
+            ],
+            outcome: None,
+        }],
     )?;
 
     Ok(())
@@ -428,17 +415,12 @@ async fn test_resign() -> anyhow::Result<()> {
     ];
     assert_event_emits(
         events,
-        vec![
-            ChessEvent::ResignGame {
-                game_id: game_id.clone(),
-                resigner: player_a.id().clone(),
-            },
-            ChessEvent::FinishGame {
-                game_id: game_id.clone(),
-                outcome: GameOutcome::Victory(Color::Black),
-                board: expected_board,
-            },
-        ],
+        vec![ChessEvent::ResignGame {
+            game_id: game_id.clone(),
+            resigner: Color::White,
+            board: expected_board,
+            outcome: GameOutcome::Victory(Color::Black),
+        }],
     )?;
     let game_ids = view::get_game_ids(&contract, player_a.id()).await?;
     assert!(game_ids.is_empty());
@@ -740,18 +722,13 @@ async fn test_finish_game() -> anyhow::Result<()> {
     assert_eq!(board, expected_board);
     assert_event_emits(
         events,
-        vec![
-            ChessEvent::PlayMove {
-                game_id: game_id.clone(),
-                color: Color::White,
-                mv: "f3 to f7".to_string(),
-            },
-            ChessEvent::FinishGame {
-                game_id: game_id.clone(),
-                outcome: GameOutcome::Victory(Color::White),
-                board: expected_board,
-            },
-        ],
+        vec![ChessEvent::PlayMove {
+            game_id: game_id.clone(),
+            color: Color::White,
+            mv: "f3 to f7".to_string(),
+            board: expected_board,
+            outcome: Some(GameOutcome::Victory(Color::White)),
+        }],
     )?;
 
     let games = view::recent_finished_games(&contract).await?;

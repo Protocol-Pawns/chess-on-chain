@@ -50,35 +50,31 @@ pub struct ChessEvent {
     pub event_kind: ChessEventKind,
 }
 
-pub const KNOWN_EVENT_KINDS: [&str; 9] = [
+pub const KNOWN_EVENT_KINDS: [&str; 7] = [
     "challenge",
     "accept_challenge",
     "reject_challenge",
     "create_game",
     "play_move",
-    "change_board",
     "resign_game",
     "cancel_game",
-    "finish_game",
 ];
 
 #[derive(Clone, Serialize, Deserialize, Debug)]
 #[serde(tag = "event", content = "data")]
 #[serde(rename_all = "snake_case")]
 pub enum ChessEventKind {
-    Challenge(ChallengeEventData),
-    AcceptChallenge(AcceptChallengeEventData),
-    RejectChallenge(RejectChallengeEventData),
-    CreateGame(CreateGameEventData),
-    PlayMove(PlayMoveEventData),
-    ChangeBoard(ChangeBoardEventData),
-    ResignGame(ResignGameEventData),
-    CancelGame(CancelGameEventData),
-    FinishGame(FinishGameEventData),
+    Challenge(Challenge),
+    AcceptChallenge(AcceptChallenge),
+    RejectChallenge(RejectChallenge),
+    CreateGame(CreateGame),
+    PlayMove(PlayMove),
+    ResignGame(ResignGame),
+    CancelGame(CancelGame),
 }
 
 #[derive(Clone, Serialize, Deserialize, Debug)]
-pub struct ChallengeEventData {
+pub struct Challenge {
     pub id: String,
     pub challenger: AccountId,
     pub challenged: AccountId,
@@ -86,18 +82,18 @@ pub struct ChallengeEventData {
 }
 
 #[derive(Clone, Serialize, Deserialize, Debug)]
-pub struct AcceptChallengeEventData {
+pub struct AcceptChallenge {
     pub challenge_id: ChallengeId,
     pub game_id: GameId,
 }
 
 #[derive(Clone, Serialize, Deserialize, Debug)]
-pub struct RejectChallengeEventData {
+pub struct RejectChallenge {
     pub challenge_id: ChallengeId,
 }
 
 #[derive(Clone, Serialize, Deserialize, Debug)]
-pub struct CreateGameEventData {
+pub struct CreateGame {
     pub game_id: GameId,
     pub white: Player,
     pub black: Player,
@@ -105,35 +101,26 @@ pub struct CreateGameEventData {
 }
 
 #[derive(Clone, Serialize, Deserialize, Debug)]
-pub struct PlayMoveEventData {
+pub struct PlayMove {
     pub game_id: GameId,
     pub color: Color,
     pub mv: MoveStr,
-}
-
-#[derive(Clone, Serialize, Deserialize, Debug)]
-pub struct ChangeBoardEventData {
-    pub game_id: GameId,
     pub board: [String; 8],
+    pub outcome: Option<GameOutcome>,
 }
 
 #[derive(Clone, Serialize, Deserialize, Debug)]
-pub struct ResignGameEventData {
+pub struct ResignGame {
     pub game_id: GameId,
-    pub resigner: String,
+    pub resigner: Color,
+    pub board: [String; 8],
+    pub outcome: GameOutcome,
 }
 
 #[derive(Clone, Serialize, Deserialize, Debug)]
-pub struct CancelGameEventData {
+pub struct CancelGame {
     pub game_id: GameId,
     pub cancelled_by: String,
-}
-
-#[derive(Clone, Serialize, Deserialize, Debug)]
-pub struct FinishGameEventData {
-    pub game_id: GameId,
-    pub outcome: GameOutcome,
-    pub board: [String; 8],
 }
 
 impl Display for ContractEvent {
@@ -237,17 +224,11 @@ impl Display for ChessEvent {
             ChessEventKind::PlayMove(_) => {
                 formatter.write_fmt(format_args!("{}: play_move", "event".bright_cyan()))?;
             }
-            ChessEventKind::ChangeBoard(_) => {
-                formatter.write_fmt(format_args!("{}: change_board", "event".bright_cyan()))?;
-            }
             ChessEventKind::ResignGame(_) => {
                 formatter.write_fmt(format_args!("{}: resign_game", "event".bright_cyan()))?;
             }
             ChessEventKind::CancelGame(_) => {
                 formatter.write_fmt(format_args!("{}: cancel_game", "event".bright_cyan()))?;
-            }
-            ChessEventKind::FinishGame(_) => {
-                formatter.write_fmt(format_args!("{}: finish_game", "event".bright_cyan()))?;
             }
         }
         formatter.write_fmt(format_args!("\n{}: chess-game", "standard".bright_cyan(),))?;
@@ -272,16 +253,10 @@ impl Display for ChessEvent {
             ChessEventKind::PlayMove(data) => {
                 formatter.write_fmt(format_args!("\n{}: {:?}", "data".bright_cyan(), data))?;
             }
-            ChessEventKind::ChangeBoard(data) => {
-                formatter.write_fmt(format_args!("\n{}: {:?}", "data".bright_cyan(), data))?;
-            }
             ChessEventKind::ResignGame(data) => {
                 formatter.write_fmt(format_args!("\n{}: {:?}", "data".bright_cyan(), data))?;
             }
             ChessEventKind::CancelGame(data) => {
-                formatter.write_fmt(format_args!("\n{}: {:?}", "data".bright_cyan(), data))?;
-            }
-            ChessEventKind::FinishGame(data) => {
                 formatter.write_fmt(format_args!("\n{}: {:?}", "data".bright_cyan(), data))?;
             }
         }

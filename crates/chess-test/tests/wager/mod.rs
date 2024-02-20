@@ -708,18 +708,13 @@ async fn test_finish_game_payout_wager() -> anyhow::Result<()> {
     assert_eq!(board, expected_board);
     assert_event_emits(
         events,
-        vec![
-            ChessEvent::PlayMove {
-                game_id: game_id.clone(),
-                color: Color::White,
-                mv: "f3 to f7".to_string(),
-            },
-            ChessEvent::FinishGame {
-                game_id: game_id.clone(),
-                outcome: GameOutcome::Victory(Color::White),
-                board: expected_board,
-            },
-        ],
+        vec![ChessEvent::PlayMove {
+            game_id: game_id.clone(),
+            color: Color::White,
+            mv: "f3 to f7".to_string(),
+            board: expected_board,
+            outcome: Some(GameOutcome::Victory(Color::White)),
+        }],
     )?;
 
     let game_ids = view::get_game_ids(&contract, player_a.id()).await?;
@@ -838,18 +833,13 @@ async fn test_finish_game_payout_fees() -> anyhow::Result<()> {
     assert_eq!(board, expected_board);
     assert_event_emits(
         events,
-        vec![
-            ChessEvent::PlayMove {
-                game_id: game_id.clone(),
-                color: Color::White,
-                mv: "f3 to f7".to_string(),
-            },
-            ChessEvent::FinishGame {
-                game_id: game_id.clone(),
-                outcome: GameOutcome::Victory(Color::White),
-                board: expected_board,
-            },
-        ],
+        vec![ChessEvent::PlayMove {
+            game_id: game_id.clone(),
+            color: Color::White,
+            mv: "f3 to f7".to_string(),
+            board: expected_board,
+            outcome: Some(GameOutcome::Victory(Color::White)),
+        }],
     )?;
 
     let game_ids = view::get_game_ids(&contract, player_a.id()).await?;
@@ -948,17 +938,12 @@ async fn test_resign_payout_wager() -> anyhow::Result<()> {
     ];
     assert_event_emits(
         events,
-        vec![
-            ChessEvent::ResignGame {
-                game_id: game_id.clone(),
-                resigner: player_b.id().clone(),
-            },
-            ChessEvent::FinishGame {
-                game_id: game_id.clone(),
-                outcome: GameOutcome::Victory(Color::White),
-                board: expected_board,
-            },
-        ],
+        vec![ChessEvent::ResignGame {
+            game_id: game_id.clone(),
+            resigner: Color::Black,
+            board: expected_board,
+            outcome: GameOutcome::Victory(Color::White),
+        }],
     )?;
 
     let game_ids = view::get_game_ids(&contract, player_a.id()).await?;
@@ -981,10 +966,7 @@ fn get_game_id(events: &[event::ContractEvent]) -> GameId {
         .find_map(|event| {
             if let event::ContractEvent::ChessGame(event::ChessEvent {
                 event_kind:
-                    event::ChessEventKind::AcceptChallenge(event::AcceptChallengeEventData {
-                        game_id,
-                        ..
-                    }),
+                    event::ChessEventKind::AcceptChallenge(event::AcceptChallenge { game_id, .. }),
                 ..
             }) = event
             {

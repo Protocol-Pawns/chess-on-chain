@@ -453,14 +453,14 @@ impl Chess {
             return Err(ContractError::NotPlaying);
         }
 
-        let outcome = if let Player::Human(black_id) = game.get_black() {
+        let (outcome, resigner) = if let Player::Human(black_id) = game.get_black() {
             if black_id == &account_id {
-                GameOutcome::Victory(Color::White)
+                (GameOutcome::Victory(Color::White), Color::Black)
             } else {
-                GameOutcome::Victory(Color::Black)
+                (GameOutcome::Victory(Color::Black), Color::White)
             }
         } else {
-            GameOutcome::Victory(Color::Black)
+            (GameOutcome::Victory(Color::Black), Color::White)
         };
         let board_state = Game::_get_board_state(game.get_board());
 
@@ -469,15 +469,10 @@ impl Chess {
         self.internal_send_notify(notifications);
 
         let event = ChessEvent::ResignGame {
-            game_id: game_id.clone(),
-            resigner: account_id,
-        };
-        event.emit();
-
-        let event = ChessEvent::FinishGame {
             game_id,
+            resigner,
             outcome: outcome.clone(),
-            board: board_state.clone(),
+            board: board_state,
         };
         event.emit();
 

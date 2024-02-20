@@ -119,18 +119,13 @@ async fn test_bet_basic() -> anyhow::Result<()> {
     assert_eq!(board, expected_board);
     assert_event_emits(
         events,
-        vec![
-            ChessEvent::PlayMove {
-                game_id: game_id.clone(),
-                color: Color::White,
-                mv: "f3 to f7".to_string(),
-            },
-            ChessEvent::FinishGame {
-                game_id: game_id.clone(),
-                outcome: GameOutcome::Victory(Color::White),
-                board: expected_board,
-            },
-        ],
+        vec![ChessEvent::PlayMove {
+            game_id: game_id.clone(),
+            color: Color::White,
+            mv: "f3 to f7".to_string(),
+            board: expected_board,
+            outcome: Some(GameOutcome::Victory(Color::White)),
+        }],
     )?;
 
     call::withdraw_token(&contract, &better_a, test_token.id()).await?;

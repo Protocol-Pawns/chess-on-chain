@@ -268,92 +268,69 @@ impl Game {
         let Game::V4(game) = self else {
             panic!("migration required")
         };
+
         let turn_color = game.board.get_turn_color();
+        let (outcome, board_state, board) = match game.board.play_move(mv) {
+            GameResult::Continuing(board) => {
+                game.board = board;
+                (None, Self::_get_board_state(&board), Some(board))
+            }
+            GameResult::Victory(color) => {
+                let board_state = Self::_get_board_state(&game.board.apply_eval_move(mv));
+                (Some(GameOutcome::Victory(color)), board_state, None)
+            }
+            GameResult::Stalemate => {
+                let board_state = Self::_get_board_state(&game.board.apply_eval_move(mv));
+                (Some(GameOutcome::Stalemate), board_state, None)
+            }
+            GameResult::IllegalMove(_) => return Err(ContractError::IllegalMove),
+        };
         let event = ChessEvent::PlayMove {
             game_id: game.game_id.clone(),
             color: turn_color,
             mv: mv.to_string(),
+            board: board_state.clone(),
+            outcome: outcome.clone(),
         };
         event.emit();
-        let outcome_with_board = match game.board.play_move(mv) {
-            GameResult::Continuing(board) => {
-                let event = ChessEvent::ChangeBoard {
-                    game_id: game.game_id.clone(),
-                    board: Self::_get_board_state(&board),
-                };
-                event.emit();
-                let (board, outcome) = if let Player::Ai(difficulty) = &game.black {
-                    let depths = match difficulty {
-                        Difficulty::Easy => vec![24],
-                        Difficulty::Medium => vec![20, 16],
-                        Difficulty::Hard => vec![16, 12, 8],
-                    };
-                    let (ai_mv, _, _) = board.get_next_move(&depths, env::random_seed_array());
-                    let event = ChessEvent::PlayMove {
-                        game_id: game.game_id.clone(),
-                        color: Color::Black,
-                        mv: ai_mv.to_string(),
-                    };
-                    event.emit();
-                    match board.play_move(ai_mv) {
-                        GameResult::Continuing(board) => {
-                            let event = ChessEvent::ChangeBoard {
-                                game_id: game.game_id.clone(),
-                                board: Self::_get_board_state(&board),
-                            };
-                            event.emit();
-                            (board, None)
-                        }
-                        GameResult::Victory(color) => {
-                            let board_state = Self::_get_board_state(&board.apply_eval_move(ai_mv));
-                            let event = ChessEvent::FinishGame {
-                                game_id: game.game_id.clone(),
-                                outcome: GameOutcome::Victory(color),
-                                board: board_state.clone(),
-                            };
-                            event.emit();
-                            (board, Some((GameOutcome::Victory(color), board_state)))
-                        }
-                        GameResult::Stalemate => {
-                            let board_state = Self::_get_board_state(&board.apply_eval_move(ai_mv));
-                            let event = ChessEvent::FinishGame {
-                                game_id: game.game_id.clone(),
-                                outcome: GameOutcome::Stalemate,
-                                board: board_state.clone(),
-                            };
-                            event.emit();
-                            (board, Some((GameOutcome::Stalemate, board_state)))
-                        }
-                        GameResult::IllegalMove(_) => return Err(ContractError::IllegalMove),
-                    }
-                } else {
-                    (board, None)
-                };
-                game.board = board;
-                outcome
-            }
-            GameResult::Victory(color) => {
-                let board_state = Self::_get_board_state(&game.board.apply_eval_move(mv));
-                let event = ChessEvent::FinishGame {
-                    game_id: game.game_id.clone(),
-                    outcome: GameOutcome::Victory(color),
-                    board: board_state.clone(),
-                };
-                event.emit();
-                Some((GameOutcome::Victory(color), board_state))
-            }
-            GameResult::Stalemate => {
-                let board_state = Self::_get_board_state(&game.board.apply_eval_move(mv));
-                let event = ChessEvent::FinishGame {
-                    game_id: game.game_id.clone(),
-                    outcome: GameOutcome::Stalemate,
-                    board: board_state.clone(),
-                };
-                event.emit();
-                Some((GameOutcome::Stalemate, board_state))
-            }
-            GameResult::IllegalMove(_) => return Err(ContractError::IllegalMove),
-        };
+
+        let mut outcome_with_board = outcome.map(|outcome| (outcome, board_state));
+        if let (Player::Ai(difficulty), Some(board)) = (&game.black, board) {
+            let depths = match difficulty {
+                Difficulty::Easy => vec![24],
+                Difficulty::Medium => vec![20, 16],
+                Difficulty::Hard => vec![16, 12, 8],
+            };
+
+            let turn_color = game.board.get_turn_color();
+            let (ai_mv, _, _) = board.get_next_move(&depths, env::random_seed_array());
+            let (outcome, board_state) = match board.play_move(ai_mv) {
+                GameResult::Continuing(board) => {
+                    game.board = board;
+                    (None, Self::_get_board_state(&board))
+                }
+                GameResult::Victory(color) => {
+                    let board_state = Self::_get_board_state(&game.board.apply_eval_move(mv));
+                    (Some(GameOutcome::Victory(color)), board_state)
+                }
+                GameResult::Stalemate => {
+                    let board_state = Self::_get_board_state(&game.board.apply_eval_move(mv));
+                    (Some(GameOutcome::Stalemate), board_state)
+                }
+                GameResult::IllegalMove(_) => return Err(ContractError::IllegalMove),
+            };
+            let event = ChessEvent::PlayMove {
+                game_id: game.game_id.clone(),
+                color: turn_color,
+                mv: ai_mv.to_string(),
+                board: board_state.clone(),
+                outcome: outcome.clone(),
+            };
+            event.emit();
+
+            outcome_with_board = outcome.map(|outcome| (outcome, board_state));
+        }
+
         game.last_move_block_height = env::block_height();
         Ok((outcome_with_board, game.board.get_turn_color()))
     }
