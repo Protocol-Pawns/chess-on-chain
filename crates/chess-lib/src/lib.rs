@@ -44,8 +44,8 @@ use near_sdk::{
 };
 use std::collections::{HashMap, VecDeque};
 
-pub const MAX_OPEN_GAMES: u32 = 10;
-pub const MAX_OPEN_CHALLENGES: u32 = 50;
+pub const MAX_OPEN_GAMES: u32 = 5;
+pub const MAX_OPEN_CHALLENGES: u32 = 25;
 
 #[cfg(not(feature = "integration-test"))]
 pub const MIN_BLOCK_DIFF_CANCEL: u64 = 60 * 60 * 24 * 3; // ~3 days

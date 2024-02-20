@@ -6,7 +6,7 @@ mod wager;
 use chess_engine::Color;
 use chess_lib::{
     create_challenge_id, Challenge, ChessEvent, ChessNotification, Difficulty, GameId, GameInfo,
-    GameOutcome, Player,
+    GameOutcome, Player, MAX_OPEN_CHALLENGES, MAX_OPEN_GAMES,
 };
 use futures::future::try_join_all;
 use maplit::hashmap;
@@ -619,16 +619,9 @@ async fn test_max_open_games() -> anyhow::Result<()> {
         call::storage_deposit(&contract, &player_b, None, None)
     )?;
 
-    call::create_ai_game(&contract, &player_a, Difficulty::Easy).await?;
-    call::create_ai_game(&contract, &player_a, Difficulty::Easy).await?;
-    call::create_ai_game(&contract, &player_a, Difficulty::Easy).await?;
-    call::create_ai_game(&contract, &player_a, Difficulty::Easy).await?;
-    call::create_ai_game(&contract, &player_a, Difficulty::Easy).await?;
-    call::create_ai_game(&contract, &player_a, Difficulty::Easy).await?;
-    call::create_ai_game(&contract, &player_a, Difficulty::Easy).await?;
-    call::create_ai_game(&contract, &player_a, Difficulty::Easy).await?;
-    call::create_ai_game(&contract, &player_a, Difficulty::Easy).await?;
-    call::create_ai_game(&contract, &player_a, Difficulty::Easy).await?;
+    for _ in 0..MAX_OPEN_GAMES {
+        call::create_ai_game(&contract, &player_a, Difficulty::Easy).await?;
+    }
     call::challenge(&contract, &player_a, player_b.id()).await?;
     let challenge_id = create_challenge_id(player_a.id(), player_b.id());
 
@@ -650,7 +643,7 @@ async fn test_max_open_challenges() -> anyhow::Result<()> {
     call::storage_deposit(&contract, &player_a, None, None).await?;
     call::storage_deposit(&contract, &player_b, None, None).await?;
     let mut tasks = vec![];
-    for _ in 0..50 {
+    for _ in 0..MAX_OPEN_CHALLENGES {
         tasks.push(worker.dev_create_account());
     }
     let players = try_join_all(tasks).await?;
