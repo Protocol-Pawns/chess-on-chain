@@ -148,22 +148,11 @@ async fn test_ai_game() -> anyhow::Result<()> {
 
     let (res, events) = call::resign(&contract, &player_a, &game_id).await?;
     assert_eq!(res, GameOutcome::Victory(Color::Black));
-    let expected_board = [
-        "RNBQKBNR".to_string(),
-        "PPPP PPP".to_string(),
-        "        ".to_string(),
-        "    P   ".to_string(),
-        "        ".to_string(),
-        "     n  ".to_string(),
-        "pppppppp".to_string(),
-        "rnbqkb r".to_string(),
-    ];
     assert_event_emits(
         events,
         vec![ChessEvent::ResignGame {
             game_id: game_id.clone(),
             resigner: Color::White,
-            board: expected_board,
             outcome: GameOutcome::Victory(Color::Black),
         }],
     )?;
@@ -403,22 +392,11 @@ async fn test_resign() -> anyhow::Result<()> {
 
     let (res, events) = call::resign(&contract, &player_a, &game_id).await?;
     assert_eq!(res, GameOutcome::Victory(Color::Black));
-    let expected_board = [
-        "RNBQKBNR".to_string(),
-        "PPPPPPPP".to_string(),
-        "        ".to_string(),
-        "        ".to_string(),
-        "        ".to_string(),
-        "        ".to_string(),
-        "pppppppp".to_string(),
-        "rnbqkbnr".to_string(),
-    ];
     assert_event_emits(
         events,
         vec![ChessEvent::ResignGame {
             game_id: game_id.clone(),
             resigner: Color::White,
-            board: expected_board,
             outcome: GameOutcome::Victory(Color::Black),
         }],
     )?;

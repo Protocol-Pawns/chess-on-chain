@@ -113,7 +113,6 @@ pub struct PlayMove {
 pub struct ResignGame {
     pub game_id: GameId,
     pub resigner: Color,
-    pub board: [String; 8],
     pub outcome: GameOutcome,
 }
 

@@ -33,7 +33,6 @@ pub enum ChessEvent {
     ResignGame {
         game_id: GameId,
         resigner: Color,
-        board: [String; 8],
         outcome: GameOutcome,
     },
     #[event_version("1.0.0")]

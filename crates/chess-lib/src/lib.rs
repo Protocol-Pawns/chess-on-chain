@@ -490,7 +490,6 @@ impl Chess {
         } else {
             (GameOutcome::Victory(Color::Black), Color::White)
         };
-        let board_state = Game::_get_board_state(game.get_board());
 
         let mut notifications = HashMap::new();
         self.internal_handle_outcome(game_id.clone(), &outcome, &mut notifications);
@@ -500,7 +499,6 @@ impl Chess {
             game_id,
             resigner,
             outcome: outcome.clone(),
-            board: board_state,
         };
         event.emit();
 
