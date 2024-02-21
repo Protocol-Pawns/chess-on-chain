@@ -9,8 +9,11 @@ NEAR_RPC_URL = "https://g.w.lavanet.xyz:443/gateway/near/rpc-http/600451dde7d773
 # Run `echo <VALUE> | wrangler secret put <NAME>` for each of these
 
 [durable_objects]
-bindings = [{ name = "GAMES", class_name = "Games" }]
+bindings = [
+  { name = "GAMES", class_name = "Games" },
+  { name = "INFO", class_name = "Info" },
+]
 
 [[migrations]]
 tag = "v1"
-new_classes = ["Accounts"]
+new_classes = ["Games", "Info"]

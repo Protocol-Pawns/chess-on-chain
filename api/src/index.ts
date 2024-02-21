@@ -5,12 +5,14 @@ import { match } from 'ts-pattern';
 
 import { games } from './games';
 import { Env } from './global';
+import { info } from './info';
 
 const app = new Hono<{ Bindings: Env }>();
 
 app.use('*', poweredBy());
 app.use('*', cors());
 
+app.route('/info', info);
 app.route('/games', games);
 
 app.onError(
@@ -32,3 +34,4 @@ app.notFound(() => {
 export default app;
 
 export { Games } from './games';
+export { Info } from './info';

@@ -5,6 +5,7 @@ export interface Env {
   // MY_KV_NAMESPACE: KVNamespace;
   //
   // Durable Objects. Learn more at https://developers.cloudflare.com/workers/runtime-apis/durable-objects/
+  INFO: DurableObjectNamespace;
   GAMES: DurableObjectNamespace;
   //
   // Example binding to R2. Learn more at https://developers.cloudflare.com/workers/runtime-apis/r2/
@@ -14,6 +15,7 @@ export interface Env {
   // MY_SERVICE: Fetcher;
   //
   // Secret variables
+  INDEXER_SECRET: string;
   //
   // Environment variables
   NEAR_RPC_URL: string;
