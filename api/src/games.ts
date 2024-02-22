@@ -49,14 +49,15 @@ export class Games {
         const createGame = await c.req.json<CreateGame>();
 
         this.games[gameIdUri] = { moves: [], ...createGame };
+        this.gameIds.unshift(gameIdUri);
+
         await this.state.storage.put(`game:${gameIdUri}`, createGame, {
           allowUnconfirmed: true
         });
-
-        this.gameIds.unshift(gameIdUri);
         await this.state.storage.put('gameIds', this.gameIds, {
           allowUnconfirmed: true
         });
+
         return new Response(null, { status: 204 });
       })
       .post('/:game_id/play_move', async c => {
@@ -106,7 +107,15 @@ export class Games {
         }
 
         delete this.games[gameIdUri];
+        const index = this.gameIds.findIndex(gameId => gameId === gameIdUri);
+        if (index >= 0) {
+          this.gameIds.splice(index, 1);
+        }
+
         await this.state.storage.delete(`game:${gameIdUri}`);
+        await this.state.storage.put('gameIds', this.gameIds, {
+          allowUnconfirmed: true
+        });
 
         return new Response(null, { status: 204 });
       });
