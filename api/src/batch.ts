@@ -30,6 +30,8 @@ batch
       const gameAddr = c.env.GAMES.idFromName('');
       const gameStub = c.env.GAMES.get(gameAddr);
 
+      const locks: Record<string, Promise<void> | undefined> = {};
+
       await infoStub.fetch(`${new URL(c.req.url).origin}/last_block_height`, {
         method: 'POST',
         body: String(batchEvent.block_height)
@@ -38,7 +40,11 @@ batch
       if (batchEvent.events.length > 0) {
         for (const event of batchEvent.events) {
           try {
-            await new Promise<void>((resolve, reject) => {
+            const gameId = JSON.stringify(event.data.game_id);
+            if (locks[gameId]) {
+              await locks[gameId];
+            }
+            locks[gameId] = new Promise<void>((resolve, reject) => {
               try {
                 match(event)
                   .with(
