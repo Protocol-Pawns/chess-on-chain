@@ -210,7 +210,6 @@ where
             continue;
         }
         ev.insert("standard".into(), "chess-game".into());
-        ev.insert("version".into(), "1.0.0".into());
         expected.push(expected_event);
     }
     assert_eq!(

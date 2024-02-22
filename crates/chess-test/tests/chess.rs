@@ -53,10 +53,6 @@ async fn test_migrate() -> anyhow::Result<()> {
     assert_eq!(game_ids, vec![game_id.clone()]);
     let ai_game_ids = view::get_game_ids(&contract, player_c.id()).await?;
     assert!(!ai_game_ids.is_empty());
-    let res = view::finished_games(&contract, player_a.id()).await;
-    assert!(res.is_ok());
-    let res = view::recent_finished_games(&contract).await;
-    assert!(res.is_ok());
     let game_info = view::get_game_info(&contract, &game_id).await?;
     let mut actual = serde_json::to_value(game_info)?;
     actual["last_block_height"].take();
@@ -408,12 +404,6 @@ async fn test_resign() -> anyhow::Result<()> {
     assert_eq!(elo, 984.);
     let elo = view::get_elo(&contract, player_b.id()).await?.unwrap();
     assert_eq!(elo, 1016.);
-    let games = view::recent_finished_games(&contract).await?;
-    assert_eq!(games, vec![game_id.clone()]);
-    let games = view::finished_games(&contract, player_a.id()).await?;
-    assert_eq!(games, vec![game_id.clone()]);
-    let games = view::finished_games(&contract, player_b.id()).await?;
-    assert_eq!(games, vec![game_id.clone()]);
 
     Ok(())
 }
@@ -495,16 +485,6 @@ async fn test_cleanup_success() -> anyhow::Result<()> {
     assert_eq!(elo, 1000.);
     let elo = view::get_elo(&contract, player_d.id()).await?.unwrap();
     assert_eq!(elo, 1000.);
-    let games = view::recent_finished_games(&contract).await?;
-    assert!(games.is_empty());
-    let games = view::finished_games(&contract, player_a.id()).await?;
-    assert!(games.is_empty());
-    let games = view::finished_games(&contract, player_b.id()).await?;
-    assert!(games.is_empty());
-    let games = view::finished_games(&contract, player_c.id()).await?;
-    assert!(games.is_empty());
-    let games = view::finished_games(&contract, player_d.id()).await?;
-    assert!(games.is_empty());
 
     Ok(())
 }
@@ -575,16 +555,6 @@ async fn test_cleanup_partial() -> anyhow::Result<()> {
     assert_eq!(elo, 1000.);
     let elo = view::get_elo(&contract, player_d.id()).await?.unwrap();
     assert_eq!(elo, 1000.);
-    let games = view::recent_finished_games(&contract).await?;
-    assert!(games.is_empty());
-    let games = view::finished_games(&contract, player_a.id()).await?;
-    assert!(games.is_empty());
-    let games = view::finished_games(&contract, player_b.id()).await?;
-    assert!(games.is_empty());
-    let games = view::finished_games(&contract, player_c.id()).await?;
-    assert!(games.is_empty());
-    let games = view::finished_games(&contract, player_d.id()).await?;
-    assert!(games.is_empty());
 
     Ok(())
 }
@@ -634,12 +604,6 @@ async fn test_cancel_success() -> anyhow::Result<()> {
     assert_eq!(elo, 1000.);
     let elo = view::get_elo(&contract, player_b.id()).await?.unwrap();
     assert_eq!(elo, 1000.);
-    let games = view::recent_finished_games(&contract).await?;
-    assert!(games.is_empty());
-    let games = view::finished_games(&contract, player_a.id()).await?;
-    assert!(games.is_empty());
-    let games = view::finished_games(&contract, player_b.id()).await?;
-    assert!(games.is_empty());
 
     Ok(())
 }
@@ -873,12 +837,6 @@ async fn test_finish_game() -> anyhow::Result<()> {
         }],
     )?;
 
-    let games = view::recent_finished_games(&contract).await?;
-    assert_eq!(games, vec![game_id.clone()]);
-    let games = view::finished_games(&contract, player_a.id()).await?;
-    assert_eq!(games, vec![game_id.clone()]);
-    let games = view::finished_games(&contract, player_b.id()).await?;
-    assert_eq!(games, vec![game_id.clone()]);
     let games = view::get_game_ids(&contract, player_a.id()).await?;
     assert!(games.is_empty());
     let games = view::get_game_ids(&contract, player_b.id()).await?;

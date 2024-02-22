@@ -130,16 +130,9 @@ impl Chess {
         let game = self.games.remove(&game_id).unwrap();
         if let Some(account) = game.get_white().as_account_mut(self) {
             account.remove_game_id(&game_id);
-            account.save_finished_game(game_id.clone());
         }
         if let Some(account) = game.get_black().as_account_mut(self) {
             account.remove_game_id(&game_id);
-            account.save_finished_game(game_id.clone());
-        }
-        let recent_finished_games = self.recent_finished_games.get_mut();
-        recent_finished_games.push_front(game_id.clone());
-        if recent_finished_games.len() > 100 {
-            recent_finished_games.pop_back();
         }
 
         if game.get_black().is_human() {

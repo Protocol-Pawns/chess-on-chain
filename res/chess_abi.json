@@ -140,31 +140,6 @@
         }
       },
       {
-        "name": "finished_games",
-        "doc": " Returns game IDs of finished games for given account ID.\n\n Output is NOT ordered, but client side can do so by looking at block height of game ID (first array entry).",
-        "kind": "view",
-        "params": {
-          "serialization_type": "json",
-          "args": [
-            {
-              "name": "account_id",
-              "type_schema": {
-                "$ref": "#/definitions/AccountId"
-              }
-            }
-          ]
-        },
-        "result": {
-          "serialization_type": "json",
-          "type_schema": {
-            "type": "array",
-            "items": {
-              "$ref": "#/definitions/GameId"
-            }
-          }
-        }
-      },
-      {
         "name": "ft_balance_of",
         "kind": "view",
         "params": {
@@ -954,20 +929,6 @@
             ],
             "maxItems": 2,
             "minItems": 2
-          }
-        }
-      },
-      {
-        "name": "recent_finished_games",
-        "doc": " Returns game IDs of recently finished games (max 100).\n\n Output is ordered with newest game ID as first elemtn.",
-        "kind": "view",
-        "result": {
-          "serialization_type": "json",
-          "type_schema": {
-            "type": "array",
-            "items": {
-              "$ref": "#/definitions/GameId"
-            }
           }
         }
       },

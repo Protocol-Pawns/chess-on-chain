@@ -189,25 +189,6 @@ impl Chess {
         Ok(account.get_challenges(is_challenger))
     }
 
-    /// Returns game IDs of recently finished games (max 100).
-    ///
-    /// Output is ordered with newest game ID as first elemtn.
-    pub fn recent_finished_games(&self) -> Vec<GameId> {
-        self.recent_finished_games.iter().cloned().collect()
-    }
-
-    /// Returns game IDs of finished games for given account ID.
-    ///
-    /// Output is NOT ordered, but client side can do so by looking at block height of game ID (first array entry).
-    #[handle_result]
-    pub fn finished_games(&self, account_id: AccountId) -> Result<Vec<GameId>, ContractError> {
-        let account = self
-            .accounts
-            .get(&account_id)
-            .ok_or_else(|| ContractError::AccountNotRegistered(account_id.clone()))?;
-        Ok(account.get_finished_games())
-    }
-
     pub fn get_treasury_tokens(&self) -> Vec<(AccountId, U128)> {
         self.treasury
             .iter()

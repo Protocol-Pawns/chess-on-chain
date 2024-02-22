@@ -8,7 +8,6 @@ mod ft_receiver;
 mod game;
 mod iah;
 mod internal;
-mod old;
 mod points;
 mod social;
 mod storage;
@@ -23,7 +22,6 @@ pub use event::*;
 pub use ft_receiver::*;
 pub use game::*;
 pub use iah::*;
-use old::*;
 pub use points::*;
 pub use social::*;
 pub use storage::*;
@@ -96,6 +94,20 @@ pub struct Chess {
     pub accounts: UnorderedMap<AccountId, Account>,
     pub games: UnorderedMap<GameId, Game>,
     pub challenges: UnorderedMap<ChallengeId, Challenge>,
+    pub treasury: UnorderedMap<AccountId, u128>,
+    pub fees: Lazy<Fees>,
+    pub token_whitelist: Lazy<Vec<AccountId>>,
+    pub bets: UnorderedMap<BetId, Bets>,
+}
+
+#[derive(BorshDeserialize, BorshSerialize, PanicOnDefault)]
+#[borsh(crate = "near_sdk::borsh")]
+pub struct OldChess {
+    pub social_db: AccountId,
+    pub iah_registry: AccountId,
+    pub accounts: UnorderedMap<AccountId, Account>,
+    pub games: UnorderedMap<GameId, Game>,
+    pub challenges: UnorderedMap<ChallengeId, Challenge>,
     pub recent_finished_games: Lazy<VecDeque<GameId>>,
     pub treasury: UnorderedMap<AccountId, u128>,
     pub fees: Lazy<Fees>,
@@ -147,7 +159,6 @@ impl Chess {
             accounts: UnorderedMap::new(StorageKey::VAccounts),
             games: UnorderedMap::new(StorageKey::Games),
             challenges: UnorderedMap::new(StorageKey::Challenges),
-            recent_finished_games: Lazy::new(StorageKey::RecentFinishedGamesV2, VecDeque::new()),
             treasury: UnorderedMap::new(StorageKey::Treasury),
             fees: Lazy::new(
                 StorageKey::Fees,
@@ -174,13 +185,7 @@ impl Chess {
             chess.accounts.insert(account_id, account);
         }
 
-        let mut games = vec![];
-        for (game_id, game) in chess.games.drain() {
-            games.push((game_id, game.migrate()));
-        }
-        for (game_id, game) in games {
-            chess.games.insert(game_id, game);
-        }
+        chess.recent_finished_games.clear();
 
         Self {
             social_db: chess.social_db,
@@ -188,11 +193,10 @@ impl Chess {
             accounts: chess.accounts,
             games: chess.games,
             challenges: chess.challenges,
-            recent_finished_games: chess.recent_finished_games,
             treasury: chess.treasury,
             fees: chess.fees,
-            token_whitelist: chess.wager_whitelist,
-            bets: UnorderedMap::new(StorageKey::Bets),
+            token_whitelist: chess.token_whitelist,
+            bets: chess.bets,
         }
     }
 
