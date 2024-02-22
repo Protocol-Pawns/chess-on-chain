@@ -5,8 +5,8 @@ import { match } from 'ts-pattern';
 
 import { batch } from './batch';
 import { games } from './games';
-import { Env } from './global';
 import { info } from './info';
+import { Env } from './types';
 
 const app = new Hono<{ Bindings: Env }>();
 

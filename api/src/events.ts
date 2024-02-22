@@ -1,5 +1,7 @@
 import { z } from 'zod';
 
+import { Optional } from './types';
+
 const zodGameId = z.tuple([z.number(), z.string(), z.nullable(z.string())]);
 export type GameId = z.infer<typeof zodGameId>;
 
@@ -49,6 +51,7 @@ export type Game = CreateGame & {
   resigner?: Color | null;
   outcome?: GameOutcome | null;
 };
+export type GameOverview = Optional<Game, 'moves'>;
 
 const zodPlayMove = z
   .object({

@@ -1,61 +1,166 @@
 import { Hono } from 'hono';
 
-import { CreateGame, Game, PlayMove, ResignGame } from './events';
-import type { Env } from './global';
+import { CreateGame, Game, GameOverview, PlayMove, ResignGame } from './events';
+import type { Env } from './types';
 
-export const games = new Hono<{ Bindings: Env }>().get('/:game_id', async c => {
-  const gameIdUri = c.req.param('game_id');
-  console.log('GAMEID', gameIdUri, typeof gameIdUri, encodeURI(gameIdUri));
-  const addr = c.env.GAMES.idFromName('');
-  const obj = c.env.GAMES.get(addr);
-  const res = await obj.fetch(
-    `${new URL(c.req.url).origin}/${encodeURI(gameIdUri)}`
-  );
-  const info = await res.json<Game>();
-  return c.json(info);
-});
+const MAX_RECENT_LIMIT = 25;
+
+// TODO account game_ids
+
+export const games = new Hono<{ Bindings: Env }>()
+  .get('/game/:game_id', async c => {
+    const gameIdUri = c.req.param('game_id');
+    const addr = c.env.GAMES.idFromName('');
+    const obj = c.env.GAMES.get(addr);
+    const res = await obj.fetch(
+      `${new URL(c.req.url).origin}/game/${encodeURI(gameIdUri)}`
+    );
+    if (!res.ok) {
+      return new Response(res.body, res);
+    }
+    const info = await res.json<Game>();
+    return c.json(info);
+  })
+  .get('/recent/new', async c => {
+    const { limit, include_moves } = c.req.query();
+    const actualLimit = Math.min(
+      limit ? Number(limit) : MAX_RECENT_LIMIT,
+      MAX_RECENT_LIMIT
+    );
+    const includeMoves = Number(include_moves);
+    const addr = c.env.GAMES.idFromName('');
+    const obj = c.env.GAMES.get(addr);
+    const res = await obj.fetch(
+      `${new URL(c.req.url).origin}/recent/new?limit=${actualLimit}&include_moves=${includeMoves}`
+    );
+    if (!res.ok) {
+      return new Response(res.body, res);
+    }
+    const info = await res.json<Game>();
+    return c.json(info);
+  })
+  .get('/recent/finished', async c => {
+    const { limit, include_moves } = c.req.query();
+    const actualLimit = Math.min(
+      limit ? Number(limit) : MAX_RECENT_LIMIT,
+      MAX_RECENT_LIMIT
+    );
+    const includeMoves = Number(include_moves);
+    const addr = c.env.GAMES.idFromName('');
+    const obj = c.env.GAMES.get(addr);
+    const res = await obj.fetch(
+      `${new URL(c.req.url).origin}/recent/finished?limit=${actualLimit}&include_moves=${includeMoves}`
+    );
+    if (!res.ok) {
+      return new Response(res.body, res);
+    }
+    const info = await res.json<Game>();
+    return c.json(info);
+  });
 
 export class Games {
   private state: DurableObjectState;
   private app: Hono<{ Bindings: Env }>;
-  private gameIds: string[];
+  private newGameIds: string[];
+  private finishedGameIds: string[];
   private games: Record<string, Game>;
 
   constructor(state: DurableObjectState) {
     this.state = state;
-    this.gameIds = [];
+    this.newGameIds = [];
+    this.finishedGameIds = [];
     this.games = {};
     this.state.blockConcurrencyWhile(async () => {
-      const gameIds = await this.state.storage.get<string[]>('gameIds');
-      this.gameIds = gameIds ?? [];
+      const newGameIds = await this.state.storage.get<string[]>('newGameIds');
+      this.newGameIds = newGameIds ?? [];
+      const finishedGameIds =
+        await this.state.storage.get<string[]>('finishedGameIds');
+      this.finishedGameIds = finishedGameIds ?? [];
     });
 
     this.app = new Hono();
     this.app
-      .get('/:game_id', async c => {
+      .get('/game/:game_id', async c => {
         const gameIdUri = c.req.param('game_id');
-        console.log('GAMEID DUR', gameIdUri);
-        if (!this.gameIds.includes(gameIdUri)) {
-          return new Response(null, { status: 404 });
-        }
         const game = await this.loadGame(gameIdUri);
         if (game instanceof Response) {
-          return game;
+          return new Response('', { status: 404 });
         }
         return c.json(game);
+      })
+      .get('/recent/new', async c => {
+        const { limit, include_moves } = c.req.query();
+        const end = Number(limit);
+        const includeMoves = Number(include_moves);
+        let index = 0;
+        const games: GameOverview[] = [];
+        for (const gameId of this.newGameIds) {
+          const game = await this.loadGame(gameId);
+          if (game instanceof Response) {
+            continue;
+          }
+          games.push({
+            game_id: game.game_id,
+            white: game.white,
+            black: game.black,
+            board: game.board,
+            outcome: game.outcome,
+            resigner: game.resigner,
+            moves: includeMoves ? game.moves : undefined
+          });
+
+          index++;
+          if (index >= end) {
+            break;
+          }
+        }
+
+        return c.json(games);
+      })
+      .get('/recent/finished', async c => {
+        const { limit, include_moves } = c.req.query();
+        const end = Number(limit);
+        const includeMoves = Number(include_moves);
+        let index = 0;
+        const games: GameOverview[] = [];
+        for (const gameId of this.finishedGameIds) {
+          const game = await this.loadGame(gameId);
+          if (game instanceof Response) {
+            continue;
+          }
+          games.push({
+            game_id: game.game_id,
+            white: game.white,
+            black: game.black,
+            board: game.board,
+            outcome: game.outcome,
+            resigner: game.resigner,
+            moves: includeMoves ? game.moves : undefined
+          });
+
+          index++;
+          if (index >= end) {
+            break;
+          }
+        }
+
+        return c.json(games);
       })
       .post('/:game_id/create_game', async c => {
         const gameIdUri = c.req.param('game_id');
         const createGame = await c.req.json<CreateGame>();
 
         this.games[gameIdUri] = { moves: [], ...createGame };
-        this.gameIds.unshift(gameIdUri);
-
         await this.state.storage.put(`game:${gameIdUri}`, createGame, {
-          allowUnconfirmed: true
+          allowUnconfirmed: false
         });
-        await this.state.storage.put('gameIds', this.gameIds, {
-          allowUnconfirmed: true
+
+        this.newGameIds.unshift(gameIdUri);
+        if (this.newGameIds.length > MAX_RECENT_LIMIT) {
+          this.newGameIds.pop();
+        }
+        await this.state.storage.put('newGameIds', this.newGameIds, {
+          allowUnconfirmed: false
         });
 
         return new Response(null, { status: 204 });
@@ -75,10 +180,21 @@ export class Games {
         });
         if (playMove.outcome != null) {
           game.outcome = playMove.outcome;
+          this.finishedGameIds.unshift(gameIdUri);
+          if (this.finishedGameIds.length > MAX_RECENT_LIMIT) {
+            this.finishedGameIds.pop();
+          }
+          await this.state.storage.put(
+            'finishedGameIds',
+            this.finishedGameIds,
+            {
+              allowUnconfirmed: false
+            }
+          );
         }
         game.board = playMove.board;
         await this.state.storage.put(`game:${gameIdUri}`, game, {
-          allowUnconfirmed: true
+          allowUnconfirmed: false
         });
 
         return new Response(null, { status: 204 });
@@ -94,7 +210,15 @@ export class Games {
         game.outcome = resignGame.outcome;
         game.resigner = resignGame.resigner;
         await this.state.storage.put(`game:${gameIdUri}`, game, {
-          allowUnconfirmed: true
+          allowUnconfirmed: false
+        });
+
+        this.finishedGameIds.unshift(gameIdUri);
+        if (this.finishedGameIds.length > MAX_RECENT_LIMIT) {
+          this.finishedGameIds.pop();
+        }
+        await this.state.storage.put('finishedGameIds', this.finishedGameIds, {
+          allowUnconfirmed: false
         });
 
         return new Response(null, { status: 204 });
@@ -107,15 +231,17 @@ export class Games {
         }
 
         delete this.games[gameIdUri];
-        const index = this.gameIds.findIndex(gameId => gameId === gameIdUri);
-        if (index >= 0) {
-          this.gameIds.splice(index, 1);
-        }
-
-        await this.state.storage.delete(`game:${gameIdUri}`);
-        await this.state.storage.put('gameIds', this.gameIds, {
-          allowUnconfirmed: true
+        await this.state.storage.delete(`game:${gameIdUri}`, {
+          allowUnconfirmed: false
         });
+
+        const index = this.newGameIds.findIndex(gameId => gameId === gameIdUri);
+        if (index >= 0) {
+          this.newGameIds.splice(index, 1);
+          await this.state.storage.put('newGameIds', this.newGameIds, {
+            allowUnconfirmed: false
+          });
+        }
 
         return new Response(null, { status: 204 });
       });

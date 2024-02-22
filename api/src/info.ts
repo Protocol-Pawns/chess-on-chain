@@ -1,6 +1,6 @@
 import { Hono } from 'hono';
 
-import type { Env } from './global';
+import type { Env } from './types';
 
 export type InfoResult = {
   lastBlockHeight: number;

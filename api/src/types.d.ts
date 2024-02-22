@@ -20,3 +20,5 @@ export interface Env {
   // Environment variables
   NEAR_RPC_URL: string;
 }
+
+export type Optional<T, K extends keyof T> = Omit<T, K> & Partial<T>;

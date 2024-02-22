@@ -4,7 +4,7 @@ import { bearerAuth } from 'hono/bearer-auth';
 import { P, match } from 'ts-pattern';
 
 import { zodBatchEvent } from './events';
-import type { Env } from './global';
+import type { Env } from './types';
 
 export const batch = new Hono<{ Bindings: Env }>();
 batch
@@ -132,6 +132,8 @@ batch
             }
           }
         }
+
+        await Promise.all(Object.values(locks).filter(promise => !!promise));
       }
 
       return new Response(null, { status: 204 });

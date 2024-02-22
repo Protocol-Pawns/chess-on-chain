@@ -1,6 +1,6 @@
 use anyhow::Result;
 use async_stream::stream;
-use chess_common::{ChessEvent, ContractEvent};
+use chess_common::{ChessEvent, ChessEventKind, ContractEvent};
 use futures_core::Stream;
 use near_lake_framework::{
     near_indexer_primitives::{
@@ -135,14 +135,22 @@ fn extract_events(timestamp_ms: u64, outcome: &ExecutionOutcomeView) -> Vec<Ches
             if let Ok(ContractEvent::ChessGame(event)) =
                 serde_json::from_str::<ContractEvent>(log[prefix.len()..].trim())
             {
-                println!(
-                    "\n{}{}{}\n{}",
-                    "=== new event (".bright_yellow(),
-                    timestamp_ms.bright_yellow(),
-                    ") ===".bright_yellow(),
-                    &event
-                );
-                Some(event)
+                match &event.event_kind {
+                    ChessEventKind::CreateGame(_)
+                    | ChessEventKind::PlayMove(_)
+                    | ChessEventKind::ResignGame(_)
+                    | ChessEventKind::CancelGame(_) => {
+                        println!(
+                            "\n{}{}{}\n{}",
+                            "=== new event (".bright_yellow(),
+                            timestamp_ms.bright_yellow(),
+                            ") ===".bright_yellow(),
+                            &event
+                        );
+                        Some(event)
+                    }
+                    _ => None,
+                }
             } else {
                 None
             }
