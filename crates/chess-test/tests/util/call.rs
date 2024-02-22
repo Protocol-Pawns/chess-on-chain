@@ -1,4 +1,5 @@
-use super::{event, log_tx_result};
+use super::log_tx_result;
+use chess_common::ContractEvent;
 use chess_lib::{
     create_challenge_id, AcceptChallengeMsg, BetMsg, ChallengeId, ChallengeMsg, Difficulty, Fees,
     FtReceiverMsg, GameId, GameOutcome, MoveStr,
@@ -16,7 +17,7 @@ pub async fn migrate(
     contract: &Contract,
     sender: &Account,
 ) -> anyhow::Result<ExecutionResult<Value>> {
-    let (res, _): (ExecutionResult<Value>, Vec<event::ContractEvent>) = log_tx_result(
+    let (res, _): (ExecutionResult<Value>, Vec<ContractEvent>) = log_tx_result(
         Some("migrate"),
         sender
             .call(contract.id(), "migrate")
@@ -65,8 +66,8 @@ pub async fn set_fees(
     contract: &Contract,
     sender: &Account,
     fees: &Fees,
-) -> anyhow::Result<(ExecutionResult<Value>, Vec<event::ContractEvent>)> {
-    let (res, events): (ExecutionResult<Value>, Vec<event::ContractEvent>) = log_tx_result(
+) -> anyhow::Result<(ExecutionResult<Value>, Vec<ContractEvent>)> {
+    let (res, events): (ExecutionResult<Value>, Vec<ContractEvent>) = log_tx_result(
         Some("set_fees"),
         sender
             .call(contract.id(), "set_fees")
@@ -82,8 +83,8 @@ pub async fn set_wager_whitelist(
     contract: &Contract,
     sender: &Account,
     whitelist: &[AccountId],
-) -> anyhow::Result<(ExecutionResult<Value>, Vec<event::ContractEvent>)> {
-    let (res, events): (ExecutionResult<Value>, Vec<event::ContractEvent>) = log_tx_result(
+) -> anyhow::Result<(ExecutionResult<Value>, Vec<ContractEvent>)> {
+    let (res, events): (ExecutionResult<Value>, Vec<ContractEvent>) = log_tx_result(
         Some("set_wager_whitelist"),
         sender
             .call(contract.id(), "set_wager_whitelist")
@@ -101,8 +102,8 @@ pub async fn register_token(
     token_id: &AccountId,
     amount: U128,
     deposit: NearToken,
-) -> anyhow::Result<(ExecutionResult<Value>, Vec<event::ContractEvent>)> {
-    let (res, events): (ExecutionResult<Value>, Vec<event::ContractEvent>) = log_tx_result(
+) -> anyhow::Result<(ExecutionResult<Value>, Vec<ContractEvent>)> {
+    let (res, events): (ExecutionResult<Value>, Vec<ContractEvent>) = log_tx_result(
         Some("register_token"),
         sender
             .call(contract.id(), "register_token")
@@ -154,8 +155,8 @@ pub async fn create_ai_game(
     contract: &Contract,
     sender: &Account,
     difficulty: Difficulty,
-) -> anyhow::Result<(GameId, Vec<event::ContractEvent>)> {
-    let (res, events): (ExecutionResult<Value>, Vec<event::ContractEvent>) = log_tx_result(
+) -> anyhow::Result<(GameId, Vec<ContractEvent>)> {
+    let (res, events): (ExecutionResult<Value>, Vec<ContractEvent>) = log_tx_result(
         Some("create_ai_game"),
         sender
             .call(contract.id(), "create_ai_game")
@@ -171,8 +172,8 @@ pub async fn challenge(
     contract: &Contract,
     sender: &Account,
     challenged_id: &AccountId,
-) -> anyhow::Result<(ExecutionResult<Value>, Vec<event::ContractEvent>)> {
-    let (res, events): (ExecutionResult<Value>, Vec<event::ContractEvent>) = log_tx_result(
+) -> anyhow::Result<(ExecutionResult<Value>, Vec<ContractEvent>)> {
+    let (res, events): (ExecutionResult<Value>, Vec<ContractEvent>) = log_tx_result(
         Some("challenge"),
         sender
             .call(contract.id(), "challenge")
@@ -190,8 +191,8 @@ pub async fn challenge_with_wager(
     receiver_id: &AccountId,
     amount: U128,
     msg: ChallengeMsg,
-) -> anyhow::Result<(ExecutionResult<Value>, Vec<event::ContractEvent>)> {
-    let (res, events): (ExecutionResult<Value>, Vec<event::ContractEvent>) = log_tx_result(
+) -> anyhow::Result<(ExecutionResult<Value>, Vec<ContractEvent>)> {
+    let (res, events): (ExecutionResult<Value>, Vec<ContractEvent>) = log_tx_result(
         Some("challenge_with_wager"),
         ft_transfer_call(
             sender,
@@ -209,8 +210,8 @@ pub async fn accept_challenge(
     contract: &Contract,
     sender: &Account,
     challenge_id: &ChallengeId,
-) -> anyhow::Result<(GameId, Vec<event::ContractEvent>)> {
-    let (res, events): (ExecutionResult<Value>, Vec<event::ContractEvent>) = log_tx_result(
+) -> anyhow::Result<(GameId, Vec<ContractEvent>)> {
+    let (res, events): (ExecutionResult<Value>, Vec<ContractEvent>) = log_tx_result(
         Some("accept_challenge"),
         sender
             .call(contract.id(), "accept_challenge")
@@ -228,8 +229,8 @@ pub async fn accept_challenge_with_wager(
     receiver_id: &AccountId,
     amount: U128,
     msg: AcceptChallengeMsg,
-) -> anyhow::Result<(ExecutionResult<Value>, Vec<event::ContractEvent>)> {
-    let (res, events): (ExecutionResult<Value>, Vec<event::ContractEvent>) = log_tx_result(
+) -> anyhow::Result<(ExecutionResult<Value>, Vec<ContractEvent>)> {
+    let (res, events): (ExecutionResult<Value>, Vec<ContractEvent>) = log_tx_result(
         Some("accept_challenge_with_wager"),
         ft_transfer_call(
             sender,
@@ -248,8 +249,8 @@ pub async fn reject_challenge(
     sender: &Account,
     challenge_id: &ChallengeId,
     is_challenger: bool,
-) -> anyhow::Result<(ExecutionResult<Value>, Vec<event::ContractEvent>)> {
-    let (res, events): (ExecutionResult<Value>, Vec<event::ContractEvent>) = log_tx_result(
+) -> anyhow::Result<(ExecutionResult<Value>, Vec<ContractEvent>)> {
+    let (res, events): (ExecutionResult<Value>, Vec<ContractEvent>) = log_tx_result(
         Some("reject_challenge"),
         sender
             .call(contract.id(), "reject_challenge")
@@ -269,7 +270,7 @@ pub async fn play_move(
 ) -> anyhow::Result<(
     (Option<GameOutcome>, [String; 8]),
     CryptoHash,
-    Vec<event::ContractEvent>,
+    Vec<ContractEvent>,
 )> {
     let (res, events) = log_tx_result(
         Some("play_move"),
@@ -287,7 +288,7 @@ pub async fn resign(
     contract: &Contract,
     sender: &Account,
     game_id: &GameId,
-) -> anyhow::Result<(GameOutcome, Vec<event::ContractEvent>)> {
+) -> anyhow::Result<(GameOutcome, Vec<ContractEvent>)> {
     let (res, events) = log_tx_result(
         Some("resign"),
         sender
@@ -302,7 +303,7 @@ pub async fn resign(
 
 pub async fn cleanup(
     contract: &Contract,
-) -> anyhow::Result<(ExecutionResult<Value>, Vec<event::ContractEvent>)> {
+) -> anyhow::Result<(ExecutionResult<Value>, Vec<ContractEvent>)> {
     let (res, events) = log_tx_result(
         Some("cleanup"),
         contract.call("cleanup").max_gas().transact().await?,
@@ -314,7 +315,7 @@ pub async fn cancel(
     contract: &Contract,
     sender: &Account,
     game_id: &GameId,
-) -> anyhow::Result<(ExecutionResult<Value>, Vec<event::ContractEvent>)> {
+) -> anyhow::Result<(ExecutionResult<Value>, Vec<ContractEvent>)> {
     let (res, events) = log_tx_result(
         Some("cancel"),
         sender
@@ -333,8 +334,8 @@ pub async fn bet(
     receiver_id: &AccountId,
     amount: U128,
     msg: BetMsg,
-) -> anyhow::Result<(ExecutionResult<Value>, Vec<event::ContractEvent>)> {
-    let (res, events): (ExecutionResult<Value>, Vec<event::ContractEvent>) = log_tx_result(
+) -> anyhow::Result<(ExecutionResult<Value>, Vec<ContractEvent>)> {
+    let (res, events): (ExecutionResult<Value>, Vec<ContractEvent>) = log_tx_result(
         Some("bet"),
         ft_transfer_call(
             sender,
@@ -352,7 +353,7 @@ pub async fn withdraw_token(
     contract: &Contract,
     sender: &Account,
     token_id: &AccountId,
-) -> anyhow::Result<(ExecutionResult<Value>, Vec<event::ContractEvent>)> {
+) -> anyhow::Result<(ExecutionResult<Value>, Vec<ContractEvent>)> {
     let (res, events) = log_tx_result(
         Some("withdraw_token"),
         sender

@@ -1,11 +1,9 @@
 name = "pp-api"
 main = "src/index.ts"
 workers_dev = true
-compatibility_date = "2024-02-19"
-node_compat = true
+compatibility_date = "2024-01-29"
 
 [vars]
-NEAR_RPC_URL = "https://g.w.lavanet.xyz:443/gateway/near/rpc-http/600451dde7d7732329463a8e9030eb6e"
 # Run `echo <VALUE> | wrangler secret put <NAME>` for each of these
 
 [durable_objects]

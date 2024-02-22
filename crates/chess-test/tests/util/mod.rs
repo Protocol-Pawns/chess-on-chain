@@ -1,8 +1,8 @@
 pub mod call;
-pub mod event;
 pub mod macros;
 pub mod view;
 
+use chess_common::{ContractEvent, KNOWN_EVENT_KINDS};
 use chess_lib::{chess_notification_to_value, ChessEvent, ChessNotification};
 use near_contract_standards::fungible_token::events::FtMint;
 use near_sdk::AccountId;
@@ -142,7 +142,7 @@ pub async fn initialize_token(
 pub fn log_tx_result(
     ident: Option<&str>,
     res: ExecutionFinalResult,
-) -> anyhow::Result<(ExecutionResult<Value>, Vec<event::ContractEvent>)> {
+) -> anyhow::Result<(ExecutionResult<Value>, Vec<ContractEvent>)> {
     for failure in res.receipt_failures() {
         print_log!("{:#?}", failure.bright_red());
     }
@@ -151,7 +151,7 @@ pub fn log_tx_result(
         if !outcome.logs.is_empty() {
             for log in outcome.logs.iter() {
                 if log.starts_with("EVENT_JSON:") {
-                    let event: event::ContractEvent =
+                    let event: ContractEvent =
                         serde_json::from_str(&log.replace("EVENT_JSON:", ""))?;
                     events.push(event.clone());
                     print_log!(
@@ -199,14 +199,14 @@ where
             .unwrap()
             .as_str()
             .unwrap();
-        event::KNOWN_EVENT_KINDS.contains(&event_str)
+        KNOWN_EVENT_KINDS.contains(&event_str)
     });
     let mut expected = vec![];
     for event in events {
         let mut expected_event = serde_json::to_value(event)?;
         let ev = expected_event.as_object_mut().unwrap();
         let event_str = ev.get("event").unwrap().as_str().unwrap();
-        if !event::KNOWN_EVENT_KINDS.contains(&event_str) {
+        if !KNOWN_EVENT_KINDS.contains(&event_str) {
             continue;
         }
         ev.insert("standard".into(), "chess-game".into());

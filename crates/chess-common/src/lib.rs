@@ -45,6 +45,7 @@ pub struct FtMint {
 
 #[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct ChessEvent {
+    #[serde(skip_serializing)]
     pub version: String,
     #[serde(flatten)]
     pub event_kind: ChessEventKind,

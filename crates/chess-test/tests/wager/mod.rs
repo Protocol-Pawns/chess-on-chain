@@ -1,4 +1,7 @@
 use crate::util::*;
+use chess_common::{
+    AcceptChallenge, ChessEvent as ChessEventCommon, ChessEventKind, ContractEvent,
+};
 use chess_engine::Color;
 use chess_lib::{
     create_challenge_id, AcceptChallengeMsg, Challenge, ChallengeMsg, ChessEvent, Fees, GameId,
@@ -949,13 +952,12 @@ async fn test_resign_payout_wager() -> anyhow::Result<()> {
     Ok(())
 }
 
-fn get_game_id(events: &[event::ContractEvent]) -> GameId {
+fn get_game_id(events: &[ContractEvent]) -> GameId {
     events
         .iter()
         .find_map(|event| {
-            if let event::ContractEvent::ChessGame(event::ChessEvent {
-                event_kind:
-                    event::ChessEventKind::AcceptChallenge(event::AcceptChallenge { game_id, .. }),
+            if let ContractEvent::ChessGame(ChessEventCommon {
+                event_kind: ChessEventKind::AcceptChallenge(AcceptChallenge { game_id, .. }),
                 ..
             }) = event
             {

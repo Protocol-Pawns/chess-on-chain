@@ -3,9 +3,10 @@
   "name": "api",
   "version": "0.0.0",
   "scripts": {
-    "start": "wrangler dev --local",
+    "start": "wrangler dev",
     "deploy": "wrangler deploy",
-    "test": "vitest"
+    "test": "vitest",
+    "clean": "rm -rf ./.wrangler"
   },
   "dependencies": {
     "@hono/zod-validator": "^0.1.11",

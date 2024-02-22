@@ -1,22 +1,24 @@
 [package]
-name = "chess-test"
-version = "1.0.0"
+name = "indexer"
+version = "0.0.1"
 authors = ["Mario Reder <mario.reder@pm.me>"]
 edition = "2021"
 
-[dev-dependencies]
+[dependencies]
 chess-common = { path = "../chess-common" }
-chess-engine = { path = "../chess-engine" }
 chess-lib = { path = "../chess-lib" }
-test-token = { path = "../test-token" }
 anyhow.workspace = true
+async-stream.workspace = true
+dotenv.workspace = true
 futures.workspace = true
-maplit.workspace = true
-near-contract-standards.workspace = true
-near-sdk.workspace = true
-near-workspaces.workspace = true
+futures-core.workspace = true
+futures-util.workspace = true
+near-lake-framework.workspace = true
+once_cell.workspace = true
 owo-colors.workspace = true
+rayon.workspace = true
+reqwest.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 tokio.workspace = true
-toml.workspace = true
+tokio-stream.workspace = true
