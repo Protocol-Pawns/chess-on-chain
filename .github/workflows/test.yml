@@ -3,21 +3,21 @@ name: Test
 on:
   push:
     paths:
-      - ".github/workflows/test.yml"
-      - "crates/**/*"
-      - "Cargo.toml"
-      - "build.sh"
-      - "rust-toolchain.toml"
+      - '.github/workflows/test.yml'
+      - 'crates/**/*'
+      - 'Cargo.toml'
+      - 'build.sh'
+      - 'rust-toolchain.toml'
   pull_request:
     paths:
-      - ".github/workflows/test.yml"
-      - "crates/**/*"
-      - "build.sh"
-      - "Cargo.toml"
-      - "rust-toolchain.toml"
+      - '.github/workflows/test.yml'
+      - 'crates/**/*'
+      - 'build.sh'
+      - 'Cargo.toml'
+      - 'rust-toolchain.toml'
 
 env:
-  RUST_TOOLCHAIN: nightly-2023-10-30
+  RUST_TOOLCHAIN: nightly-2024-02-16
   BINARYEN_VERSION: 116
 
 jobs:
