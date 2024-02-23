@@ -3,19 +3,8 @@
   import { FixedNumber } from "@tarnadas/fixed-number";
 
   import { MessageBox } from "$lib/components";
-  import { Section } from "$lib/layout";
-  import type { Condition } from "$lib/models";
 
   export let account: Account;
-
-  let condition: Condition;
-  $: if (!account.accountId.endsWith(".tg")) {
-    condition = "err";
-  } else if (nearBalance != null && nearBalance.toNumber() < 1) {
-    condition = "warn";
-  } else {
-    condition = "ok";
-  }
 
   let nearBalance: FixedNumber | undefined;
 
@@ -48,18 +37,20 @@
   }
 </script>
 
-<Section header="Wallet" {condition}>
-  <div class="field">
-      You successfully connected your Near wallet {account.accountId}
-  </div>
-  <div class="field">
-    <span>Near balance:</span>
-    <span>{nearBalance ? nearBalance.format() : "-"}</span>
-    {#if nearBalance != null && nearBalance.toNumber() < 0.5}
-      <MessageBox type="warning">
-        Your Near balance is low! Please top up your Near balance to not run out
-        of gas.
-      </MessageBox>
-    {/if}
-  </div>
-</Section>
+<div class="section-field">
+  <span>Connected account:</span>
+  <span>{account.accountId}</span>
+</div>
+<div class="section-field">
+  <span>Near balance:</span>
+  <span>{nearBalance ? nearBalance.format() : "-"}</span>
+  {#if nearBalance != null && nearBalance.toNumber() < 0.5}
+    <MessageBox type="warning">
+      Your Near balance is low! Please top up your Near balance to not run out
+      of gas.
+    </MessageBox>
+  {/if}
+</div>
+
+<style lang="scss">
+</style>

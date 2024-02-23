@@ -68,17 +68,4 @@
   :global(.smui-accordion__header__title svg) {
     height: 2rem;
   }
-
-  :global(.field) {
-    display: flex;
-    flex-direction: column;
-    gap: 0.4rem;
-    padding: 0.8rem 0 0.3rem;
-  }
-  :global(.field:first-child) {
-    padding-top: 0;
-  }
-  :global(.field:not(:last-child)) {
-    border-bottom: 1px solid var(--color-border);
-  }
 </style>

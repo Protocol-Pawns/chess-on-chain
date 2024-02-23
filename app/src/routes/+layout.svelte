@@ -130,4 +130,23 @@
   :global(.snackbar-error .mdc-snackbar__surface) {
     background-color: var(--color-bg-err);
   }
+
+  :global(.section-field) {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+    padding: 0 0 0.3rem;
+    margin: 0;
+  }
+  :global(.section-field:first-child) {
+    padding-top: 0;
+  }
+  :global(.section-field:not(:last-child)) {
+    border-bottom: 1px solid var(--color-border);
+    padding-bottom: 0.6rem;
+  }
+
+  :global(.field > :first-child) {
+    font-size: 1.2rem;
+  }
 </style>
