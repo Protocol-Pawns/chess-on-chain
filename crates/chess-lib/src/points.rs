@@ -11,9 +11,19 @@ use near_sdk::{
     serde::{Deserialize, Serialize},
     AccountId, PromiseOrValue,
 };
+use strum::{AsRefStr, EnumIter};
 
 #[derive(
-    Debug, PartialEq, Eq, BorshDeserialize, BorshSerialize, Deserialize, Serialize, JsonSchema,
+    Debug,
+    PartialEq,
+    Eq,
+    BorshDeserialize,
+    BorshSerialize,
+    Deserialize,
+    Serialize,
+    JsonSchema,
+    EnumIter,
+    AsRefStr,
 )]
 #[serde(crate = "near_sdk::serde")]
 #[borsh(crate = "near_sdk::borsh")]
@@ -52,17 +62,40 @@ impl Quest {
             Quest::WeeklyWinHuman => 1_000 * 18 * 7,
         }
     }
+}
 
-    pub fn get_name(&self) -> &str {
-        match self {
-            Quest::DailyPlayMove => "DailyPlayMove",
-            Quest::WeeklyWinHuman => "WeeklyWinHuman",
+#[derive(Deserialize, Serialize, JsonSchema)]
+#[serde(crate = "near_sdk::serde")]
+#[schemars(crate = "near_sdk::schemars")]
+pub struct QuestInfo {
+    name: String,
+    points: U128,
+    points_on_cd: U128,
+    cooldown: u64,
+}
+
+impl From<Quest> for QuestInfo {
+    fn from(quest: Quest) -> Self {
+        Self {
+            name: quest.as_ref().to_string(),
+            points: quest.get_points(false).into(),
+            points_on_cd: quest.get_points(true).into(),
+            cooldown: quest.get_cooldown(),
         }
     }
 }
 
 #[derive(
-    Debug, PartialEq, Eq, BorshDeserialize, BorshSerialize, Deserialize, Serialize, JsonSchema,
+    Debug,
+    PartialEq,
+    Eq,
+    BorshDeserialize,
+    BorshSerialize,
+    Deserialize,
+    Serialize,
+    JsonSchema,
+    EnumIter,
+    AsRefStr,
 )]
 #[serde(crate = "near_sdk::serde")]
 #[borsh(crate = "near_sdk::borsh")]
@@ -83,13 +116,21 @@ impl Achievement {
             Achievement::FirstWinAiHard => 5_000_000,
         }
     }
+}
 
-    pub fn get_name(&self) -> &str {
-        match self {
-            Achievement::FirstWinHuman => "FirstWinHuman",
-            Achievement::FirstWinAiEasy => "FirstWinAiEasy",
-            Achievement::FirstWinAiMedium => "FirstWinAiMedium",
-            Achievement::FirstWinAiHard => "FirstWinAiHard",
+#[derive(Deserialize, Serialize, JsonSchema)]
+#[serde(crate = "near_sdk::serde")]
+#[schemars(crate = "near_sdk::schemars")]
+pub struct AchievementInfo {
+    name: String,
+    points: U128,
+}
+
+impl From<Achievement> for AchievementInfo {
+    fn from(achievement: Achievement) -> Self {
+        Self {
+            name: achievement.as_ref().to_string(),
+            points: achievement.get_points().into(),
         }
     }
 }
@@ -132,7 +173,8 @@ impl FungibleTokenCore for Chess {
     }
 
     fn ft_balance_of(&self, account_id: AccountId) -> U128 {
-        self.get_points(account_id).unwrap()
+        let account = self.accounts.get(&account_id).unwrap();
+        account.get_points().into()
     }
 }
 

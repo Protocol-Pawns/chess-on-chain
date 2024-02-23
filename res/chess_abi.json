@@ -308,6 +308,27 @@
         }
       },
       {
+        "name": "get_account",
+        "kind": "view",
+        "params": {
+          "serialization_type": "json",
+          "args": [
+            {
+              "name": "account_id",
+              "type_schema": {
+                "$ref": "#/definitions/AccountId"
+              }
+            }
+          ]
+        },
+        "result": {
+          "serialization_type": "json",
+          "type_schema": {
+            "$ref": "#/definitions/AccountInfo"
+          }
+        }
+      },
+      {
         "name": "get_accounts",
         "kind": "view",
         "params": {
@@ -343,6 +364,19 @@
             "type": "array",
             "items": {
               "$ref": "#/definitions/AccountId"
+            }
+          }
+        }
+      },
+      {
+        "name": "get_achievement_list",
+        "kind": "view",
+        "result": {
+          "serialization_type": "json",
+          "type_schema": {
+            "type": "array",
+            "items": {
+              "$ref": "#/definitions/AchievementInfo"
             }
           }
         }
@@ -464,32 +498,6 @@
         }
       },
       {
-        "name": "get_elo",
-        "doc": " Returns ELO rating for given wallet ID.\n Only I-Am-Human verified accounts have an ELO.",
-        "kind": "view",
-        "params": {
-          "serialization_type": "json",
-          "args": [
-            {
-              "name": "account_id",
-              "type_schema": {
-                "$ref": "#/definitions/AccountId"
-              }
-            }
-          ]
-        },
-        "result": {
-          "serialization_type": "json",
-          "type_schema": {
-            "type": [
-              "number",
-              "null"
-            ],
-            "format": "double"
-          }
-        }
-      },
-      {
         "name": "get_elo_ratings",
         "kind": "view",
         "params": {
@@ -576,27 +584,6 @@
         }
       },
       {
-        "name": "get_points",
-        "kind": "view",
-        "params": {
-          "serialization_type": "json",
-          "args": [
-            {
-              "name": "account_id",
-              "type_schema": {
-                "$ref": "#/definitions/AccountId"
-              }
-            }
-          ]
-        },
-        "result": {
-          "serialization_type": "json",
-          "type_schema": {
-            "type": "string"
-          }
-        }
-      },
-      {
         "name": "get_quest_cooldowns",
         "kind": "view",
         "params": {
@@ -633,6 +620,19 @@
         }
       },
       {
+        "name": "get_quest_list",
+        "kind": "view",
+        "result": {
+          "serialization_type": "json",
+          "type_schema": {
+            "type": "array",
+            "items": {
+              "$ref": "#/definitions/QuestInfo"
+            }
+          }
+        }
+      },
+      {
         "name": "get_token_amount",
         "kind": "call",
         "params": {
@@ -656,6 +656,19 @@
           "serialization_type": "json",
           "type_schema": {
             "type": "string"
+          }
+        }
+      },
+      {
+        "name": "get_token_whitelist",
+        "kind": "view",
+        "result": {
+          "serialization_type": "json",
+          "type_schema": {
+            "type": "array",
+            "items": {
+              "$ref": "#/definitions/AccountId"
+            }
           }
         }
       },
@@ -713,41 +726,6 @@
               "maxItems": 2,
               "minItems": 2
             }
-          }
-        }
-      },
-      {
-        "name": "get_wager_whitelist",
-        "kind": "view",
-        "result": {
-          "serialization_type": "json",
-          "type_schema": {
-            "type": "array",
-            "items": {
-              "$ref": "#/definitions/AccountId"
-            }
-          }
-        }
-      },
-      {
-        "name": "is_human",
-        "doc": " Returns whether account has been I-Am-Human verified.",
-        "kind": "view",
-        "params": {
-          "serialization_type": "json",
-          "args": [
-            {
-              "name": "account_id",
-              "type_schema": {
-                "$ref": "#/definitions/AccountId"
-              }
-            }
-          ]
-        },
-        "result": {
-          "serialization_type": "json",
-          "type_schema": {
-            "type": "boolean"
           }
         }
       },
@@ -1258,6 +1236,32 @@
           "description": "NEAR Account Identifier.\n\nThis is a unique, syntactically valid, human-readable account identifier on the NEAR network.\n\n[See the crate-level docs for information about validation.](index.html#account-id-rules)\n\nAlso see [Error kind precedence](AccountId#error-kind-precedence).\n\n## Examples\n\n``` use near_account_id::AccountId;\n\nlet alice: AccountId = \"alice.near\".parse().unwrap();\n\nassert!(\"ƒelicia.near\".parse::<AccountId>().is_err()); // (ƒ is not f) ```",
           "type": "string"
         },
+        "AccountInfo": {
+          "type": "object",
+          "required": [
+            "is_human",
+            "near_amount",
+            "points"
+          ],
+          "properties": {
+            "elo": {
+              "type": [
+                "number",
+                "null"
+              ],
+              "format": "double"
+            },
+            "is_human": {
+              "type": "boolean"
+            },
+            "near_amount": {
+              "type": "string"
+            },
+            "points": {
+              "type": "string"
+            }
+          }
+        },
         "Achievement": {
           "type": "string",
           "enum": [
@@ -1266,6 +1270,21 @@
             "FirstWinAiMedium",
             "FirstWinAiHard"
           ]
+        },
+        "AchievementInfo": {
+          "type": "object",
+          "required": [
+            "name",
+            "points"
+          ],
+          "properties": {
+            "name": {
+              "type": "string"
+            },
+            "points": {
+              "type": "string"
+            }
+          }
         },
         "BetInfo": {
           "type": "object",
@@ -1558,6 +1577,31 @@
             "DailyPlayMove",
             "WeeklyWinHuman"
           ]
+        },
+        "QuestInfo": {
+          "type": "object",
+          "required": [
+            "cooldown",
+            "name",
+            "points",
+            "points_on_cd"
+          ],
+          "properties": {
+            "cooldown": {
+              "type": "integer",
+              "format": "uint64",
+              "minimum": 0.0
+            },
+            "name": {
+              "type": "string"
+            },
+            "points": {
+              "type": "string"
+            },
+            "points_on_cd": {
+              "type": "string"
+            }
+          }
         },
         "StorageBalance": {
           "type": "object",

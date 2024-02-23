@@ -61,7 +61,7 @@ async fn test_bet_basic() -> anyhow::Result<()> {
 
     let whitelist = vec![test_token.id().clone()];
     call::set_wager_whitelist(&contract, contract.as_account(), &whitelist).await?;
-    let actual_whitelist = view::get_wager_whitelist(&contract).await?;
+    let actual_whitelist = view::get_token_whitelist(&contract).await?;
     assert_eq!(whitelist, actual_whitelist);
 
     bet!(&better_a, test_token.id(), contract.id(), bet_amount, player_a => player_b).await?;
@@ -197,7 +197,7 @@ async fn test_incomplete_bet() -> anyhow::Result<()> {
 
     let whitelist = vec![test_token.id().clone()];
     call::set_wager_whitelist(&contract, contract.as_account(), &whitelist).await?;
-    let actual_whitelist = view::get_wager_whitelist(&contract).await?;
+    let actual_whitelist = view::get_token_whitelist(&contract).await?;
     assert_eq!(whitelist, actual_whitelist);
 
     bet!(&better_a, test_token.id(), contract.id(), bet_amount, player_a => player_b).await?;
@@ -270,7 +270,7 @@ async fn test_bet_increase() -> anyhow::Result<()> {
 
     let whitelist = vec![test_token.id().clone()];
     call::set_wager_whitelist(&contract, contract.as_account(), &whitelist).await?;
-    let actual_whitelist = view::get_wager_whitelist(&contract).await?;
+    let actual_whitelist = view::get_token_whitelist(&contract).await?;
     assert_eq!(whitelist, actual_whitelist);
 
     bet!(&better_a, test_token.id(), contract.id(), bet_amount, player_a => player_b).await?;
@@ -383,7 +383,7 @@ async fn test_bet_weighted_win_imbalanced() -> anyhow::Result<()> {
 
     let whitelist = vec![test_token.id().clone()];
     call::set_wager_whitelist(&contract, contract.as_account(), &whitelist).await?;
-    let actual_whitelist = view::get_wager_whitelist(&contract).await?;
+    let actual_whitelist = view::get_token_whitelist(&contract).await?;
     assert_eq!(whitelist, actual_whitelist);
 
     bet!(&better_a, test_token.id(), contract.id(), 500_000, player_a => player_b).await?;
@@ -485,7 +485,7 @@ async fn test_bet_weighted_win_imbalanced_reverse() -> anyhow::Result<()> {
 
     let whitelist = vec![test_token.id().clone()];
     call::set_wager_whitelist(&contract, contract.as_account(), &whitelist).await?;
-    let actual_whitelist = view::get_wager_whitelist(&contract).await?;
+    let actual_whitelist = view::get_token_whitelist(&contract).await?;
     assert_eq!(whitelist, actual_whitelist);
 
     bet!(&better_a, test_token.id(), contract.id(), 500_000, player_a => player_b).await?;
@@ -587,7 +587,7 @@ async fn test_bet_weighted_win_with_refund() -> anyhow::Result<()> {
 
     let whitelist = vec![test_token.id().clone()];
     call::set_wager_whitelist(&contract, contract.as_account(), &whitelist).await?;
-    let actual_whitelist = view::get_wager_whitelist(&contract).await?;
+    let actual_whitelist = view::get_token_whitelist(&contract).await?;
     assert_eq!(whitelist, actual_whitelist);
 
     bet!(&better_a, test_token.id(), contract.id(), 100_000, player_a => player_b).await?;
@@ -689,7 +689,7 @@ async fn test_bet_weighted_win_with_refund_reverse() -> anyhow::Result<()> {
 
     let whitelist = vec![test_token.id().clone()];
     call::set_wager_whitelist(&contract, contract.as_account(), &whitelist).await?;
-    let actual_whitelist = view::get_wager_whitelist(&contract).await?;
+    let actual_whitelist = view::get_token_whitelist(&contract).await?;
     assert_eq!(whitelist, actual_whitelist);
 
     bet!(&better_a, test_token.id(), contract.id(), 100_000, player_a => player_b).await?;

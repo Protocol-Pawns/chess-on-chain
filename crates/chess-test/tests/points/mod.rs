@@ -32,7 +32,7 @@ async fn test_daily_play_move() -> anyhow::Result<()> {
 
     let (_, block_hash, events) =
         call::play_move(&contract, &player_a, &game_id, "e2e4".to_string()).await?;
-    let points = view::get_points(&contract, player_a.id()).await?;
+    let points = view::ft_balance_of(&contract, player_a.id()).await?;
     assert_eq!(points.0, Quest::DailyPlayMove.get_points(false));
     let cooldowns = view::get_quest_cooldowns(&contract, player_a.id()).await?;
     let block = worker.view_block().block_hash(block_hash).await?;
@@ -51,7 +51,7 @@ async fn test_daily_play_move() -> anyhow::Result<()> {
 
     let (_, _, events) =
         call::play_move(&contract, &player_b, &game_id, "a7a6".to_string()).await?;
-    let points = view::get_points(&contract, player_b.id()).await?;
+    let points = view::ft_balance_of(&contract, player_b.id()).await?;
     assert_eq!(points.0, Quest::DailyPlayMove.get_points(false));
     assert_ft_mint_events(
         events,
@@ -64,7 +64,7 @@ async fn test_daily_play_move() -> anyhow::Result<()> {
 
     let (_, _, events) =
         call::play_move(&contract, &player_a, &game_id, "d1f3".to_string()).await?;
-    let points = view::get_points(&contract, player_a.id()).await?;
+    let points = view::ft_balance_of(&contract, player_a.id()).await?;
     assert_eq!(
         points.0,
         Quest::DailyPlayMove.get_points(false) + Quest::DailyPlayMove.get_points(true)
@@ -80,7 +80,7 @@ async fn test_daily_play_move() -> anyhow::Result<()> {
 
     let (_, _, events) =
         call::play_move(&contract, &player_b, &game_id, "a6a5".to_string()).await?;
-    let points = view::get_points(&contract, player_b.id()).await?;
+    let points = view::ft_balance_of(&contract, player_b.id()).await?;
     assert_eq!(
         points.0,
         Quest::DailyPlayMove.get_points(false) + Quest::DailyPlayMove.get_points(true)
@@ -98,7 +98,7 @@ async fn test_daily_play_move() -> anyhow::Result<()> {
 
     let (_, _, events) =
         call::play_move(&contract, &player_a, &game_id, "f1c4".to_string()).await?;
-    let points = view::get_points(&contract, player_a.id()).await?;
+    let points = view::ft_balance_of(&contract, player_a.id()).await?;
     assert_eq!(
         points.0,
         2 * Quest::DailyPlayMove.get_points(false) + Quest::DailyPlayMove.get_points(true)
@@ -114,7 +114,7 @@ async fn test_daily_play_move() -> anyhow::Result<()> {
 
     let (_, _, events) =
         call::play_move(&contract, &player_b, &game_id, "a5a4".to_string()).await?;
-    let points = view::get_points(&contract, player_b.id()).await?;
+    let points = view::ft_balance_of(&contract, player_b.id()).await?;
     assert_eq!(
         points.0,
         2 * Quest::DailyPlayMove.get_points(false) + Quest::DailyPlayMove.get_points(true)
@@ -168,14 +168,14 @@ async fn test_first_win_human() -> anyhow::Result<()> {
         call::play_move(&contract, &player_a, &game_id, "f3f7".to_string()).await?;
 
     assert_eq!(outcome.unwrap(), GameOutcome::Victory(Color::White));
-    let points = view::get_points(&contract, player_a.id()).await?;
+    let points = view::ft_balance_of(&contract, player_a.id()).await?;
     assert_eq!(
         points.0,
         Quest::DailyPlayMove.get_points(false)
             + 3 * Quest::DailyPlayMove.get_points(true)
             + Achievement::FirstWinHuman.get_points()
     );
-    let points = view::get_points(&contract, player_b.id()).await?;
+    let points = view::ft_balance_of(&contract, player_b.id()).await?;
     assert_eq!(
         points.0,
         Quest::DailyPlayMove.get_points(false) + 2 * Quest::DailyPlayMove.get_points(true)
@@ -238,12 +238,12 @@ async fn test_first_win_not_human() -> anyhow::Result<()> {
         call::play_move(&contract, &player_a, &game_id, "f3f7".to_string()).await?;
 
     assert_eq!(outcome.unwrap(), GameOutcome::Victory(Color::White));
-    let points = view::get_points(&contract, player_a.id()).await?;
+    let points = view::ft_balance_of(&contract, player_a.id()).await?;
     assert_eq!(
         points.0,
         Quest::DailyPlayMove.get_points(false) + 3 * Quest::DailyPlayMove.get_points(true)
     );
-    let points = view::get_points(&contract, player_b.id()).await?;
+    let points = view::ft_balance_of(&contract, player_b.id()).await?;
     assert_eq!(
         points.0,
         Quest::DailyPlayMove.get_points(false) + 2 * Quest::DailyPlayMove.get_points(true)
@@ -282,7 +282,7 @@ async fn test_first_win_ai() -> anyhow::Result<()> {
         call::play_move(&contract, &player_a, &game_id, "f3f7".to_string()).await?;
 
     assert_eq!(outcome.unwrap(), GameOutcome::Victory(Color::White));
-    let points = view::get_points(&contract, player_a.id()).await?;
+    let points = view::ft_balance_of(&contract, player_a.id()).await?;
     assert_eq!(
         points.0,
         Quest::DailyPlayMove.get_points(false)
@@ -348,7 +348,7 @@ async fn test_achievement_only_once() -> anyhow::Result<()> {
         call::play_move(&contract, &player_a, &game_id, "f3f7".to_string()).await?;
 
     assert_eq!(outcome.unwrap(), GameOutcome::Victory(Color::White));
-    let points = view::get_points(&contract, player_a.id()).await?;
+    let points = view::ft_balance_of(&contract, player_a.id()).await?;
     assert_eq!(
         points.0,
         2 * Quest::DailyPlayMove.get_points(false)
@@ -427,7 +427,7 @@ async fn test_multiple_achievements() -> anyhow::Result<()> {
     assert_eq!(outcome.unwrap(), GameOutcome::Victory(Color::White));
     let block = worker.view_block().block_hash(block_hash).await?;
     let ai_achievement = (block.timestamp() / 1_000_000, Achievement::FirstWinAiEasy);
-    let points = view::get_points(&contract, player_a.id()).await?;
+    let points = view::ft_balance_of(&contract, player_a.id()).await?;
     assert_eq!(
         points.0,
         2 * Quest::DailyPlayMove.get_points(false)

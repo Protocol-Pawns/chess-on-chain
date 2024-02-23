@@ -1,6 +1,6 @@
 use super::log_view_result;
 use chess_lib::{
-    Achievement, BetInfo, Challenge, ChallengeId, EloRating, Fees, GameId, GameInfo, Quest,
+    AccountInfo, Achievement, BetInfo, Challenge, ChallengeId, Fees, GameId, GameInfo, Quest,
 };
 use near_sdk::json_types::U128;
 use near_workspaces::{AccountId, Contract};
@@ -49,37 +49,13 @@ pub async fn get_bet_info(
     Ok(res.json()?)
 }
 
-pub async fn is_human(contract: &Contract, account_id: &AccountId) -> anyhow::Result<bool> {
-    let res = log_view_result(
-        contract
-            .call("is_human")
-            .args_json((account_id,))
-            .max_gas()
-            .view()
-            .await?,
-    )?;
-    Ok(res.json()?)
-}
-
-pub async fn get_elo(
+pub async fn get_account(
     contract: &Contract,
     account_id: &AccountId,
-) -> anyhow::Result<Option<EloRating>> {
+) -> anyhow::Result<AccountInfo> {
     let res = log_view_result(
         contract
-            .call("get_elo")
-            .args_json((account_id,))
-            .max_gas()
-            .view()
-            .await?,
-    )?;
-    Ok(res.json()?)
-}
-
-pub async fn get_points(contract: &Contract, account_id: &AccountId) -> anyhow::Result<U128> {
-    let res = log_view_result(
-        contract
-            .call("get_points")
+            .call("get_account")
             .args_json((account_id,))
             .max_gas()
             .view()
@@ -154,10 +130,10 @@ pub async fn get_fees(contract: &Contract) -> anyhow::Result<Fees> {
     Ok(res.json()?)
 }
 
-pub async fn get_wager_whitelist(contract: &Contract) -> anyhow::Result<Vec<AccountId>> {
+pub async fn get_token_whitelist(contract: &Contract) -> anyhow::Result<Vec<AccountId>> {
     let res = log_view_result(
         contract
-            .call("get_wager_whitelist")
+            .call("get_token_whitelist")
             .max_gas()
             .view()
             .await?,

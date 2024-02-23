@@ -400,10 +400,10 @@ async fn test_resign() -> anyhow::Result<()> {
     assert!(game_ids.is_empty());
     let game_ids = view::get_game_ids(&contract, player_b.id()).await?;
     assert!(game_ids.is_empty());
-    let elo = view::get_elo(&contract, player_a.id()).await?.unwrap();
-    assert_eq!(elo, 984.);
-    let elo = view::get_elo(&contract, player_b.id()).await?.unwrap();
-    assert_eq!(elo, 1016.);
+    let account = view::get_account(&contract, player_a.id()).await?;
+    assert_eq!(account.elo.unwrap(), 984.);
+    let account = view::get_account(&contract, player_b.id()).await?;
+    assert_eq!(account.elo.unwrap(), 1016.);
 
     Ok(())
 }
@@ -477,14 +477,14 @@ async fn test_cleanup_success() -> anyhow::Result<()> {
     assert!(game_ids.is_empty());
     let game_ids = view::get_game_ids(&contract, player_d.id()).await?;
     assert!(game_ids.is_empty());
-    let elo = view::get_elo(&contract, player_a.id()).await?.unwrap();
-    assert_eq!(elo, 1000.);
-    let elo = view::get_elo(&contract, player_b.id()).await?.unwrap();
-    assert_eq!(elo, 1000.);
-    let elo = view::get_elo(&contract, player_c.id()).await?.unwrap();
-    assert_eq!(elo, 1000.);
-    let elo = view::get_elo(&contract, player_d.id()).await?.unwrap();
-    assert_eq!(elo, 1000.);
+    let account = view::get_account(&contract, player_a.id()).await?;
+    assert_eq!(account.elo.unwrap(), 1000.);
+    let account = view::get_account(&contract, player_b.id()).await?;
+    assert_eq!(account.elo.unwrap(), 1000.);
+    let account = view::get_account(&contract, player_c.id()).await?;
+    assert_eq!(account.elo.unwrap(), 1000.);
+    let account = view::get_account(&contract, player_d.id()).await?;
+    assert_eq!(account.elo.unwrap(), 1000.);
 
     Ok(())
 }
@@ -547,14 +547,14 @@ async fn test_cleanup_partial() -> anyhow::Result<()> {
     assert_eq!(game_ids, vec![game_id_bc, game_id_cd.clone()]);
     let game_ids = view::get_game_ids(&contract, player_d.id()).await?;
     assert_eq!(game_ids, vec![game_id_bd, game_id_cd]);
-    let elo = view::get_elo(&contract, player_a.id()).await?.unwrap();
-    assert_eq!(elo, 1000.);
-    let elo = view::get_elo(&contract, player_b.id()).await?.unwrap();
-    assert_eq!(elo, 1000.);
-    let elo = view::get_elo(&contract, player_c.id()).await?.unwrap();
-    assert_eq!(elo, 1000.);
-    let elo = view::get_elo(&contract, player_d.id()).await?.unwrap();
-    assert_eq!(elo, 1000.);
+    let account = view::get_account(&contract, player_a.id()).await?;
+    assert_eq!(account.elo.unwrap(), 1000.);
+    let account = view::get_account(&contract, player_b.id()).await?;
+    assert_eq!(account.elo.unwrap(), 1000.);
+    let account = view::get_account(&contract, player_c.id()).await?;
+    assert_eq!(account.elo.unwrap(), 1000.);
+    let account = view::get_account(&contract, player_d.id()).await?;
+    assert_eq!(account.elo.unwrap(), 1000.);
 
     Ok(())
 }
@@ -600,10 +600,10 @@ async fn test_cancel_success() -> anyhow::Result<()> {
     assert!(game_ids.is_empty());
     let game_ids = view::get_game_ids(&contract, player_b.id()).await?;
     assert!(game_ids.is_empty());
-    let elo = view::get_elo(&contract, player_a.id()).await?.unwrap();
-    assert_eq!(elo, 1000.);
-    let elo = view::get_elo(&contract, player_b.id()).await?.unwrap();
-    assert_eq!(elo, 1000.);
+    let account = view::get_account(&contract, player_a.id()).await?;
+    assert_eq!(account.elo.unwrap(), 1000.);
+    let account = view::get_account(&contract, player_b.id()).await?;
+    assert_eq!(account.elo.unwrap(), 1000.);
 
     Ok(())
 }
@@ -841,10 +841,10 @@ async fn test_finish_game() -> anyhow::Result<()> {
     assert!(games.is_empty());
     let games = view::get_game_ids(&contract, player_b.id()).await?;
     assert!(games.is_empty());
-    let elo = view::get_elo(&contract, player_a.id()).await?.unwrap();
-    assert_eq!(elo, 1016.);
-    let elo = view::get_elo(&contract, player_b.id()).await?.unwrap();
-    assert_eq!(elo, 984.);
+    let account = view::get_account(&contract, player_a.id()).await?;
+    assert_eq!(account.elo.unwrap(), 1016.);
+    let account = view::get_account(&contract, player_b.id()).await?;
+    assert_eq!(account.elo.unwrap(), 984.);
 
     Ok(())
 }
@@ -997,14 +997,12 @@ async fn test_no_elo_if_not_human() -> anyhow::Result<()> {
     );
     call::resign(&contract, &player_a, &game_id).await?;
 
-    let is_human = view::is_human(&contract, player_a.id()).await?;
-    assert!(!is_human);
-    let is_human = view::is_human(&contract, player_b.id()).await?;
-    assert!(!is_human);
-    let elo = view::get_elo(&contract, player_a.id()).await?;
-    assert!(elo.is_none());
-    let elo = view::get_elo(&contract, player_b.id()).await?;
-    assert!(elo.is_none());
+    let account = view::get_account(&contract, player_a.id()).await?;
+    assert!(!account.is_human);
+    assert!(account.elo.is_none());
+    let account = view::get_account(&contract, player_b.id()).await?;
+    assert!(!account.is_human);
+    assert!(account.elo.is_none());
 
     call::add_human(&nada_bot_contract, &player_a, player_a.id()).await?;
     call::update_is_human(&contract, &player_a, player_a.id()).await?;
@@ -1020,14 +1018,12 @@ async fn test_no_elo_if_not_human() -> anyhow::Result<()> {
     );
     call::resign(&contract, &player_a, &game_id).await?;
 
-    let is_human = view::is_human(&contract, player_a.id()).await?;
-    assert!(is_human);
-    let is_human = view::is_human(&contract, player_b.id()).await?;
-    assert!(!is_human);
-    let elo = view::get_elo(&contract, player_a.id()).await?.unwrap();
-    assert_eq!(elo, 1_000.);
-    let elo = view::get_elo(&contract, player_b.id()).await?;
-    assert!(elo.is_none());
+    let account = view::get_account(&contract, player_a.id()).await?;
+    assert!(account.is_human);
+    assert_eq!(account.elo.unwrap(), 1_000.);
+    let account = view::get_account(&contract, player_b.id()).await?;
+    assert!(!account.is_human);
+    assert!(account.elo.is_none());
 
     call::add_human(&nada_bot_contract, &player_b, player_b.id()).await?;
     call::update_is_human(&contract, &player_b, player_b.id()).await?;
@@ -1043,14 +1039,12 @@ async fn test_no_elo_if_not_human() -> anyhow::Result<()> {
     );
     call::resign(&contract, &player_a, &game_id).await?;
 
-    let is_human = view::is_human(&contract, player_a.id()).await?;
-    assert!(is_human);
-    let is_human = view::is_human(&contract, player_b.id()).await?;
-    assert!(is_human);
-    let elo = view::get_elo(&contract, player_a.id()).await?.unwrap();
-    assert_eq!(elo, 984.);
-    let elo = view::get_elo(&contract, player_b.id()).await?.unwrap();
-    assert_eq!(elo, 1016.);
+    let account = view::get_account(&contract, player_a.id()).await?;
+    assert!(account.is_human);
+    assert_eq!(account.elo.unwrap(), 984.);
+    let account = view::get_account(&contract, player_b.id()).await?;
+    assert!(account.is_human);
+    assert_eq!(account.elo.unwrap(), 1_016.);
 
     Ok(())
 }

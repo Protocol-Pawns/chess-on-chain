@@ -13,6 +13,7 @@ maplit.workspace = true
 near-contract-standards.workspace = true
 primitive-types.workspace = true
 serde_json.workspace = true
+strum.workspace = true
 thiserror.workspace = true
 urlencoding.workspace = true
 

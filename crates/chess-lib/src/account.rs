@@ -6,6 +6,9 @@ use near_contract_standards::fungible_token::events::FtMint;
 use near_sdk::{
     borsh::{self, BorshDeserialize, BorshSerialize},
     env,
+    json_types::U128,
+    schemars::JsonSchema,
+    serde::{Deserialize, Serialize},
     store::{Lazy, UnorderedMap, UnorderedSet},
     AccountId, NearToken,
 };
@@ -55,6 +58,28 @@ pub struct AccountV7 {
     quest_cooldowns: Lazy<VecDeque<(u64, Quest)>>,
     achievements: Lazy<Vec<(u64, Achievement)>>,
     tokens: UnorderedMap<AccountId, u128>,
+}
+
+#[derive(Deserialize, Serialize, JsonSchema)]
+#[serde(crate = "near_sdk::serde")]
+#[schemars(crate = "near_sdk::schemars")]
+pub struct AccountInfo {
+    pub near_amount: NearToken,
+    pub is_human: bool,
+    pub points: U128,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub elo: Option<EloRating>,
+}
+
+impl From<&Account> for AccountInfo {
+    fn from(account: &Account) -> Self {
+        AccountInfo {
+            near_amount: account.get_near_amount(),
+            is_human: account.is_human(),
+            points: account.get_points().into(),
+            elo: account.get_elo(),
+        }
+    }
 }
 
 impl Account {
@@ -381,7 +406,7 @@ impl Account {
         FtMint {
             owner_id: &account.account_id,
             amount: mint_amount.into(),
-            memo: Some(quest.get_name()),
+            memo: Some(quest.as_ref()),
         }
         .emit();
         if !on_cooldown {
@@ -401,7 +426,7 @@ impl Account {
             FtMint {
                 owner_id: &account.account_id,
                 amount: mint_amount.into(),
-                memo: Some(achievement.get_name()),
+                memo: Some(achievement.as_ref()),
             }
             .emit();
             achievements.push((env::block_timestamp_ms(), achievement));

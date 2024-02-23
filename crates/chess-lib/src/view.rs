@@ -1,9 +1,10 @@
 use crate::{
-    Achievement, BetId, BetInfo, Challenge, ChallengeId, Chess, ChessExt, ContractError, EloRating,
-    Fees, GameId, GameInfo, Quest,
+    AccountInfo, Achievement, AchievementInfo, BetId, BetInfo, Challenge, ChallengeId, Chess,
+    ChessExt, ContractError, EloRating, Fees, GameId, GameInfo, Quest, QuestInfo,
 };
 use near_sdk::{json_types::U128, near_bindgen, AccountId};
 use std::collections::VecDeque;
+use strum::IntoEnumIterator;
 
 #[near_bindgen]
 impl Chess {
@@ -64,34 +65,17 @@ impl Chess {
         Ok(account.get_game_ids())
     }
 
-    /// Returns whether account has been I-Am-Human verified.
     #[handle_result]
-    pub fn is_human(&self, account_id: AccountId) -> Result<bool, ContractError> {
+    pub fn get_account(&self, account_id: AccountId) -> Result<AccountInfo, ContractError> {
         let account = self
             .accounts
             .get(&account_id)
             .ok_or_else(|| ContractError::AccountNotRegistered(account_id.clone()))?;
-        Ok(account.is_human())
+        Ok(account.into())
     }
 
-    /// Returns ELO rating for given wallet ID.
-    /// Only I-Am-Human verified accounts have an ELO.
-    #[handle_result]
-    pub fn get_elo(&self, account_id: AccountId) -> Result<Option<EloRating>, ContractError> {
-        let account = self
-            .accounts
-            .get(&account_id)
-            .ok_or_else(|| ContractError::AccountNotRegistered(account_id.clone()))?;
-        Ok(account.get_elo())
-    }
-
-    #[handle_result]
-    pub fn get_points(&self, account_id: AccountId) -> Result<U128, ContractError> {
-        let account = self
-            .accounts
-            .get(&account_id)
-            .ok_or_else(|| ContractError::AccountNotRegistered(account_id.clone()))?;
-        Ok(account.get_points().into())
+    pub fn get_quest_list(&self) -> Vec<QuestInfo> {
+        Quest::iter().map(QuestInfo::from).collect()
     }
 
     #[handle_result]
@@ -104,6 +88,10 @@ impl Chess {
             .get(&account_id)
             .ok_or_else(|| ContractError::AccountNotRegistered(account_id.clone()))?;
         Ok(account.get_quest_cooldowns())
+    }
+
+    pub fn get_achievement_list(&self) -> Vec<AchievementInfo> {
+        Achievement::iter().map(AchievementInfo::from).collect()
     }
 
     #[handle_result]
@@ -200,7 +188,7 @@ impl Chess {
         self.fees.get().clone()
     }
 
-    pub fn get_wager_whitelist(&self) -> Vec<AccountId> {
+    pub fn get_token_whitelist(&self) -> Vec<AccountId> {
         self.token_whitelist.get().clone()
     }
 }

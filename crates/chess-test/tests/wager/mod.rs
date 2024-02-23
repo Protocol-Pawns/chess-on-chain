@@ -47,7 +47,7 @@ async fn test_accept_challenge_success() -> anyhow::Result<()> {
 
     let whitelist = vec![test_token.id().clone()];
     call::set_wager_whitelist(&contract, contract.as_account(), &whitelist).await?;
-    let actual_whitelist = view::get_wager_whitelist(&contract).await?;
+    let actual_whitelist = view::get_token_whitelist(&contract).await?;
     assert_eq!(whitelist, actual_whitelist);
 
     let (_res, events) = call::challenge_with_wager(
@@ -173,7 +173,7 @@ async fn test_accept_challenge_not_enough_wager() -> anyhow::Result<()> {
 
     let whitelist = vec![test_token.id().clone()];
     call::set_wager_whitelist(&contract, contract.as_account(), &whitelist).await?;
-    let actual_whitelist = view::get_wager_whitelist(&contract).await?;
+    let actual_whitelist = view::get_token_whitelist(&contract).await?;
     assert_eq!(whitelist, actual_whitelist);
 
     call::challenge_with_wager(
@@ -246,7 +246,7 @@ async fn test_accept_challenge_refund_too_much_wager() -> anyhow::Result<()> {
 
     let whitelist = vec![test_token.id().clone()];
     call::set_wager_whitelist(&contract, contract.as_account(), &whitelist).await?;
-    let actual_whitelist = view::get_wager_whitelist(&contract).await?;
+    let actual_whitelist = view::get_token_whitelist(&contract).await?;
     assert_eq!(whitelist, actual_whitelist);
 
     call::challenge_with_wager(
@@ -359,7 +359,7 @@ async fn test_reject_challenge_refund_wager() -> anyhow::Result<()> {
 
     let whitelist = vec![test_token.id().clone()];
     call::set_wager_whitelist(&contract, contract.as_account(), &whitelist).await?;
-    let actual_whitelist = view::get_wager_whitelist(&contract).await?;
+    let actual_whitelist = view::get_token_whitelist(&contract).await?;
     assert_eq!(whitelist, actual_whitelist);
 
     call::challenge_with_wager(
@@ -504,7 +504,7 @@ async fn test_reject_wager_wrong_token() -> anyhow::Result<()> {
 
     let whitelist = vec![test_token.id().clone(), wrong_test_token.id().clone()];
     call::set_wager_whitelist(&contract, contract.as_account(), &whitelist).await?;
-    let actual_whitelist = view::get_wager_whitelist(&contract).await?;
+    let actual_whitelist = view::get_token_whitelist(&contract).await?;
     assert_eq!(whitelist, actual_whitelist);
 
     call::challenge_with_wager(
@@ -570,7 +570,7 @@ async fn test_cancel_game_refund_wager() -> anyhow::Result<()> {
 
     let whitelist = vec![test_token.id().clone()];
     call::set_wager_whitelist(&contract, contract.as_account(), &whitelist).await?;
-    let actual_whitelist = view::get_wager_whitelist(&contract).await?;
+    let actual_whitelist = view::get_token_whitelist(&contract).await?;
     assert_eq!(whitelist, actual_whitelist);
 
     call::challenge_with_wager(
@@ -664,7 +664,7 @@ async fn test_finish_game_payout_wager() -> anyhow::Result<()> {
 
     let whitelist = vec![test_token.id().clone()];
     call::set_wager_whitelist(&contract, contract.as_account(), &whitelist).await?;
-    let actual_whitelist = view::get_wager_whitelist(&contract).await?;
+    let actual_whitelist = view::get_token_whitelist(&contract).await?;
     assert_eq!(whitelist, actual_whitelist);
 
     call::challenge_with_wager(
@@ -779,7 +779,7 @@ async fn test_finish_game_payout_fees() -> anyhow::Result<()> {
 
     let whitelist = vec![test_token.id().clone()];
     call::set_wager_whitelist(&contract, contract.as_account(), &whitelist).await?;
-    let actual_whitelist = view::get_wager_whitelist(&contract).await?;
+    let actual_whitelist = view::get_token_whitelist(&contract).await?;
     assert_eq!(whitelist, actual_whitelist);
 
     let amount = NearToken::from_millinear(50);
@@ -901,7 +901,7 @@ async fn test_resign_payout_wager() -> anyhow::Result<()> {
 
     let whitelist = vec![test_token.id().clone()];
     call::set_wager_whitelist(&contract, contract.as_account(), &whitelist).await?;
-    let actual_whitelist = view::get_wager_whitelist(&contract).await?;
+    let actual_whitelist = view::get_token_whitelist(&contract).await?;
     assert_eq!(whitelist, actual_whitelist);
 
     call::challenge_with_wager(
