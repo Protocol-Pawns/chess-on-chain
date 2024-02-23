@@ -46,12 +46,18 @@ export type Move = {
   mv: string;
   board: string[];
 };
+
 export type Game = CreateGame & {
   moves: Move[];
   resigner?: Color | null;
   outcome?: GameOutcome | null;
 };
+
 export type GameOverview = Optional<Game, 'moves'>;
+
+export type Account = {
+  finishedGameIds: GameId[];
+};
 
 const zodPlayMove = z
   .object({

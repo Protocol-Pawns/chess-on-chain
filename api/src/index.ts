@@ -3,6 +3,7 @@ import { cors } from 'hono/cors';
 import { poweredBy } from 'hono/powered-by';
 import { match } from 'ts-pattern';
 
+import { accounts } from './acounts';
 import { batch } from './batch';
 import { games } from './games';
 import { info } from './info';
@@ -15,6 +16,7 @@ app.use('*', cors());
 
 app.route('/info', info);
 app.route('/games', games);
+app.route('/accounts', accounts);
 app.route('/batch', batch);
 
 app.onError(

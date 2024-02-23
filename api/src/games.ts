@@ -1,20 +1,46 @@
 import { Hono } from 'hono';
 
-import { CreateGame, Game, GameOverview, PlayMove, ResignGame } from './events';
+import {
+  Account,
+  CreateGame,
+  Game,
+  GameId,
+  GameOverview,
+  PlayMove,
+  ResignGame
+} from './events';
 import type { Env } from './types';
 
 const MAX_RECENT_LIMIT = 25;
 
-// TODO account game_ids
-
 export const games = new Hono<{ Bindings: Env }>()
   .get('/game/:game_id', async c => {
-    const gameIdUri = c.req.param('game_id');
+    const gameIdJson = c.req.param('game_id');
     const addr = c.env.GAMES.idFromName('');
     const obj = c.env.GAMES.get(addr);
     const res = await obj.fetch(
-      `${new URL(c.req.url).origin}/game/${encodeURI(gameIdUri)}`
+      `${new URL(c.req.url).origin}/game/${encodeURI(gameIdJson)}`
     );
+    if (!res.ok) {
+      return new Response(res.body, res);
+    }
+    const info = await res.json<Game>();
+    return c.json(info);
+  })
+  .post('/query', async c => {
+    const addr = c.env.GAMES.idFromName('');
+    const obj = c.env.GAMES.get(addr);
+    const {
+      gameIds,
+      includeMoves
+    }: { gameIds: GameId[]; includeMoves?: boolean } = await c.req.json();
+    const res = await obj.fetch(`${new URL(c.req.url).origin}/query`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ gameIds, includeMoves: includeMoves ?? false })
+    });
     if (!res.ok) {
       return new Response(res.body, res);
     }
@@ -64,12 +90,14 @@ export class Games {
   private newGameIds: string[];
   private finishedGameIds: string[];
   private games: Record<string, Game>;
+  private accounts: Record<string, Account>;
 
   constructor(state: DurableObjectState) {
     this.state = state;
     this.newGameIds = [];
     this.finishedGameIds = [];
     this.games = {};
+    this.accounts = {};
     this.state.blockConcurrencyWhile(async () => {
       const newGameIds = await this.state.storage.get<string[]>('newGameIds');
       this.newGameIds = newGameIds ?? [];
@@ -81,12 +109,38 @@ export class Games {
     this.app = new Hono();
     this.app
       .get('/game/:game_id', async c => {
-        const gameIdUri = c.req.param('game_id');
-        const game = await this.loadGame(gameIdUri);
+        const gameIdJson = c.req.param('game_id');
+        const game = await this.loadGame(gameIdJson);
         if (game instanceof Response) {
           return new Response('', { status: 404 });
         }
         return c.json(game);
+      })
+      .post('/query', async c => {
+        const {
+          gameIds,
+          includeMoves
+        }: { gameIds: GameId[]; includeMoves?: boolean } = await c.req.json();
+
+        const games: GameOverview[] = [];
+        for (const gameId of gameIds) {
+          const gameIdJson = JSON.stringify(gameId);
+          const game = await this.loadGame(gameIdJson);
+          if (game instanceof Response) {
+            continue;
+          }
+          games.push({
+            game_id: game.game_id,
+            white: game.white,
+            black: game.black,
+            board: game.board,
+            outcome: game.outcome,
+            resigner: game.resigner,
+            moves: includeMoves ? game.moves : undefined
+          });
+        }
+
+        return c.json(games);
       })
       .get('/recent/new', async c => {
         const { limit, include_moves } = c.req.query();
@@ -146,16 +200,22 @@ export class Games {
 
         return c.json(games);
       })
+      .get('/account/:account_id', async c => {
+        const accountId = c.req.param('account_id');
+        const account = await this.loadAccount(accountId);
+
+        return c.json(account);
+      })
       .post('/:game_id/create_game', async c => {
-        const gameIdUri = c.req.param('game_id');
+        const gameIdJson = c.req.param('game_id');
         const createGame = await c.req.json<CreateGame>();
 
-        this.games[gameIdUri] = { moves: [], ...createGame };
-        await this.state.storage.put(`game:${gameIdUri}`, createGame, {
+        this.games[gameIdJson] = { moves: [], ...createGame };
+        await this.state.storage.put(`game:${gameIdJson}`, createGame, {
           allowUnconfirmed: false
         });
 
-        this.newGameIds.unshift(gameIdUri);
+        this.newGameIds.unshift(gameIdJson);
         if (this.newGameIds.length > MAX_RECENT_LIMIT) {
           this.newGameIds.pop();
         }
@@ -166,8 +226,8 @@ export class Games {
         return new Response(null, { status: 204 });
       })
       .post('/:game_id/play_move', async c => {
-        const gameIdUri = c.req.param('game_id');
-        const game = await this.loadGame(gameIdUri);
+        const gameIdJson = c.req.param('game_id');
+        const game = await this.loadGame(gameIdJson);
         if (game instanceof Response) {
           return game;
         }
@@ -180,7 +240,7 @@ export class Games {
         });
         if (playMove.outcome != null) {
           game.outcome = playMove.outcome;
-          this.finishedGameIds.unshift(gameIdUri);
+          this.finishedGameIds.unshift(gameIdJson);
           if (this.finishedGameIds.length > MAX_RECENT_LIMIT) {
             this.finishedGameIds.pop();
           }
@@ -191,17 +251,19 @@ export class Games {
               allowUnconfirmed: false
             }
           );
+
+          await this.storeFinishedGame(game);
         }
         game.board = playMove.board;
-        await this.state.storage.put(`game:${gameIdUri}`, game, {
+        await this.state.storage.put(`game:${gameIdJson}`, game, {
           allowUnconfirmed: false
         });
 
         return new Response(null, { status: 204 });
       })
       .post('/:game_id/resign_game', async c => {
-        const gameIdUri = c.req.param('game_id');
-        const game = await this.loadGame(gameIdUri);
+        const gameIdJson = c.req.param('game_id');
+        const game = await this.loadGame(gameIdJson);
         if (game instanceof Response) {
           return game;
         }
@@ -209,11 +271,11 @@ export class Games {
 
         game.outcome = resignGame.outcome;
         game.resigner = resignGame.resigner;
-        await this.state.storage.put(`game:${gameIdUri}`, game, {
+        await this.state.storage.put(`game:${gameIdJson}`, game, {
           allowUnconfirmed: false
         });
 
-        this.finishedGameIds.unshift(gameIdUri);
+        this.finishedGameIds.unshift(gameIdJson);
         if (this.finishedGameIds.length > MAX_RECENT_LIMIT) {
           this.finishedGameIds.pop();
         }
@@ -221,21 +283,25 @@ export class Games {
           allowUnconfirmed: false
         });
 
+        await this.storeFinishedGame(game);
+
         return new Response(null, { status: 204 });
       })
       .post('/:game_id/cancel_game', async c => {
-        const gameIdUri = c.req.param('game_id');
-        const game = await this.loadGame(gameIdUri);
+        const gameIdJson = c.req.param('game_id');
+        const game = await this.loadGame(gameIdJson);
         if (game instanceof Response) {
           return game;
         }
 
-        delete this.games[gameIdUri];
-        await this.state.storage.delete(`game:${gameIdUri}`, {
+        delete this.games[gameIdJson];
+        await this.state.storage.delete(`game:${gameIdJson}`, {
           allowUnconfirmed: false
         });
 
-        const index = this.newGameIds.findIndex(gameId => gameId === gameIdUri);
+        const index = this.newGameIds.findIndex(
+          gameId => gameId === gameIdJson
+        );
         if (index >= 0) {
           this.newGameIds.splice(index, 1);
           await this.state.storage.put('newGameIds', this.newGameIds, {
@@ -264,5 +330,35 @@ export class Games {
       game = this.games[gameId];
     }
     return game;
+  }
+
+  private async loadAccount(accountId: string): Promise<Account> {
+    if (!this.accounts[accountId]) {
+      const loadedAccount = await this.state.storage.get<Account>(
+        `account:${accountId}`
+      );
+      const account = loadedAccount ?? {
+        finishedGameIds: []
+      };
+      this.accounts[accountId] = account;
+      return account;
+    } else {
+      return this.accounts[accountId];
+    }
+  }
+
+  private async storeFinishedGame(game: Game) {
+    const whitePlayer = game.white as { Human: string };
+    const blackPlayer = game.black as { Human: string };
+    if (whitePlayer.Human != null) {
+      const account = await this.loadAccount(whitePlayer.Human);
+      account.finishedGameIds.push(game.game_id);
+      await this.state.storage.put(`account:${whitePlayer.Human}`, account);
+    }
+    if (blackPlayer.Human != null) {
+      const account = await this.loadAccount(blackPlayer.Human);
+      account.finishedGameIds.push(game.game_id);
+      await this.state.storage.put(`account:${blackPlayer.Human}`, account);
+    }
   }
 }
