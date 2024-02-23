@@ -4,6 +4,7 @@
 :root {
   --color-green: #2aa876;
   --color-light-green: #aed581;
+  --color-light-green-transparent: rgba(174, 213, 129, 0.05);
   --color-black: #222;
 
   --color-background: var(--color-black);
@@ -90,6 +91,10 @@ a {
 
   &.link {
     color: var(--color-link);
+  }
+
+  &.novisit {
+    color: unset;
   }
 }
 
