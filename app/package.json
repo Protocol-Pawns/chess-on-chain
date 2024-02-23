@@ -1,0 +1,45 @@
+{
+  "name": "app",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite dev",
+    "build": "vite build",
+    "preview": "vite preview",
+    "smui-theme": "smui-theme compile static/smui.css -i src/theme",
+    "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
+    "check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch"
+  },
+  "dependencies": {
+    "@near-wallet-selector/core": "^8.9.5",
+    "@near-wallet-selector/here-wallet": "^8.9.5",
+    "@near-wallet-selector/meteor-wallet": "^8.9.5",
+    "@tarnadas/fixed-number": "0.1.0",
+    "bs58": "^5.0.0",
+    "dayjs": "^1.11.10",
+    "near-api-js": "^3.0.3",
+    "ts-pattern": "^5.0.8"
+  },
+  "devDependencies": {
+    "@mdi/js": "^7.4.47",
+    "@smui-extra/accordion": "^7.0.0-beta.16",
+    "@smui/button": "7.0.0-beta.16",
+    "@smui/icon-button": "7.0.0-beta.16",
+    "@smui/tab": "7.0.0-beta.16",
+    "@smui/tab-bar": "7.0.0-beta.16",
+    "@sveltejs/adapter-static": "^3.0.1",
+    "@sveltejs/kit": "^2.5.1",
+    "@sveltejs/vite-plugin-svelte": "^3.0.2",
+    "eslint-plugin-svelte": "^2.35.1",
+    "prettier-plugin-svelte": "^3.2.1",
+    "sass": "^1.71.1",
+    "smui-theme": "7.0.0-beta.16",
+    "svelte": "^4.2.12",
+    "svelte-check": "^3.6.4",
+    "svelte-material-ui": "^7.0.0-beta.16",
+    "svelte-simple-modal": "^1.6.2",
+    "vite": "^5.1.4",
+    "vite-plugin-node-polyfills": "^0.21.0"
+  }
+}
