@@ -16,11 +16,13 @@ use serde_json::json;
 pub async fn migrate(
     contract: &Contract,
     sender: &Account,
+    nada_bot_id: &AccountId,
 ) -> anyhow::Result<ExecutionResult<Value>> {
     let (res, _): (ExecutionResult<Value>, Vec<ContractEvent>) = log_tx_result(
         Some("migrate"),
         sender
             .call(contract.id(), "migrate")
+            .args_json((nada_bot_id,))
             .max_gas()
             .transact()
             .await?,

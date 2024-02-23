@@ -1,8 +1,8 @@
-use crate::{iah, Chess, ChessExt, ContractError, GAS_FOR_IS_HUMAN_CALL, NO_DEPOSIT};
+use crate::{nada_bot, Chess, ChessExt, ContractError, GAS_FOR_IS_HUMAN_CALL, NO_DEPOSIT};
 use near_contract_standards::storage_management::{
     StorageBalance, StorageBalanceBounds, StorageManagement,
 };
-use near_sdk::{assert_one_yocto, env, near_bindgen, AccountId, NearToken, Promise, PromiseError};
+use near_sdk::{assert_one_yocto, env, near_bindgen, AccountId, NearToken, Promise};
 
 pub const STORAGE_ACCOUNT_COST: NearToken = NearToken::from_millinear(50);
 
@@ -83,7 +83,7 @@ impl Chess {
             }
             Ok(self.storage_balance_of(account_id).unwrap())
         } else {
-            iah::ext_registry::ext(self.iah_registry.clone())
+            nada_bot::ext_registry::ext(self.nada_bot_id.clone())
                 .with_static_gas(GAS_FOR_IS_HUMAN_CALL)
                 .is_human(account_id.clone())
                 .then(
@@ -134,10 +134,8 @@ impl Chess {
         &mut self,
         account_id: AccountId,
         min_balance: NearToken,
-        #[callback_result] is_human_res: Result<Vec<(AccountId, Vec<u64>)>, PromiseError>,
+        #[callback_unwrap] is_human: bool,
     ) {
-        if let Ok(is_human) = is_human_res {
-            self.internal_register_account(account_id, min_balance, !is_human.is_empty());
-        }
+        self.internal_register_account(account_id, min_balance, is_human);
     }
 }

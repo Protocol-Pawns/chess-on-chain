@@ -756,7 +756,18 @@
         "kind": "call",
         "modifiers": [
           "init"
-        ]
+        ],
+        "params": {
+          "serialization_type": "json",
+          "args": [
+            {
+              "name": "nada_bot_id",
+              "type_schema": {
+                "$ref": "#/definitions/AccountId"
+              }
+            }
+          ]
+        }
       },
       {
         "name": "new",
@@ -774,7 +785,7 @@
               }
             },
             {
-              "name": "iah_registry",
+              "name": "nada_bot_id",
               "type_schema": {
                 "$ref": "#/definitions/AccountId"
               }
@@ -809,25 +820,7 @@
           {
             "serialization_type": "json",
             "type_schema": {
-              "type": "array",
-              "items": {
-                "type": "array",
-                "items": [
-                  {
-                    "$ref": "#/definitions/AccountId"
-                  },
-                  {
-                    "type": "array",
-                    "items": {
-                      "type": "integer",
-                      "format": "uint64",
-                      "minimum": 0.0
-                    }
-                  }
-                ],
-                "maxItems": 2,
-                "minItems": 2
-              }
+              "type": "boolean"
             }
           }
         ]
@@ -853,25 +846,7 @@
           {
             "serialization_type": "json",
             "type_schema": {
-              "type": "array",
-              "items": {
-                "type": "array",
-                "items": [
-                  {
-                    "$ref": "#/definitions/AccountId"
-                  },
-                  {
-                    "type": "array",
-                    "items": {
-                      "type": "integer",
-                      "format": "uint64",
-                      "minimum": 0.0
-                    }
-                  }
-                ],
-                "maxItems": 2,
-                "minItems": 2
-              }
+              "type": "boolean"
             }
           }
         ],

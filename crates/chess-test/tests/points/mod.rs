@@ -5,14 +5,14 @@ use near_contract_standards::fungible_token::events::FtMint;
 
 #[tokio::test]
 async fn test_daily_play_move() -> anyhow::Result<()> {
-    let (worker, _, contract, _, iah_contract) = initialize_contracts(None).await?;
+    let (worker, _, contract, _, nada_bot_contract) = initialize_contracts(None).await?;
 
     let player_a = worker.dev_create_account().await?;
     let player_b = worker.dev_create_account().await?;
 
     tokio::try_join!(
-        call::add_human(&iah_contract, &player_a, player_a.id()),
-        call::add_human(&iah_contract, &player_b, player_b.id())
+        call::add_human(&nada_bot_contract, &player_a, player_a.id()),
+        call::add_human(&nada_bot_contract, &player_b, player_b.id())
     )?;
     tokio::try_join!(
         call::storage_deposit(&contract, &player_a, None, None),
@@ -133,14 +133,14 @@ async fn test_daily_play_move() -> anyhow::Result<()> {
 
 #[tokio::test]
 async fn test_first_win_human() -> anyhow::Result<()> {
-    let (worker, _, contract, _, iah_contract) = initialize_contracts(None).await?;
+    let (worker, _, contract, _, nada_bot_contract) = initialize_contracts(None).await?;
 
     let player_a = worker.dev_create_account().await?;
     let player_b = worker.dev_create_account().await?;
 
     tokio::try_join!(
-        call::add_human(&iah_contract, &player_a, player_a.id()),
-        call::add_human(&iah_contract, &player_b, player_b.id())
+        call::add_human(&nada_bot_contract, &player_a, player_a.id()),
+        call::add_human(&nada_bot_contract, &player_b, player_b.id())
     )?;
     tokio::try_join!(
         call::storage_deposit(&contract, &player_a, None, None),
@@ -374,14 +374,14 @@ async fn test_achievement_only_once() -> anyhow::Result<()> {
 
 #[tokio::test]
 async fn test_multiple_achievements() -> anyhow::Result<()> {
-    let (worker, _, contract, _, iah_contract) = initialize_contracts(None).await?;
+    let (worker, _, contract, _, nada_bot_contract) = initialize_contracts(None).await?;
 
     let player_a = worker.dev_create_account().await?;
     let player_b = worker.dev_create_account().await?;
 
     tokio::try_join!(
-        call::add_human(&iah_contract, &player_a, player_a.id()),
-        call::add_human(&iah_contract, &player_b, player_b.id())
+        call::add_human(&nada_bot_contract, &player_a, player_a.id()),
+        call::add_human(&nada_bot_contract, &player_b, player_b.id())
     )?;
     tokio::try_join!(
         call::storage_deposit(&contract, &player_a, None, None),

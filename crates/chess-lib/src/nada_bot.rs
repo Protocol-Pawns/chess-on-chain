@@ -3,13 +3,13 @@ use near_sdk::{env, ext_contract, near_bindgen, AccountId, Promise};
 
 #[ext_contract(ext_registry)]
 pub trait ExtRegistry {
-    fn is_human(&self, account: AccountId) -> Vec<(AccountId, Vec<u64>)>;
+    fn is_human(&self, account: AccountId) -> bool;
 }
 
 #[near_bindgen]
 impl Chess {
     pub fn update_is_human(&mut self, account_id: AccountId) -> Promise {
-        ext_registry::ext(self.iah_registry.clone())
+        ext_registry::ext(self.nada_bot_id.clone())
             .with_static_gas(GAS_FOR_IS_HUMAN_CALL)
             .is_human(account_id.clone())
             .then(
@@ -24,13 +24,13 @@ impl Chess {
     pub fn on_update_is_human(
         &mut self,
         account_id: AccountId,
-        #[callback_unwrap] is_human: Vec<(AccountId, Vec<u64>)>,
+        #[callback_unwrap] is_human: bool,
     ) -> Result<(), ContractError> {
         let account = self
             .accounts
             .get_mut(&account_id)
             .ok_or_else(|| ContractError::AccountNotRegistered(account_id.clone()))?;
-        account.set_is_human(!is_human.is_empty());
+        account.set_is_human(is_human);
 
         Ok(())
     }

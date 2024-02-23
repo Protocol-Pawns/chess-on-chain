@@ -25,11 +25,7 @@ impl Contract {
         self.hoomans.insert(account);
     }
 
-    pub fn is_human(&self, account: AccountId) -> Vec<(AccountId, Vec<u64>)> {
-        if self.hoomans.contains(&account) {
-            vec![("fractal.i-am-human.near".parse().unwrap(), vec![42])]
-        } else {
-            vec![]
-        }
+    pub fn is_human(&self, account: AccountId) -> bool {
+        self.hoomans.contains(&account)
     }
 }

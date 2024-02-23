@@ -6,8 +6,8 @@ mod error;
 mod event;
 mod ft_receiver;
 mod game;
-mod iah;
 mod internal;
+mod nada_bot;
 mod points;
 mod social;
 mod storage;
@@ -21,7 +21,7 @@ pub use error::*;
 pub use event::*;
 pub use ft_receiver::*;
 pub use game::*;
-pub use iah::*;
+pub use nada_bot::*;
 pub use points::*;
 pub use social::*;
 pub use storage::*;
@@ -90,7 +90,7 @@ pub enum StorageKey {
 #[borsh(crate = "near_sdk::borsh")]
 pub struct Chess {
     pub social_db: AccountId,
-    pub iah_registry: AccountId,
+    pub nada_bot_id: AccountId,
     pub accounts: UnorderedMap<AccountId, Account>,
     pub games: UnorderedMap<GameId, Game>,
     pub challenges: UnorderedMap<ChallengeId, Challenge>,
@@ -149,13 +149,13 @@ pub type MoveStr = String;
 impl Chess {
     #[init]
     #[handle_result]
-    pub fn new(social_db: AccountId, iah_registry: AccountId) -> Result<Self, ContractError> {
+    pub fn new(social_db: AccountId, nada_bot_id: AccountId) -> Result<Self, ContractError> {
         if env::state_exists() {
             return Err(ContractError::AlreadyInitilized);
         }
         Ok(Self {
             social_db,
-            iah_registry,
+            nada_bot_id,
             accounts: UnorderedMap::new(StorageKey::VAccounts),
             games: UnorderedMap::new(StorageKey::Games),
             challenges: UnorderedMap::new(StorageKey::Challenges),
@@ -174,7 +174,7 @@ impl Chess {
 
     #[private]
     #[init(ignore_state)]
-    pub fn migrate() -> Self {
+    pub fn migrate(nada_bot_id: AccountId) -> Self {
         let mut chess: OldChess = env::state_read().unwrap();
 
         let mut accounts = vec![];
@@ -189,7 +189,7 @@ impl Chess {
 
         Self {
             social_db: chess.social_db,
-            iah_registry: chess.iah_registry,
+            nada_bot_id,
             accounts: chess.accounts,
             games: chess.games,
             challenges: chess.challenges,
