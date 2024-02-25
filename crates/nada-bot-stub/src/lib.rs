@@ -25,7 +25,7 @@ impl Contract {
         self.hoomans.insert(account);
     }
 
-    pub fn is_human(&self, account: AccountId) -> bool {
-        self.hoomans.contains(&account)
+    pub fn is_human(&self, account_id: AccountId) -> bool {
+        self.hoomans.contains(&account_id)
     }
 }

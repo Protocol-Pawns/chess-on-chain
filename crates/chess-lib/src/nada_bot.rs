@@ -3,7 +3,7 @@ use near_sdk::{env, ext_contract, near_bindgen, AccountId, Promise};
 
 #[ext_contract(ext_registry)]
 pub trait ExtRegistry {
-    fn is_human(&self, account: AccountId) -> bool;
+    fn is_human(&self, account_id: AccountId) -> bool;
 }
 
 #[near_bindgen]
