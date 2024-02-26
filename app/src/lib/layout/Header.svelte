@@ -1,19 +1,43 @@
 <script lang="ts">
   import { mdiMenu, mdiMenuClose } from "@mdi/js";
+  import type { Account } from "@near-wallet-selector/core";
   import Button from "@smui/button";
   import IconButton, { Icon } from "@smui/icon-button";
   import { writable } from "svelte/store";
   import { slide } from "svelte/transition";
 
-  import { browser } from "$app/environment";
   import { navigating } from "$app/stores";
+  import { account$, showWalletSelector } from "$lib/auth";
+  import { selector$ } from "$lib/near";
+  import { showSnackbar } from "$lib/snackbar";
 
   let showMenu = false;
+  let showAccountMenu$ = writable(false);
   let path$ = writable(window.location.pathname);
+
+  $: if (showMenu) {
+    $showAccountMenu$ = false;
+  }
+  showAccountMenu$.subscribe((show) => {
+    if (show) {
+      showMenu = false;
+    }
+  });
 
   navigating.subscribe(() => {
     $path$ = window.location.pathname;
+    showMenu = false;
+    $showAccountMenu$ = false;
   });
+
+  async function signOut(account?: Account | null) {
+    if (!account) return;
+    const selector = await $selector$;
+    const wallet = await selector.wallet();
+    await wallet.signOut();
+    showSnackbar(`Disconnected Near account ${account.accountId}`);
+    $account$ = null;
+  }
 </script>
 
 <div class="header">
@@ -22,13 +46,9 @@
     <h1>Protocol Pawns</h1>
   </a>
 
-  {#if browser}
-    {#await import("$lib/auth") then { Login }}
-      <div class="login">
-        <Login />
-      </div>
-    {/await}
-  {/if}
+  {#await import("$lib/auth") then { Login }}
+    <Login {showAccountMenu$} />
+  {/await}
 
   <IconButton
     size="button"
@@ -36,19 +56,21 @@
     on:click={() => {
       showMenu = !showMenu;
     }}
-    toggle
   >
-    <Icon tag="svg" viewBox="0 0 24 24" on>
-      <path fill="currentColor" d={mdiMenuClose} />
-    </Icon>
-    <Icon tag="svg" viewBox="0 0 24 24">
-      <path fill="currentColor" d={mdiMenu} />
-    </Icon>
+    {#if showMenu}
+      <Icon tag="svg" viewBox="0 0 24 24">
+        <path fill="currentColor" d={mdiMenuClose} />
+      </Icon>
+    {:else}
+      <Icon tag="svg" viewBox="0 0 24 24">
+        <path fill="currentColor" d={mdiMenu} />
+      </Icon>
+    {/if}
   </IconButton>
 
   {#if showMenu}
     <nav transition:slide>
-      {#if browser && $path$ === "/"}
+      {#if $path$ === "/"}
         <Button class="mdc-button__nav-link" variant="raised" disabled>
           Home
         </Button>
@@ -57,7 +79,7 @@
           Home
         </Button>
       {/if}
-      {#if browser && $path$ === "/about"}
+      {#if $path$ === "/about"}
         <Button class="mdc-button__nav-link" variant="raised" disabled>
           About
         </Button>
@@ -66,7 +88,7 @@
           About
         </Button>
       {/if}
-      {#if browser && $path$ === "/partners"}
+      {#if $path$ === "/partners"}
         <Button class="mdc-button__nav-link" variant="raised" disabled>
           Partners
         </Button>
@@ -78,6 +100,34 @@
         >
           Partners
         </Button>
+      {/if}
+    </nav>
+  {/if}
+
+  {#if $showAccountMenu$}
+    <nav transition:slide>
+      {#if $account$}
+        {#if $path$ === "/account"}
+          <Button class="mdc-button__nav-link" variant="raised" disabled>
+            {$account$.accountId}
+          </Button>
+        {:else}
+          <Button
+            class="mdc-button__nav-link"
+            href="/account"
+            variant="outlined"
+          >
+            {$account$.accountId}
+          </Button>
+        {/if}
+
+        <Button
+          color="secondary"
+          variant="outlined"
+          on:click={() => signOut($account$)}>Logout</Button
+        >
+      {:else}
+        <Button variant="outlined" on:click={showWalletSelector}>Login</Button>
       {/if}
     </nav>
   {/if}
@@ -107,8 +157,12 @@
   h1 {
     text-align: center;
 
-    @include breakpoint(phone, max) {
+    @include breakpoint(mobile, max) {
       font-size: 1.6rem;
+
+      @include breakpoint(phone, max) {
+        display: none;
+      }
     }
   }
 
@@ -133,6 +187,10 @@
 
       &:hover {
         background-color: var(--color-light-green-transparent);
+      }
+
+      &:disabled {
+        background-color: var(--color-light-green-transparent-2);
       }
     }
   }

@@ -6,31 +6,28 @@
 </script>
 
 <script lang="ts">
-  import type {
-    Account,
-    WalletSelector as NearWalletSelector,
-  } from "@near-wallet-selector/core";
+  import type { WalletSelector as NearWalletSelector } from "@near-wallet-selector/core";
   import Button from "@smui/button";
-  // import { onDestroy } from "svelte";
+  import type { Writable } from "svelte/store";
   import { bind } from "svelte-simple-modal";
 
   import { account$, WalletSelector } from ".";
 
   import { browser } from "$app/environment";
+  import { Near } from "$lib/assets";
   import { modal$, modalSize$, ModalSize } from "$lib/layout";
   import { selector$ } from "$lib/near";
-  import { showSnackbar } from "$lib/snackbar";
+
+  export let showAccountMenu$: Writable<boolean>;
 
   $: if (browser) setupWallet($selector$);
 
-  async function signOut(account?: Account | null) {
-    if (!account) return;
-    const selector = await $selector$;
+  let walletIconUrl: string | undefined;
+  selector$.subscribe(async (s) => {
+    const selector = await s;
     const wallet = await selector.wallet();
-    await wallet.signOut();
-    showSnackbar(`Disconnected Near account ${account.accountId}`);
-    $account$ = null;
-  }
+    walletIconUrl = wallet.metadata.iconUrl;
+  });
 
   async function setupWallet(s: Promise<NearWalletSelector>) {
     const selector = await s;
@@ -49,18 +46,22 @@
 
 <div class="login">
   {#if selector$}
-    {#if $account$}
-      <Button variant="outlined">
-        {$account$.accountId}
-      </Button>
-      <Button
-        color="secondary"
-        variant="outlined"
-        on:click={() => signOut($account$)}>Logout</Button
-      >
-    {:else}
-      <Button variant="outlined" on:click={showWalletSelector}>Login</Button>
-    {/if}
+    <Button
+      variant="outlined"
+      on:click={() => {
+        $showAccountMenu$ = !$showAccountMenu$;
+      }}
+    >
+      {#if walletIconUrl}
+        <img
+          src={walletIconUrl}
+          alt="wallet icon"
+          style="max-height: 100%; padding: 0.3rem;"
+        />
+      {:else}
+        <Near style="max-height: 100%; padding: 0.3rem;" />
+      {/if}
+    </Button>
   {/if}
 </div>
 
