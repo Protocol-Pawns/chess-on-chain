@@ -1541,26 +1541,38 @@
             {
               "type": "object",
               "required": [
-                "Human"
+                "type",
+                "value"
               ],
               "properties": {
-                "Human": {
+                "type": {
+                  "type": "string",
+                  "enum": [
+                    "Human"
+                  ]
+                },
+                "value": {
                   "$ref": "#/definitions/AccountId"
                 }
-              },
-              "additionalProperties": false
+              }
             },
             {
               "type": "object",
               "required": [
-                "Ai"
+                "type",
+                "value"
               ],
               "properties": {
-                "Ai": {
+                "type": {
+                  "type": "string",
+                  "enum": [
+                    "Ai"
+                  ]
+                },
+                "value": {
                   "$ref": "#/definitions/Difficulty"
                 }
-              },
-              "additionalProperties": false
+              }
             }
           ]
         },

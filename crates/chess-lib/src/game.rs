@@ -37,10 +37,18 @@ use near_sdk::{
 pub struct GameId(pub u64, pub AccountId, pub Option<AccountId>);
 
 #[derive(BorshDeserialize, BorshSerialize, Clone, Debug, Serialize, Deserialize, JsonSchema)]
-#[serde(crate = "near_sdk::serde")]
+#[serde(crate = "near_sdk::serde", tag = "type", content = "value")]
 #[borsh(crate = "near_sdk::borsh")]
 #[schemars(crate = "near_sdk::schemars")]
 pub enum Player {
+    Human(AccountId),
+    Ai(Difficulty),
+}
+
+#[derive(BorshDeserialize, BorshSerialize, Serialize, Deserialize)]
+#[serde(crate = "near_sdk::serde")]
+#[borsh(crate = "near_sdk::borsh")]
+pub enum PlayerOld {
     Human(AccountId),
     Ai(Difficulty),
 }

@@ -178,15 +178,17 @@ pub fn log_tx_result(
         if !outcome.logs.is_empty() {
             for log in outcome.logs.iter() {
                 if log.starts_with("EVENT_JSON:") {
-                    let event: ContractEvent =
-                        serde_json::from_str(&log.replace("EVENT_JSON:", ""))?;
-                    events.push(event.clone());
-                    print_log!(
-                        "{}: {}\n{}",
-                        "account".bright_cyan(),
-                        outcome.executor_id,
-                        event
-                    );
+                    if let Ok(event) =
+                        serde_json::from_str::<ContractEvent>(&log.replace("EVENT_JSON:", ""))
+                    {
+                        events.push(event.clone());
+                        print_log!(
+                            "{}: {}\n{}",
+                            "account".bright_cyan(),
+                            outcome.executor_id,
+                            event
+                        );
+                    }
                 } else {
                     print_log!("{}", log.bright_yellow());
                 }

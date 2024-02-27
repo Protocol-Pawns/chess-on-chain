@@ -26,7 +26,7 @@ pub async fn send_data(
         format!("Bearer {}", env::var("INDEXER_SECRET")?).parse()?,
     );
     let client = Client::builder().default_headers(headers).build()?;
-    let base_url = Url::parse(&env::var("INDEXER_API_URL")?)?;
+    let base_url = Url::parse(&env::var("API_BASE_URL")?)?;
     pin_mut!(stream);
 
     let mut last_block_height = 0;

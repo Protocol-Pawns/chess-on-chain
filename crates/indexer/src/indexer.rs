@@ -107,7 +107,7 @@ async fn get_current_block_height() -> anyhow::Result<u64> {
         format!("Bearer {}", env::var("INDEXER_SECRET")?).parse()?,
     );
     let client = Client::builder().default_headers(headers).build()?;
-    let base_url = Url::parse(&env::var("INDEXER_API_URL")?)?;
+    let base_url = Url::parse(&env::var("API_BASE_URL")?)?;
     let info: Info = client
         .get(base_url.join("info")?)
         .send()
