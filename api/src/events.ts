@@ -20,15 +20,20 @@ const zodGameOutcome = z.literal('Stalemate').or(
 );
 export type GameOutcome = z.infer<typeof zodGameOutcome>;
 
-const zodPlayer = z
-  .object({
-    Human: z.string()
-  })
-  .or(
-    z.object({
-      Ai: zodDifficulty
+const zodPlayer = z.discriminatedUnion('type', [
+  z
+    .object({
+      type: z.literal('Human'),
+      value: z.string()
     })
-  );
+    .strict(),
+  z
+    .object({
+      type: z.literal('Ai'),
+      value: zodDifficulty
+    })
+    .strict()
+]);
 export type Player = z.infer<typeof zodPlayer>;
 
 const zodCreateGame = z

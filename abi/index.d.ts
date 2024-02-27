@@ -36,7 +36,6 @@ interface AccountInfo {
   is_human: boolean;
   near_amount: string;
   points: string;
-  [k: string]: unknown;
 }
 
 /* eslint-disable */
@@ -62,7 +61,6 @@ type Achievement =
 interface AchievementInfo {
   name: string;
   points: string;
-  [k: string]: unknown;
 }
 
 /* eslint-disable */
@@ -77,7 +75,6 @@ interface BetInfo {
     [k: string]: [string, BetView][];
   };
   is_locked: boolean;
-  [k: string]: unknown;
 }
 interface BetView {
   amount: string;
@@ -99,7 +96,6 @@ interface BetView {
    * assert!("ƒelicia.near".parse::<AccountId>().is_err()); // (ƒ is not f) ```
    */
   winner: string;
-  [k: string]: unknown;
 }
 
 /* eslint-disable */
@@ -152,7 +148,6 @@ interface Challenge {
    * @maxItems 2
    */
   wager?: [string, string] | null;
-  [k: string]: unknown;
 }
 
 /* eslint-disable */
@@ -193,7 +188,6 @@ type Difficulty = 'Easy' | 'Medium' | 'Hard';
 interface Fees {
   royalties: [string, number][];
   treasury: number;
-  [k: string]: unknown;
 }
 
 /* eslint-disable */
@@ -211,7 +205,6 @@ interface FungibleTokenMetadata {
   reference_hash?: string | null;
   spec: string;
   symbol: string;
-  [k: string]: unknown;
 }
 
 /* eslint-disable */
@@ -241,6 +234,7 @@ type GameId = [number, string, string | null];
 interface GameInfo {
   black:
     | {
+        type: 'Human';
         /**
          * NEAR Account Identifier.
          *
@@ -258,9 +252,10 @@ interface GameInfo {
          *
          * assert!("ƒelicia.near".parse::<AccountId>().is_err()); // (ƒ is not f) ```
          */
-        Human: string;
+        value: string;
       }
     | {
+        type: 'Ai';
         /**
          * AI difficulty setting.
          *
@@ -268,7 +263,7 @@ interface GameInfo {
          *
          * Please be aware, that gas usage increases on higher difficulties: - Easy: ~8TGas - Medium: ~30TGas - Hard: ~110TGas
          */
-        Ai: 'Easy' | 'Medium' | 'Hard';
+        value: 'Easy' | 'Medium' | 'Hard';
       };
   has_bets: boolean;
   last_block_height: number;
@@ -278,6 +273,7 @@ interface GameInfo {
   turn_color: 'White' | 'Black';
   white:
     | {
+        type: 'Human';
         /**
          * NEAR Account Identifier.
          *
@@ -295,9 +291,10 @@ interface GameInfo {
          *
          * assert!("ƒelicia.near".parse::<AccountId>().is_err()); // (ƒ is not f) ```
          */
-        Human: string;
+        value: string;
       }
     | {
+        type: 'Ai';
         /**
          * AI difficulty setting.
          *
@@ -305,9 +302,8 @@ interface GameInfo {
          *
          * Please be aware, that gas usage increases on higher difficulties: - Easy: ~8TGas - Medium: ~30TGas - Hard: ~110TGas
          */
-        Ai: 'Easy' | 'Medium' | 'Hard';
+        value: 'Easy' | 'Medium' | 'Hard';
       };
-  [k: string]: unknown;
 }
 
 /* eslint-disable */
@@ -335,6 +331,7 @@ type GameOutcome =
 
 type Player =
   | {
+      type: 'Human';
       /**
        * NEAR Account Identifier.
        *
@@ -352,9 +349,10 @@ type Player =
        *
        * assert!("ƒelicia.near".parse::<AccountId>().is_err()); // (ƒ is not f) ```
        */
-      Human: string;
+      value: string;
     }
   | {
+      type: 'Ai';
       /**
        * AI difficulty setting.
        *
@@ -362,7 +360,7 @@ type Player =
        *
        * Please be aware, that gas usage increases on higher difficulties: - Easy: ~8TGas - Medium: ~30TGas - Hard: ~110TGas
        */
-      Ai: 'Easy' | 'Medium' | 'Hard';
+      value: 'Easy' | 'Medium' | 'Hard';
     };
 
 /* eslint-disable */
@@ -404,7 +402,6 @@ interface QuestInfo {
   name: string;
   points: string;
   points_on_cd: string;
-  [k: string]: unknown;
 }
 
 /* eslint-disable */
@@ -417,7 +414,6 @@ interface QuestInfo {
 interface StorageBalance {
   available: string;
   total: string;
-  [k: string]: unknown;
 }
 
 /* eslint-disable */
@@ -430,7 +426,6 @@ interface StorageBalance {
 interface StorageBalanceBounds {
   max?: string | null;
   min: string;
-  [k: string]: unknown;
 }
 
 export type {
