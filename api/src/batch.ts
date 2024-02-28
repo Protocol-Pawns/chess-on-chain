@@ -4,9 +4,8 @@ import { bearerAuth } from 'hono/bearer-auth';
 import { P, match } from 'ts-pattern';
 
 import { zodBatchEvent } from './events';
-import type { Env } from './types';
 
-export const batch = new Hono<{ Bindings: Env }>();
+export const batch = new Hono();
 batch
   .use('*', async (c, next) => {
     const auth = bearerAuth({ token: c.env.INDEXER_SECRET });

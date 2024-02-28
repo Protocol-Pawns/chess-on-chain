@@ -1,12 +1,10 @@
 import { Hono } from 'hono';
 
-import type { Env } from './types';
-
 export type InfoResult = {
   lastBlockHeight: number;
 };
 
-export const info = new Hono<{ Bindings: Env }>().get('/', async c => {
+export const info = new Hono().get('/', async c => {
   const addr = c.env.INFO.idFromName('');
   const obj = c.env.INFO.get(addr);
   const res = await obj.fetch(`${new URL(c.req.url).origin}/info`);
@@ -16,7 +14,7 @@ export const info = new Hono<{ Bindings: Env }>().get('/', async c => {
 
 export class Info {
   private state: DurableObjectState;
-  private app: Hono<{ Bindings: Env }>;
+  private app: Hono;
   private info?: InfoResult;
 
   constructor(state: DurableObjectState) {

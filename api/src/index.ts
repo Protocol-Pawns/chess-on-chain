@@ -7,17 +7,23 @@ import { accounts } from './acounts';
 import { batch } from './batch';
 import { games } from './games';
 import { info } from './info';
-import { Env } from './types';
 
-const app = new Hono<{ Bindings: Env }>();
+const app = new Hono();
 
 app.use('*', poweredBy());
 app.use('*', cors());
 
-app.route('/info', info);
-app.route('/games', games);
-app.route('/accounts', accounts);
+const infoRoute = app.route('/info', info);
+const gamesRoute = app.route('/games', games);
+const accountsRoute = app.route('/accounts', accounts);
 app.route('/batch', batch);
+
+const testRoute = app.get('/test', c => {
+  return c.json({
+    test: '',
+    test1: 0
+  });
+});
 
 app.onError(
   err =>
@@ -39,3 +45,9 @@ export default app;
 
 export { Games } from './games';
 export { Info } from './info';
+
+export type AppType =
+  | typeof infoRoute
+  | typeof gamesRoute
+  | typeof accountsRoute
+  | typeof testRoute;

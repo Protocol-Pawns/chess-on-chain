@@ -9,11 +9,10 @@ import {
   PlayMove,
   ResignGame
 } from './events';
-import type { Env } from './types';
 
 const MAX_RECENT_LIMIT = 25;
 
-export const games = new Hono<{ Bindings: Env }>()
+export const games = new Hono()
   .get('/game/:game_id', async c => {
     const gameIdJson = c.req.param('game_id');
     const addr = c.env.GAMES.idFromName('');
@@ -21,11 +20,8 @@ export const games = new Hono<{ Bindings: Env }>()
     const res = await obj.fetch(
       `${new URL(c.req.url).origin}/game/${encodeURI(gameIdJson)}`
     );
-    if (!res.ok) {
-      return new Response(res.body, res);
-    }
-    const info = await res.json<Game>();
-    return c.json(info);
+    const game = await res.json<Game>();
+    return c.json(game);
   })
   .post('/query', async c => {
     const addr = c.env.GAMES.idFromName('');
@@ -41,10 +37,7 @@ export const games = new Hono<{ Bindings: Env }>()
       },
       body: JSON.stringify({ gameIds, includeMoves: includeMoves ?? false })
     });
-    if (!res.ok) {
-      return new Response(res.body, res);
-    }
-    const info = await res.json<Game>();
+    const info = await res.json<Game[]>();
     return c.json(info);
   })
   .get('/recent/new', async c => {
@@ -59,10 +52,7 @@ export const games = new Hono<{ Bindings: Env }>()
     const res = await obj.fetch(
       `${new URL(c.req.url).origin}/recent/new?limit=${actualLimit}&include_moves=${includeMoves}`
     );
-    if (!res.ok) {
-      return new Response(res.body, res);
-    }
-    const info = await res.json<Game>();
+    const info = await res.json<Game[]>();
     return c.json(info);
   })
   .get('/recent/finished', async c => {
@@ -77,16 +67,13 @@ export const games = new Hono<{ Bindings: Env }>()
     const res = await obj.fetch(
       `${new URL(c.req.url).origin}/recent/finished?limit=${actualLimit}&include_moves=${includeMoves}`
     );
-    if (!res.ok) {
-      return new Response(res.body, res);
-    }
-    const info = await res.json<Game>();
-    return c.json(info);
+    const game = await res.json<Game[]>();
+    return c.json(game);
   });
 
 export class Games {
   private state: DurableObjectState;
-  private app: Hono<{ Bindings: Env }>;
+  private app: Hono;
   private newGameIds: string[];
   private finishedGameIds: string[];
   private games: Record<string, Game>;
@@ -348,17 +335,15 @@ export class Games {
   }
 
   private async storeFinishedGame(game: Game) {
-    const whitePlayer = game.white as { Human: string };
-    const blackPlayer = game.black as { Human: string };
-    if (whitePlayer.Human != null) {
-      const account = await this.loadAccount(whitePlayer.Human);
+    if (game.white.type === 'Human') {
+      const account = await this.loadAccount(game.white.value);
       account.finishedGameIds.push(game.game_id);
-      await this.state.storage.put(`account:${whitePlayer.Human}`, account);
+      await this.state.storage.put(`account:${game.white.value}`, account);
     }
-    if (blackPlayer.Human != null) {
-      const account = await this.loadAccount(blackPlayer.Human);
+    if (game.black.type === 'Human') {
+      const account = await this.loadAccount(game.black.value);
       account.finishedGameIds.push(game.game_id);
-      await this.state.storage.put(`account:${blackPlayer.Human}`, account);
+      await this.state.storage.put(`account:${game.black.value}`, account);
     }
   }
 }
