@@ -13,11 +13,19 @@ export type Color = z.infer<typeof zodColor>;
 
 const zodBoard = z.string().array().length(8);
 
-const zodGameOutcome = z.literal('Stalemate').or(
-  z.object({
-    Victory: zodColor
-  })
-);
+const zodGameOutcome = z.discriminatedUnion('result', [
+  z
+    .object({
+      result: z.literal('Stalemate')
+    })
+    .strict(),
+  z
+    .object({
+      result: z.literal('Victory'),
+      color: zodColor
+    })
+    .strict()
+]);
 export type GameOutcome = z.infer<typeof zodGameOutcome>;
 
 const zodPlayer = z.discriminatedUnion('type', [

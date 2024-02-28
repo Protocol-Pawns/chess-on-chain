@@ -1555,22 +1555,36 @@
         "GameOutcome": {
           "oneOf": [
             {
-              "type": "string",
-              "enum": [
-                "Stalemate"
-              ]
+              "type": "object",
+              "required": [
+                "color",
+                "result"
+              ],
+              "properties": {
+                "color": {
+                  "$ref": "#/definitions/Color"
+                },
+                "result": {
+                  "type": "string",
+                  "enum": [
+                    "Victory"
+                  ]
+                }
+              }
             },
             {
               "type": "object",
               "required": [
-                "Victory"
+                "result"
               ],
               "properties": {
-                "Victory": {
-                  "$ref": "#/definitions/Color"
+                "result": {
+                  "type": "string",
+                  "enum": [
+                    "Stalemate"
+                  ]
                 }
-              },
-              "additionalProperties": false
+              }
             }
           ]
         },

@@ -314,12 +314,15 @@ interface GameInfo {
  */
 
 type GameOutcome =
-  | 'Stalemate'
   | {
       /**
        * The color of a piece.
        */
-      Victory: 'White' | 'Black';
+      color: 'White' | 'Black';
+      result: 'Victory';
+    }
+  | {
+      result: 'Stalemate';
     };
 
 /* eslint-disable */

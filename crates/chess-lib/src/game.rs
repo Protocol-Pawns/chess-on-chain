@@ -136,7 +136,7 @@ pub struct GameInfo {
     Eq,
     JsonSchema,
 )]
-#[serde(crate = "near_sdk::serde")]
+#[serde(crate = "near_sdk::serde", tag = "result", content = "color")]
 #[borsh(crate = "near_sdk::borsh")]
 #[schemars(crate = "near_sdk::schemars")]
 pub enum GameOutcome {
