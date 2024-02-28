@@ -549,6 +549,44 @@
         }
       },
       {
+        "name": "get_elo_ratings_by_ids",
+        "kind": "view",
+        "params": {
+          "serialization_type": "json",
+          "args": [
+            {
+              "name": "account_ids",
+              "type_schema": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/definitions/AccountId"
+                }
+              }
+            }
+          ]
+        },
+        "result": {
+          "serialization_type": "json",
+          "type_schema": {
+            "type": "array",
+            "items": {
+              "type": "array",
+              "items": [
+                {
+                  "$ref": "#/definitions/AccountId"
+                },
+                {
+                  "type": "number",
+                  "format": "double"
+                }
+              ],
+              "maxItems": 2,
+              "minItems": 2
+            }
+          }
+        }
+      },
+      {
         "name": "get_fees",
         "kind": "view",
         "result": {

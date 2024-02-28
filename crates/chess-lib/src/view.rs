@@ -144,6 +144,20 @@ impl Chess {
             .collect()
     }
 
+    pub fn get_elo_ratings_by_ids(
+        &self,
+        account_ids: Vec<AccountId>,
+    ) -> Vec<(AccountId, EloRating)> {
+        account_ids
+            .iter()
+            .filter_map(|account_id| {
+                self.accounts
+                    .get(account_id)
+                    .and_then(|account| account.get_elo().map(|elo| (account_id.clone(), elo)))
+            })
+            .collect()
+    }
+
     pub fn get_accounts(&self, skip: Option<usize>, limit: Option<usize>) -> Vec<AccountId> {
         self.accounts
             .keys()

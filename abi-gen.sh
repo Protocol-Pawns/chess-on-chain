@@ -27,5 +27,6 @@ for key in "${keys[@]}"; do
 done
 
 yarn tsup abi-gen/index.ts --dts-only -d abi
+sed -E -i 's|\[k: string\]: unknown;||g' abi/index.d.ts
 yarn prettier --write abi
 rm -rf abi-gen
