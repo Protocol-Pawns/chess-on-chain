@@ -1,15 +1,25 @@
 <script lang="ts">
-  import { mdiStepBackward } from "@mdi/js";
+  import { mdiSkipNext, mdiSkipPrevious, mdiStepBackward } from "@mdi/js";
   import Button, { Icon } from "@smui/button";
+  import { writable } from "svelte/store";
 
+  import ChessBoard from "./ChessBoard.svelte";
   import ProgressSpinner from "./ProgressSpinner.svelte";
 
   import type { GameId } from "$abi";
   import { apiClient, type GameApi } from "$lib/api";
-  import { gameId$ } from "$lib/game";
+  import { defaultBoard, gameId$ } from "$lib/game";
 
   export let gameId: GameId;
+  export let watchMode = false;
+
   let game: GameApi | undefined;
+  let currentBoard: string[] | undefined;
+  let currentMove: GameApi["moves"][0] | undefined;
+  let currentIndex: number | undefined;
+  let moveFrom$ = writable<[number, number] | undefined>();
+  let moveTo$ = writable<[number, number] | undefined>();
+
   apiClient.games.game[":game_id"]
     .$get({
       param: {
@@ -19,7 +29,33 @@
     .then((res) => res.json())
     .then((gameRes) => {
       game = gameRes;
+      if (watchMode) {
+        currentIndex = -1;
+      }
     });
+
+  $: if (currentIndex != null && game != null) {
+    if (currentIndex === -1) {
+      currentBoard = defaultBoard;
+      currentMove = undefined;
+      $moveFrom$ = undefined;
+      $moveTo$ = undefined;
+    } else {
+      currentBoard = game.moves[currentIndex].board;
+      currentMove = game.moves[currentIndex];
+      const split = currentMove.mv.split(" to ");
+      if (split.length === 2) {
+        $moveFrom$ = [
+          8 - Number(split[0].charAt(1) ?? 0),
+          (split[0].codePointAt(0) ?? 0) - 97,
+        ];
+        $moveTo$ = [
+          8 - Number(split[1].charAt(1) ?? 0),
+          (split[1].codePointAt(0) ?? 0) - 97,
+        ];
+      }
+    }
+  }
 </script>
 
 <div class="game">
@@ -35,9 +71,37 @@
     Back
   </Button>
 
-  {#if game}
-    <div class="board">
-      {JSON.stringify(game.moves)}
+  {#if game && currentBoard && currentIndex != null}
+    <div class="content">
+      <div class="navigation">
+        <Button
+          variant="outlined"
+          style={`visibility: ${currentIndex === -1 ? "hidden" : "visible"};`}
+          on:click={() => {
+            if (currentIndex == null) return;
+            currentIndex--;
+          }}
+        >
+          <Icon tag="svg" viewBox="0 0 24 24">
+            <path fill="currentColor" d={mdiSkipPrevious} />
+          </Icon>
+          Prev
+        </Button>
+        <Button
+          variant="outlined"
+          style={`visibility: ${currentIndex + 1 === game.moves.length ? "hidden" : "visible"};`}
+          on:click={() => {
+            if (currentIndex == null) return;
+            currentIndex++;
+          }}
+        >
+          Next
+          <Icon tag="svg" viewBox="0 0 24 24">
+            <path fill="currentColor" d={mdiSkipNext} />
+          </Icon>
+        </Button>
+      </div>
+      <ChessBoard board={currentBoard} {moveFrom$} {moveTo$} />
     </div>
   {:else}
     <ProgressSpinner inline />
@@ -51,6 +115,16 @@
     gap: 1rem;
   }
 
-  .board {
+  .content {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 1rem;
+
+    .navigation {
+      display: flex;
+      justify-content: space-around;
+      gap: 0.8rem;
+    }
   }
 </style>

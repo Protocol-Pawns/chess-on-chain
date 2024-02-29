@@ -69,7 +69,7 @@
 
 <div class="page">
   {#if $gameId$}
-    <Game gameId={$gameId$} />
+    <Game gameId={$gameId$} watchMode={$active$.label === "Watch"} />
   {:else}
     <TabBar {tabs} let:tab bind:active={$active$}>
       <Tab {tab}>

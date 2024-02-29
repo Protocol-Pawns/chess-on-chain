@@ -8,7 +8,7 @@
   {#if $account$}
     <Wallet account={$account$} />
   {:else if $account$ === undefined}
-    <ProgressSpinner />
+    <ProgressSpinner inline />
   {:else}
     <MessageBox type="info">Please log in!</MessageBox>
   {/if}
