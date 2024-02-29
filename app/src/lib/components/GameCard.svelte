@@ -2,11 +2,16 @@
   import Button from "@smui/button";
   import Card from "@smui/card";
 
-  import type { AccountId } from "$abi";
+  import type { AccountId, GameId } from "$abi";
   import type { GameApi } from "$lib/api";
+  import { gameId$ } from "$lib/game";
 
   export let game: GameApi;
   export let eloRatings: Record<AccountId, number>;
+
+  function setGameId() {
+    $gameId$ = game.game_id as GameId;
+  }
 </script>
 
 <Card variant="outlined" padded class="mdc-card__gap">
@@ -52,7 +57,7 @@
     </div>
   {/if}
   <div class="section-field">
-    <Button variant="outlined">Open</Button>
+    <Button variant="outlined" on:click={setGameId}>Open</Button>
   </div>
 </Card>
 
