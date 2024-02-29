@@ -9,7 +9,8 @@
     "preview": "vite preview",
     "smui-theme": "smui-theme compile static/smui.css -i src/theme",
     "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
-    "check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch"
+    "check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
+    "postinstall": "yarn --cwd ../api build:dts && cp ../api/dist/api.d.ts ./src/lib/models/api.d.ts"
   },
   "dependencies": {
     "@near-wallet-selector/core": "^8.9.5",
@@ -25,6 +26,7 @@
     "@mdi/js": "^7.4.47",
     "@smui-extra/accordion": "^7.0.0-beta.16",
     "@smui/button": "7.0.0-beta.16",
+    "@smui/card": "^7.0.0-beta.16",
     "@smui/icon-button": "7.0.0-beta.16",
     "@smui/tab": "7.0.0-beta.16",
     "@smui/tab-bar": "7.0.0-beta.16",

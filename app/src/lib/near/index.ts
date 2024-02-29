@@ -35,7 +35,23 @@ export const contract$ = derived(near$, async (n) => {
     import.meta.env.VITE_CONTRACT_ID,
   );
   return new Contract(account, import.meta.env.VITE_CONTRACT_ID, {
-    viewMethods: ["storage_balance_of", "ft_balance_of", "ft_metadata"],
+    viewMethods: [
+      "get_board",
+      "game_info",
+      "get_game_ids",
+      "get_account",
+      "get_elo_ratings",
+      "get_elo_ratings_by_ids",
+      "get_quest_list",
+      "get_quest_cooldowns",
+      "get_achievement_list",
+      "get_achievements",
+      "get_challenge",
+      "get_challenges",
+      "storage_balance_of",
+      "ft_balance_of",
+      "ft_metadata",
+    ],
     changeMethods: [],
     useLocalViewExecution: false,
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -71,6 +87,12 @@ export interface ProtocolPawnsContract extends Contract {
     {
       skip?: number;
       limit?: number;
+    },
+    [AccountId, number][]
+  >;
+  get_elo_ratings_by_ids: ContractViewCall<
+    {
+      account_ids: AccountId[];
     },
     [AccountId, number][]
   >;
