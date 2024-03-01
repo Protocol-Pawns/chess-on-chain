@@ -92,7 +92,7 @@
     position: relative;
 
     .overlay {
-      z-index: 1000;
+      z-index: 1;
       min-width: 100%;
       min-height: 100%;
       max-width: 100%;
