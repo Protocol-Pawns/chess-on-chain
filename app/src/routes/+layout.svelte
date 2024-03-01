@@ -145,6 +145,11 @@
     border-bottom: 1px solid var(--color-border);
     padding-bottom: 0.6rem;
   }
+  :global(.section-field-gap) {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+  }
 
   :global(.field > :first-child) {
     font-size: 1.2rem;

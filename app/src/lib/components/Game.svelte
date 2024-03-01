@@ -1,14 +1,16 @@
 <script lang="ts">
   import { mdiSkipNext, mdiSkipPrevious, mdiStepBackward } from "@mdi/js";
   import Button, { Icon } from "@smui/button";
+  import Accordion, { Panel, Content, Header } from "@smui-extra/accordion";
   import { writable } from "svelte/store";
 
   import ChessBoard from "./ChessBoard.svelte";
+  import Player from "./Player.svelte";
   import ProgressSpinner from "./ProgressSpinner.svelte";
 
   import type { GameId } from "$abi";
   import { apiClient, type GameApi } from "$lib/api";
-  import { defaultBoard, gameId$ } from "$lib/game";
+  import { defaultBoard, gameId$, updateEloRatings } from "$lib/game";
 
   export let gameId: GameId;
   export let watchMode = false;
@@ -19,6 +21,7 @@
   let currentIndex: number | undefined;
   let moveFrom$ = writable<[number, number] | undefined>();
   let moveTo$ = writable<[number, number] | undefined>();
+  let updatedEloRatings = false;
 
   apiClient.games.game[":game_id"]
     .$get({
@@ -27,11 +30,20 @@
       },
     })
     .then((res) => res.json())
-    .then((gameRes) => {
+    .then(async (gameRes) => {
       game = gameRes;
       if (watchMode) {
         currentIndex = -1;
       }
+      const playerIds = [];
+      if (game.white.type === "Human") {
+        playerIds.push(game.white.value);
+      }
+      if (game.black.type === "Human") {
+        playerIds.push(game.black.value);
+      }
+      await updateEloRatings(playerIds);
+      updatedEloRatings = true;
     });
 
   $: if (currentIndex != null && game != null) {
@@ -71,8 +83,45 @@
     Back
   </Button>
 
-  {#if game && currentBoard && currentIndex != null}
+  {#if game && currentBoard && currentIndex != null && updatedEloRatings}
     <div class="content">
+      <Accordion>
+        <Panel>
+          <Header>
+            <div class="header">
+              <Player player={game.white}>
+                <img class="icon" alt="white" src="./pieces/wP.svg" />
+              </Player>
+              <span>VS</span>
+              <Player player={game.black}>
+                <img class="icon" alt="black" src="./pieces/bP.svg" />
+              </Player>
+            </div>
+          </Header>
+          <Content class="section-field-gap">
+            <div class="section-field">
+              <h3>Game ID</h3>
+              <span>{game.game_id}</span>
+            </div>
+            {#if game.outcome}
+              <div class="section-field">
+                {#if game.outcome.result === "Victory"}
+                  <h3>Winner</h3>
+                  <span>
+                    {game.outcome.color}
+                    {#if game.resigner}
+                      (resigned by: {game.resigner})
+                    {/if}
+                  </span>
+                {:else}
+                  <h3>{game.outcome.result}</h3>
+                {/if}
+              </div>
+            {/if}
+          </Content>
+        </Panel>
+      </Accordion>
+
       <div class="navigation">
         <Button
           variant="outlined"
@@ -115,6 +164,14 @@
     gap: 1rem;
   }
 
+  .header {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.2rem;
+  }
+
   .content {
     display: flex;
     flex-direction: column;
@@ -126,5 +183,10 @@
       justify-content: space-around;
       gap: 0.8rem;
     }
+  }
+
+  img.icon {
+    height: 1.7rem;
+    padding-bottom: 0.4rem;
   }
 </style>

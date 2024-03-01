@@ -2,44 +2,27 @@
   import Button from "@smui/button";
   import Card from "@smui/card";
 
-  import type { AccountId, GameId } from "$abi";
+  import Player from "./Player.svelte";
+
+  import type { GameId } from "$abi";
   import type { GameApi } from "$lib/api";
   import { gameId$ } from "$lib/game";
 
   export let game: GameApi;
-  export let eloRatings: Record<AccountId, number>;
 
   function setGameId() {
     $gameId$ = game.game_id as GameId;
   }
 </script>
 
-<Card variant="outlined" padded class="mdc-card__gap">
+<Card variant="outlined" padded class="section-field-gap">
   <div class="section-field">
     <h3>White</h3>
-    <span>
-      {#if game.white.type === "Human"}
-        {game.white.value}
-        {#if eloRatings[game.white.value] != null}
-          [ELO: {eloRatings[game.white.value]}]
-        {/if}
-      {:else}
-        AI ({game.white.value})
-      {/if}
-    </span>
+    <Player player={game.white} />
   </div>
   <div class="section-field">
     <h3>Black</h3>
-    <span>
-      {#if game.black.type === "Human"}
-        {game.black.value}
-        {#if eloRatings[game.white.value] != null}
-          [ELO: {eloRatings[game.white.value]}]
-        {/if}
-      {:else}
-        AI ({game.black.value})
-      {/if}
-    </span>
+    <Player player={game.black} />
   </div>
   {#if game.outcome}
     <div class="section-field">
@@ -60,9 +43,3 @@
     <Button variant="outlined" on:click={setGameId}>Open</Button>
   </div>
 </Card>
-
-<style lang="scss">
-  :global(.mdc-card__gap) {
-    gap: 0.4rem;
-  }
-</style>

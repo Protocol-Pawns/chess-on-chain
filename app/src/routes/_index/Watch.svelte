@@ -3,10 +3,10 @@
   import { apiClient, type GameApi } from "$lib/api";
   import { GameCard } from "$lib/components";
   import ProgressSpinner from "$lib/components/ProgressSpinner.svelte";
-  import { contract$ } from "$lib/near";
+  import { updateEloRatings } from "$lib/game";
 
   let recentGames: GameApi[];
-  let eloRatings: Record<AccountId, number>;
+  let updatedEloRatings = false;
 
   async function fetchRecentGames() {
     const res = await apiClient.games.recent.finished.$get();
@@ -20,19 +20,15 @@
         playerIds.add(game.black.value);
       }
     }
-    const contract = await $contract$;
-    eloRatings = Object.fromEntries(
-      await contract.get_elo_ratings_by_ids({
-        account_ids: Array.from(playerIds),
-      }),
-    );
+    await updateEloRatings(Array.from(playerIds));
+    updatedEloRatings = true;
   }
   fetchRecentGames();
 </script>
 
-{#if recentGames && eloRatings}
+{#if recentGames && updatedEloRatings}
   {#each recentGames as game}
-    <GameCard {game} {eloRatings} />
+    <GameCard {game} />
   {/each}
 {:else}
   <ProgressSpinner inline />
