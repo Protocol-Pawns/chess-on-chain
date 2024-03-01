@@ -90,11 +90,11 @@
           <Header>
             <div class="header">
               <Player player={game.white}>
-                <img class="icon" alt="white" src="./pieces/wP.svg" />
+                <img class="icon" alt="white" src="./pieces/wP.webp" />
               </Player>
               <span>VS</span>
               <Player player={game.black}>
-                <img class="icon" alt="black" src="./pieces/bP.svg" />
+                <img class="icon" alt="black" src="./pieces/bP.webp" />
               </Player>
             </div>
           </Header>

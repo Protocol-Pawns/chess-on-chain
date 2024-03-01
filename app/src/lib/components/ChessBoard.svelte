@@ -25,29 +25,29 @@
               $moveTo$[1] === colIndex}
           />
           {#if field === "p"}
-            <img alt="black pawn" src="./pieces/bP.svg" />
+            <img alt="black pawn" src="./pieces/bP.webp" />
           {:else if field === "P"}
-            <img alt="white pawn" src="./pieces/wP.svg" />
+            <img alt="white pawn" src="./pieces/wP.webp" />
           {:else if field === "n"}
-            <img alt="black knight" src="./pieces/bN.svg" />
+            <img alt="black knight" src="./pieces/bN.webp" />
           {:else if field === "N"}
-            <img alt="white knight" src="./pieces/wN.svg" />
+            <img alt="white knight" src="./pieces/wN.webp" />
           {:else if field === "b"}
-            <img alt="black bishop" src="./pieces/bB.svg" />
+            <img alt="black bishop" src="./pieces/bB.webp" />
           {:else if field === "B"}
-            <img alt="white bishop" src="./pieces/wB.svg" />
+            <img alt="white bishop" src="./pieces/wB.webp" />
           {:else if field === "r"}
-            <img alt="black rook" src="./pieces/bR.svg" />
+            <img alt="black rook" src="./pieces/bR.webp" />
           {:else if field === "R"}
-            <img alt="white rook" src="./pieces/wR.svg" />
+            <img alt="white rook" src="./pieces/wR.webp" />
           {:else if field === "q"}
-            <img alt="black queen" src="./pieces/bQ.svg" />
+            <img alt="black queen" src="./pieces/bQ.webp" />
           {:else if field === "Q"}
-            <img alt="white queen" src="./pieces/wQ.svg" />
+            <img alt="white queen" src="./pieces/wQ.webp" />
           {:else if field === "k"}
-            <img alt="black king" src="./pieces/bK.svg" />
+            <img alt="black king" src="./pieces/bK.webp" />
           {:else if field === "K"}
-            <img alt="white king" src="./pieces/wK.svg" />
+            <img alt="white king" src="./pieces/wK.webp" />
           {/if}
         </div>
       {/each}
