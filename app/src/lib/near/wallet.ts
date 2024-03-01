@@ -1,3 +1,4 @@
+import { HereWallet } from "@here-wallet/core";
 import { readable } from "svelte/store";
 
 import { browser } from "$app/environment";
@@ -22,6 +23,8 @@ export const selector$ = readable(
     : // eslint-disable-next-line @typescript-eslint/no-empty-function
       new Promise<never>(() => {}),
 );
+
+export const hereWallet = new HereWallet();
 
 export interface WalletMetadata {
   url: string;

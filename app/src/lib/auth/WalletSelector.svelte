@@ -14,7 +14,7 @@
   import { account$ } from ".";
 
   import { ModalContent, modal$ } from "$lib/layout";
-  import { NEAR_WALLETS, selector$ } from "$lib/near";
+  import { NEAR_WALLETS, hereWallet, selector$ } from "$lib/near";
   import { showSnackbar } from "$lib/snackbar";
   import { isMobile } from "$lib/util";
 
@@ -65,7 +65,7 @@
     match(wallet)
       .with({ type: P.union("browser", "injected") }, async (wallet) => {
         const accounts = await wallet.signIn({
-          contractId: "game.hot.tg",
+          contractId: import.meta.env.VITE_CONTRACT_ID,
         });
         const account = accounts.pop();
         if (!account) return;
@@ -78,6 +78,14 @@
       .otherwise(() => {
         throw new Error("unimplemented");
       });
+  }
+
+  async function handleHereWalletClick() {
+    const account = await hereWallet.signIn({
+      contractId: import.meta.env.VITE_CONTRACT_ID,
+    });
+    console.log(`Hello ${account}!`);
+    console.log(hereWallet);
   }
 </script>
 
@@ -140,8 +148,16 @@
         </div>
       </Button>
     {/each}
-    {#if mods.length % 2 === 1}
-      <div style="flex: 1 0 calc(50% - 2 * 0.6rem); margin: 0.6rem;" />
+
+    <Button on:click={() => handleHereWalletClick()}>
+      <div class="wallet">
+        <div class="wallet-name">
+          <span>HOT wallet</span>
+        </div>
+      </div>
+    </Button>
+    {#if mods.length % 2 === 0}
+      <div />
     {/if}
   </div>
 </ModalContent>
@@ -150,10 +166,13 @@
   .wallets {
     display: flex;
     flex-wrap: wrap;
+    justify-content: center;
+    gap: 0.5rem;
 
     :global(> *) {
       height: 3rem;
-      flex: 1 0 auto !important;
+      flex: 1 0 15rem;
+      max-width: 20rem;
     }
 
     :global(.mdc-button__icon) {
@@ -163,6 +182,7 @@
 
   .wallet {
     display: flex;
+    justify-content: space-between;
     margin: 0.6rem;
     align-items: center;
     width: 100%;

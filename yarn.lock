@@ -352,6 +352,15 @@
     sha1 "^1.1.1"
     uuid4 "2.0.3"
 
+"@here-wallet/core@^1.6.6":
+  version "1.6.6"
+  resolved "https://registry.yarnpkg.com/@here-wallet/core/-/core-1.6.6.tgz#db31fcd048c4977da3bc6923fcf25113a32b5a49"
+  integrity sha512-avh/PRNl3CbgrcbqIezVrNPAa4fqKvonl/mguSoUAfTwfA5jWnfq81Udd8QzOAIzBIGx5gSabzEkh9CRDH7yDA==
+  dependencies:
+    near-api-js "^3.0.1"
+    sha1 "^1.1.1"
+    uuid4 "2.0.3"
+
 "@hono/zod-validator@^0.1.11":
   version "0.1.11"
   resolved "https://registry.yarnpkg.com/@hono/zod-validator/-/zod-validator-0.1.11.tgz#7d3e900f01d4c7be6a8c7a7ea1986caaffef423b"
@@ -4465,7 +4474,7 @@ near-abi@0.1.1:
   dependencies:
     "@types/json-schema" "^7.0.11"
 
-near-api-js@^3.0.3:
+near-api-js@^3.0.1, near-api-js@^3.0.3:
   version "3.0.3"
   resolved "https://registry.yarnpkg.com/near-api-js/-/near-api-js-3.0.3.tgz#e37b3b57d71b7e3362a0d6984b1e37e588c6549b"
   integrity sha512-pQhDytWpOM6hxPJ6mCe9tgGKtMwAK9bM2/YnGvBfkRgokSm4US0K0lnqHwEG+g4+6HxRme6SOou1tuAyXdoTsQ==

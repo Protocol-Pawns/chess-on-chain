@@ -13,6 +13,7 @@
     "postinstall": "yarn --cwd ../api build:dts && cp ../api/dist/api.d.ts ./src/lib/models/api.d.ts"
   },
   "dependencies": {
+    "@here-wallet/core": "^1.6.6",
     "@near-wallet-selector/core": "^8.9.5",
     "@near-wallet-selector/here-wallet": "^8.9.5",
     "@near-wallet-selector/meteor-wallet": "^8.9.5",
