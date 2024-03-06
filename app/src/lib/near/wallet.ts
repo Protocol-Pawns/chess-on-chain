@@ -1,4 +1,7 @@
-import { HereWallet } from "@here-wallet/core";
+import {
+  HereWallet,
+  type SignAndSendTransactionOptions,
+} from "@here-wallet/core";
 import type {
   BrowserWalletMetadata,
   InjectedWalletMetadata,
@@ -10,7 +13,7 @@ import { P, match } from "ts-pattern";
 
 import { browser } from "$app/environment";
 import type { UnionModuleState, WalletAccount } from "$lib/models";
-import { showSnackbar } from "$lib/snackbar";
+import { showSnackbar, showTxSnackbar } from "$lib/snackbar";
 
 export class Wallet {
   private hereWallet = new HereWallet();
@@ -171,16 +174,13 @@ export class Wallet {
 
   public async signOut() {
     return match(get(this._account$))
-      .with(undefined, () => {
-        console.log("UNDEFINED");
-      })
+      .with(undefined, () => undefined)
       .with(
         {
           type: "wallet-selector",
           account: P.select(),
         },
         async (account) => {
-          console.log("walletsel", account);
           const selector = await get(this.selector$);
           const wallet = await selector.wallet();
           await wallet.signOut();
@@ -194,13 +194,53 @@ export class Wallet {
           account: P.select(),
         },
         async (account) => {
-          console.log("here", account);
           await this.hereWallet.signOut();
           showSnackbar(`Disconnected Near account ${account}`);
           this._account$.set(undefined);
         },
       )
       .exhaustive();
+  }
+
+  public async signAndSendTransaction(
+    params: SignAndSendTransactionOptions,
+    {
+      onSuccess,
+      onError,
+      onFinally,
+    }: {
+      onSuccess?: () => Promise<void> | void;
+      onError?: () => Promise<void> | void;
+      onFinally?: () => Promise<void> | void;
+    },
+  ) {
+    const txPromise = match(get(this._account$))
+      .with(undefined, () => undefined)
+      .with(
+        {
+          type: "wallet-selector",
+          account: P.any,
+        },
+        async () => {
+          const selector = await get(this.selector$);
+          const wallet = await selector.wallet();
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          return wallet.signAndSendTransaction(params as any);
+        },
+      )
+      .with(
+        {
+          type: "here",
+          account: P.any,
+        },
+        async () => {
+          return this.hereWallet.signAndSendTransaction(params);
+        },
+      )
+      .exhaustive();
+    if (!txPromise) return;
+    showTxSnackbar(txPromise);
+    return txPromise.then(onSuccess).catch(onError).finally(onFinally);
   }
 }
 

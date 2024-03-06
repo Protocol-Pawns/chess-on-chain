@@ -71,7 +71,7 @@
   {#if $gameId$}
     <Game gameId={$gameId$} watchMode={$active$.label === "Watch"} />
   {:else}
-    <TabBar {tabs} let:tab bind:active={$active$}>
+    <TabBar {tabs} let:tab bind:active={$active$} class="tab-bar">
       <Tab {tab}>
         <Label>{tab.label}</Label>
       </Tab>
@@ -86,5 +86,11 @@
     display: flex;
     flex-direction: column;
     gap: 1.2rem;
+  }
+
+  :global(.tab-bar.mdc-tab-bar) {
+    width: 14rem;
+    margin: 0 auto;
+    max-width: 100%;
   }
 </style>
