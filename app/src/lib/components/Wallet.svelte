@@ -1,10 +1,9 @@
 <script lang="ts">
-  import type { Account } from "@near-wallet-selector/core";
   import { FixedNumber } from "@tarnadas/fixed-number";
 
   import { MessageBox } from "$lib/components";
 
-  export let account: Account;
+  export let accountId: string;
 
   let nearBalance: FixedNumber | undefined;
 
@@ -23,7 +22,7 @@
         params: {
           request_type: "view_account",
           finality: "final",
-          account_id: account.accountId,
+          account_id: accountId,
         },
       }),
     });
@@ -39,7 +38,7 @@
 
 <div class="section-field">
   <span>Connected account:</span>
-  <span>{account.accountId}</span>
+  <span>{accountId}</span>
 </div>
 <div class="section-field">
   <span>Near balance:</span>

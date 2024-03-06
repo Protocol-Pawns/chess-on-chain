@@ -1,19 +1,21 @@
 <script lang="ts">
   import { mdiMenu, mdiMenuClose } from "@mdi/js";
-  import type { Account } from "@near-wallet-selector/core";
   import Button from "@smui/button";
   import IconButton, { Icon } from "@smui/icon-button";
   import { writable } from "svelte/store";
   import { slide } from "svelte/transition";
 
   import { navigating } from "$app/stores";
-  import { account$, showWalletSelector } from "$lib/auth";
-  import { selector$ } from "$lib/near";
-  import { showSnackbar } from "$lib/snackbar";
+  import { showWalletSelector } from "$lib/auth";
+  import { wallet } from "$lib/near";
+
+  export let isTG: boolean;
 
   let showMenu = false;
   let showAccountMenu$ = writable(false);
   let path$ = writable(window.location.pathname);
+
+  const accountId$ = wallet.accountId$;
 
   $: if (showMenu) {
     $showAccountMenu$ = false;
@@ -29,15 +31,6 @@
     showMenu = false;
     $showAccountMenu$ = false;
   });
-
-  async function signOut(account?: Account | null) {
-    if (!account) return;
-    const selector = await $selector$;
-    const wallet = await selector.wallet();
-    await wallet.signOut();
-    showSnackbar(`Disconnected Near account ${account.accountId}`);
-    $account$ = null;
-  }
 </script>
 
 <div class="header">
@@ -106,10 +99,10 @@
 
   {#if $showAccountMenu$}
     <nav transition:slide>
-      {#if $account$}
+      {#if $accountId$}
         {#if $path$ === "/account"}
           <Button class="mdc-button__nav-link" variant="raised" disabled>
-            {$account$.accountId}
+            {$accountId$}
           </Button>
         {:else}
           <Button
@@ -117,17 +110,19 @@
             href="/account"
             variant="outlined"
           >
-            {$account$.accountId}
+            {$accountId$}
           </Button>
         {/if}
 
-        <Button
-          color="secondary"
-          variant="outlined"
-          on:click={() => signOut($account$)}>Logout</Button
-        >
+        <Button color="secondary" variant="outlined" on:click={wallet.signOut}>
+          Logout
+        </Button>
       {:else}
-        <Button variant="outlined" on:click={showWalletSelector}>Login</Button>
+        <Button
+          variant="outlined"
+          on:click={isTG ? wallet.loginViaHere : showWalletSelector}
+          >Login</Button
+        >
       {/if}
     </nav>
   {/if}

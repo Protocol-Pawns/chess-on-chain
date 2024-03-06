@@ -1,164 +1,86 @@
 <script lang="ts">
   import { mdiMonitorArrowDown } from "@mdi/js";
-  import type {
-    BrowserWalletMetadata,
-    InjectedWalletMetadata,
-    ModuleState,
-    Wallet,
-    WalletSelector,
-  } from "@near-wallet-selector/core";
   import Button from "@smui/button";
   import { Icon } from "@smui/icon-button";
-  import { P, match } from "ts-pattern";
-
-  import { account$ } from ".";
 
   import { ModalContent, modal$ } from "$lib/layout";
-  import { NEAR_WALLETS, hereWallet, selector$ } from "$lib/near";
-  import { showSnackbar } from "$lib/snackbar";
+  import type { UnionModuleState } from "$lib/models";
+  import { NEAR_WALLETS, wallet } from "$lib/near";
   import { isMobile } from "$lib/util";
 
-  // needed to fix types into discriminated union for Svelte template
-  interface BaseWallet {
-    id: string;
-  }
-  interface BrowserWallet extends BaseWallet {
-    type: "browser";
-    metadata: BrowserWalletMetadata;
-  }
-  interface InjectedWallet extends BaseWallet {
-    type: "injected";
-    metadata: InjectedWalletMetadata;
-  }
-
-  type UnionModuleState = BrowserWallet | InjectedWallet;
-
-  $: mapModules($selector$);
-
-  let mods: UnionModuleState[] = [];
-  async function mapModules(s: Promise<WalletSelector>) {
-    const selector = await s;
-    mods = selector.store.getState().modules.map((mod): UnionModuleState => {
-      switch (mod.type) {
-        case "injected":
-          return {
-            ...mod,
-            type: "injected",
-            metadata: mod.metadata as InjectedWalletMetadata,
-          };
-        case "browser":
-          return {
-            ...mod,
-            type: "browser",
-            metadata: mod.metadata as BrowserWalletMetadata,
-          };
-        default:
-          throw new Error("unimplemented");
-      }
-    });
-  }
+  const modules$ = wallet.modules$;
 
   async function handleWalletClick(unionMod: UnionModuleState) {
-    const mod = unionMod as ModuleState<Wallet>;
-    const wallet = await mod.wallet();
-
-    match(wallet)
-      .with({ type: P.union("browser", "injected") }, async (wallet) => {
-        const accounts = await wallet.signIn({
-          contractId: import.meta.env.VITE_CONTRACT_ID,
-        });
-        const account = accounts.pop();
-        if (!account) return;
-        $account$ = account;
-        $modal$ = null;
-        showSnackbar(
-          `Connected Near account ${account.accountId} via ${wallet.metadata.name}`,
-        );
-      })
-      .otherwise(() => {
-        throw new Error("unimplemented");
-      });
-  }
-
-  async function handleHereWalletClick() {
-    const account = await hereWallet.signIn({
-      contractId: import.meta.env.VITE_CONTRACT_ID,
-    });
-    console.log(`Hello ${account}!`);
-    console.log(hereWallet);
+    await wallet.loginViaWalletSelector(unionMod);
+    $modal$ = null;
   }
 </script>
 
 <ModalContent header="Select Wallet">
   <div class="wallets">
-    {#each mods as mod}
-      <Button
-        disabled={!mod.metadata.available}
-        on:click={() => handleWalletClick(mod)}
-      >
-        <div class="wallet">
-          <img
-            src={mod.metadata.iconUrl}
-            alt={mod.metadata.name}
-            class={`icon ${mod.metadata.name.replaceAll(" ", "-").toLowerCase()}`}
-          />
-          <div class="wallet-name">
-            <span>{mod.metadata.name}</span>
-            {#if mod.metadata.description != null}
-              <span class="url">
-                {new URL(NEAR_WALLETS[mod.id].url).hostname}
-              </span>
+    {#await $modules$ then modules}
+      {#each modules as mod}
+        <Button
+          disabled={!mod.metadata.available}
+          on:click={() => handleWalletClick(mod)}
+        >
+          <div class="wallet">
+            <img
+              src={mod.metadata.iconUrl}
+              alt={mod.metadata.name}
+              class={`icon ${mod.metadata.name.replaceAll(" ", "-").toLowerCase()}`}
+            />
+            <div class="wallet-name">
+              <span>{mod.metadata.name}</span>
+              {#if mod.metadata.description != null}
+                <span class="url">
+                  {new URL(NEAR_WALLETS[mod.id].url).hostname}
+                </span>
+              {/if}
+            </div>
+            {#if mod.type === "injected" && !isMobile()}
+              {#if NEAR_WALLETS[mod.id].extensionUrl != null}
+                <a
+                  href={NEAR_WALLETS[mod.id].extensionUrl}
+                  target="_blank"
+                  rel="noopener"
+                  class="download"
+                  on:click|stopPropagation
+                >
+                  <Icon
+                    tag="svg"
+                    viewBox="0 0 24 24"
+                    style="width: 1.8rem; height: 1.8rem;"
+                  >
+                    <path fill="var(--color-link)" d={mdiMonitorArrowDown} />
+                  </Icon>
+                </a>
+              {:else if mod.metadata.downloadUrl != null}
+                <a
+                  href={mod.metadata.downloadUrl}
+                  target="_blank"
+                  rel="noopener"
+                  class="download"
+                  on:click|stopPropagation
+                >
+                  <Icon
+                    tag="svg"
+                    viewBox="0 0 24 24"
+                    style="width: 1.8rem; height: 1.8rem;"
+                  >
+                    <path fill="var(--color-link)" d={mdiMonitorArrowDown} />
+                  </Icon>
+                </a>
+              {/if}
             {/if}
           </div>
-          {#if mod.type === "injected" && !isMobile()}
-            {#if NEAR_WALLETS[mod.id].extensionUrl != null}
-              <a
-                href={NEAR_WALLETS[mod.id].extensionUrl}
-                target="_blank"
-                rel="noopener"
-                class="download"
-                on:click|stopPropagation
-              >
-                <Icon
-                  tag="svg"
-                  viewBox="0 0 24 24"
-                  style="width: 1.8rem; height: 1.8rem;"
-                >
-                  <path fill="var(--color-link)" d={mdiMonitorArrowDown} />
-                </Icon>
-              </a>
-            {:else if mod.metadata.downloadUrl != null}
-              <a
-                href={mod.metadata.downloadUrl}
-                target="_blank"
-                rel="noopener"
-                class="download"
-                on:click|stopPropagation
-              >
-                <Icon
-                  tag="svg"
-                  viewBox="0 0 24 24"
-                  style="width: 1.8rem; height: 1.8rem;"
-                >
-                  <path fill="var(--color-link)" d={mdiMonitorArrowDown} />
-                </Icon>
-              </a>
-            {/if}
-          {/if}
-        </div>
-      </Button>
-    {/each}
+        </Button>
+      {/each}
 
-    <Button on:click={() => handleHereWalletClick()}>
-      <div class="wallet">
-        <div class="wallet-name">
-          <span>HOT wallet</span>
-        </div>
-      </div>
-    </Button>
-    {#if mods.length % 2 === 0}
-      <div />
-    {/if}
+      {#if modules.length % 2 === 1}
+        <div />
+      {/if}
+    {/await}
   </div>
 </ModalContent>
 

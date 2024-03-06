@@ -1,14 +1,14 @@
 <script lang="ts">
-  import { account$ } from "$lib/auth";
-  import { ProgressSpinner, MessageBox, Wallet } from "$lib/components";
+  import { MessageBox, Wallet } from "$lib/components";
+  import { wallet } from "$lib/near";
+
+  const accountId$ = wallet.accountId$;
 </script>
 
 <div class="page">
   <h2>Wallet</h2>
-  {#if $account$}
-    <Wallet account={$account$} />
-  {:else if $account$ === undefined}
-    <ProgressSpinner inline />
+  {#if $accountId$}
+    <Wallet accountId={$accountId$} />
   {:else}
     <MessageBox type="info">Please log in!</MessageBox>
   {/if}

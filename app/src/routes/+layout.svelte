@@ -9,6 +9,8 @@
   import { onMount, onDestroy } from "svelte";
   import { Modal } from "svelte-simple-modal";
 
+  import type { PageData } from "./$types";
+
   import { Footer, Header, modal$, Body, modalCanClose$ } from "$lib/layout";
   import { ScreenSize } from "$lib/models";
   import { screenSize$ } from "$lib/screen-size";
@@ -17,6 +19,8 @@
     snackbar$,
     snackbarComponent$,
   } from "$lib/snackbar";
+
+  export let data: PageData;
 
   // eslint-disable-next-line import/no-named-as-default-member
   dayjs.extend(localizedFormat);
@@ -112,7 +116,7 @@
   </Actions>
 </Snackbar>
 
-<Header />
+<Header isTG={data.isTG} />
 <Body>
   <slot />
 </Body>
