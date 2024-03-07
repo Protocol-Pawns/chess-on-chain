@@ -9,4 +9,8 @@ crate-type = ["cdylib", "rlib"]
 
 [dependencies]
 near-contract-standards.workspace = true
-near-sdk.workspace = true
+
+
+[dependencies.near-sdk]
+workspace = true
+features = ["unit-testing"]

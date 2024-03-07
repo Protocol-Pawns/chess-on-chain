@@ -3,10 +3,9 @@ use near_sdk::{
     borsh::{self, BorshDeserialize, BorshSerialize},
     env,
     json_types::U128,
-    schemars::JsonSchema,
     serde::{Deserialize, Serialize},
     store::UnorderedMap,
-    AccountId,
+    AccountId, NearSchema,
 };
 use std::{
     cmp::Ordering,
@@ -41,9 +40,9 @@ pub struct Bets {
     pub bets: UnorderedMap<AccountId, Vec<(AccountId, Bet)>>,
 }
 
-#[derive(Debug, Deserialize, Serialize, JsonSchema)]
+#[derive(Debug, Deserialize, Serialize)]
+#[cfg_attr(not(target = "wasm32-unknown-unknown"), derive(NearSchema))]
 #[serde(crate = "near_sdk::serde")]
-#[schemars(crate = "near_sdk::schemars")]
 pub struct BetInfo {
     pub is_locked: bool,
     pub bets: HashMap<AccountId, Vec<(AccountId, BetView)>>,
@@ -99,9 +98,9 @@ pub struct Bet {
     pub winner: AccountId,
 }
 
-#[derive(Deserialize, Serialize, Debug, JsonSchema)]
+#[derive(Deserialize, Serialize, Debug)]
+#[cfg_attr(not(target = "wasm32-unknown-unknown"), derive(NearSchema))]
 #[serde(crate = "near_sdk::serde")]
-#[schemars(crate = "near_sdk::schemars")]
 pub struct BetView {
     pub amount: U128,
     pub winner: AccountId,

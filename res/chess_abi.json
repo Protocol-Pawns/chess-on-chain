@@ -1409,7 +1409,6 @@
           }
         },
         "Color": {
-          "description": "The color of a piece.",
           "type": "string",
           "enum": [
             "White",
@@ -1417,7 +1416,6 @@
           ]
         },
         "Difficulty": {
-          "description": "AI difficulty setting.\n\nThe AI uses the [Minimax algorithm, along with Alpha-Beta pruning](https://github.com/Tarnadas/chess-engine#how-does-it-work) The higher the difficulty the more moves will be calculated in advance.\n\nPlease be aware, that gas usage increases on higher difficulties: - Easy: ~8TGas - Medium: ~30TGas - Hard: ~110TGas",
           "type": "string",
           "enum": [
             "Easy",
@@ -1501,7 +1499,6 @@
           }
         },
         "GameId": {
-          "description": "Unique game ID, which consists of:\n\n- block height - wallet ID, e.g. \"my-wallet.near\" - enemy wallet ID if player or empty if AI",
           "type": "array",
           "items": [
             {

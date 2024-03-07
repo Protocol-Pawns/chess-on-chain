@@ -157,9 +157,6 @@ interface Challenge {
  * and run json-schema-to-typescript to regenerate this file.
  */
 
-/**
- * The color of a piece.
- */
 type Color = 'White' | 'Black';
 
 /* eslint-disable */
@@ -169,13 +166,6 @@ type Color = 'White' | 'Black';
  * and run json-schema-to-typescript to regenerate this file.
  */
 
-/**
- * AI difficulty setting.
- *
- * The AI uses the [Minimax algorithm, along with Alpha-Beta pruning](https://github.com/Tarnadas/chess-engine#how-does-it-work) The higher the difficulty the more moves will be calculated in advance.
- *
- * Please be aware, that gas usage increases on higher difficulties: - Easy: ~8TGas - Medium: ~30TGas - Hard: ~110TGas
- */
 type Difficulty = 'Easy' | 'Medium' | 'Hard';
 
 /* eslint-disable */
@@ -215,10 +205,6 @@ interface FungibleTokenMetadata {
  */
 
 /**
- * Unique game ID, which consists of:
- *
- * - block height - wallet ID, e.g. "my-wallet.near" - enemy wallet ID if player or empty if AI
- *
  * @minItems 3
  * @maxItems 3
  */
@@ -256,20 +242,10 @@ interface GameInfo {
       }
     | {
         type: 'Ai';
-        /**
-         * AI difficulty setting.
-         *
-         * The AI uses the [Minimax algorithm, along with Alpha-Beta pruning](https://github.com/Tarnadas/chess-engine#how-does-it-work) The higher the difficulty the more moves will be calculated in advance.
-         *
-         * Please be aware, that gas usage increases on higher difficulties: - Easy: ~8TGas - Medium: ~30TGas - Hard: ~110TGas
-         */
         value: 'Easy' | 'Medium' | 'Hard';
       };
   has_bets: boolean;
   last_block_height: number;
-  /**
-   * The color of a piece.
-   */
   turn_color: 'White' | 'Black';
   white:
     | {
@@ -295,13 +271,6 @@ interface GameInfo {
       }
     | {
         type: 'Ai';
-        /**
-         * AI difficulty setting.
-         *
-         * The AI uses the [Minimax algorithm, along with Alpha-Beta pruning](https://github.com/Tarnadas/chess-engine#how-does-it-work) The higher the difficulty the more moves will be calculated in advance.
-         *
-         * Please be aware, that gas usage increases on higher difficulties: - Easy: ~8TGas - Medium: ~30TGas - Hard: ~110TGas
-         */
         value: 'Easy' | 'Medium' | 'Hard';
       };
 }
@@ -315,9 +284,6 @@ interface GameInfo {
 
 type GameOutcome =
   | {
-      /**
-       * The color of a piece.
-       */
       color: 'White' | 'Black';
       result: 'Victory';
     }
@@ -356,13 +322,6 @@ type Player =
     }
   | {
       type: 'Ai';
-      /**
-       * AI difficulty setting.
-       *
-       * The AI uses the [Minimax algorithm, along with Alpha-Beta pruning](https://github.com/Tarnadas/chess-engine#how-does-it-work) The higher the difficulty the more moves will be calculated in advance.
-       *
-       * Please be aware, that gas usage increases on higher difficulties: - Easy: ~8TGas - Medium: ~30TGas - Hard: ~110TGas
-       */
       value: 'Easy' | 'Medium' | 'Hard';
     };
 

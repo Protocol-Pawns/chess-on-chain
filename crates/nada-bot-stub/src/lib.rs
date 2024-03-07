@@ -1,3 +1,5 @@
+#![allow(deprecated)]
+
 use near_sdk::{
     borsh::{BorshDeserialize, BorshSerialize},
     near_bindgen,

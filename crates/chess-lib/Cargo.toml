@@ -10,16 +10,14 @@ crate-type = ["rlib"]
 [dependencies]
 chess-engine = { path = "../chess-engine" }
 maplit.workspace = true
+near-abi.workspace = true
 near-contract-standards.workspace = true
+near-sdk.workspace = true
 primitive-types.workspace = true
 serde_json.workspace = true
 strum.workspace = true
 thiserror.workspace = true
 urlencoding.workspace = true
-
-[dependencies.near-sdk]
-workspace = true
-features = ["abi"]
 
 [features]
 integration-test = []

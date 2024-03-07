@@ -1,3 +1,5 @@
+#![allow(dead_code, deprecated, clippy::enum_variant_names)]
+
 mod account;
 mod bet;
 mod challenge;
@@ -35,10 +37,10 @@ use near_sdk::{
     env,
     json_types::U128,
     near_bindgen, require,
-    schemars::JsonSchema,
     serde::{Deserialize, Serialize},
     store::{Lazy, UnorderedMap},
-    AccountId, BorshStorageKey, Gas, GasWeight, NearToken, PanicOnDefault, PromiseOrValue,
+    AccountId, BorshStorageKey, Gas, GasWeight, NearSchema, NearToken, PanicOnDefault,
+    PromiseOrValue,
 };
 use std::collections::HashMap;
 
@@ -127,11 +129,10 @@ pub struct OldChess {
     PanicOnDefault,
     Deserialize,
     Serialize,
-    JsonSchema,
 )]
+#[cfg_attr(not(target = "wasm32-unknown-unknown"), derive(NearSchema))]
 #[serde(crate = "near_sdk::serde")]
 #[borsh(crate = "near_sdk::borsh")]
-#[schemars(crate = "near_sdk::schemars")]
 pub struct Fees {
     pub treasury: u16,
     pub royalties: Vec<(AccountId, u16)>,

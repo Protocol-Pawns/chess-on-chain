@@ -7,10 +7,9 @@ use near_sdk::{
     borsh::{self, BorshDeserialize, BorshSerialize},
     env,
     json_types::U128,
-    schemars::JsonSchema,
     serde::{Deserialize, Serialize},
     store::{Lazy, UnorderedMap, UnorderedSet},
-    AccountId, NearToken,
+    AccountId, NearSchema, NearToken,
 };
 use std::collections::VecDeque;
 
@@ -60,9 +59,9 @@ pub struct AccountV7 {
     tokens: UnorderedMap<AccountId, u128>,
 }
 
-#[derive(Deserialize, Serialize, JsonSchema)]
+#[derive(Deserialize, Serialize)]
+#[cfg_attr(not(target = "wasm32-unknown-unknown"), derive(NearSchema))]
 #[serde(crate = "near_sdk::serde")]
-#[schemars(crate = "near_sdk::schemars")]
 pub struct AccountInfo {
     pub near_amount: NearToken,
     pub is_human: bool,

@@ -7,9 +7,8 @@ use near_sdk::{
     borsh::{BorshDeserialize, BorshSerialize},
     json_types::U128,
     near_bindgen,
-    schemars::JsonSchema,
     serde::{Deserialize, Serialize},
-    AccountId, PromiseOrValue,
+    AccountId, NearSchema, PromiseOrValue,
 };
 use strum::{AsRefStr, EnumIter};
 
@@ -21,13 +20,12 @@ use strum::{AsRefStr, EnumIter};
     BorshSerialize,
     Deserialize,
     Serialize,
-    JsonSchema,
     EnumIter,
     AsRefStr,
 )]
+#[cfg_attr(not(target = "wasm32-unknown-unknown"), derive(NearSchema))]
 #[serde(crate = "near_sdk::serde")]
 #[borsh(crate = "near_sdk::borsh")]
-#[schemars(crate = "near_sdk::schemars")]
 pub enum Quest {
     DailyPlayMove,
     WeeklyWinHuman,
@@ -64,9 +62,9 @@ impl Quest {
     }
 }
 
-#[derive(Deserialize, Serialize, JsonSchema)]
+#[derive(Deserialize, Serialize)]
+#[cfg_attr(not(target = "wasm32-unknown-unknown"), derive(NearSchema))]
 #[serde(crate = "near_sdk::serde")]
-#[schemars(crate = "near_sdk::schemars")]
 pub struct QuestInfo {
     name: String,
     points: U128,
@@ -93,13 +91,12 @@ impl From<Quest> for QuestInfo {
     BorshSerialize,
     Deserialize,
     Serialize,
-    JsonSchema,
     EnumIter,
     AsRefStr,
 )]
+#[cfg_attr(not(target = "wasm32-unknown-unknown"), derive(NearSchema))]
 #[serde(crate = "near_sdk::serde")]
 #[borsh(crate = "near_sdk::borsh")]
-#[schemars(crate = "near_sdk::schemars")]
 pub enum Achievement {
     FirstWinHuman,
     FirstWinAiEasy,
@@ -118,9 +115,9 @@ impl Achievement {
     }
 }
 
-#[derive(Deserialize, Serialize, JsonSchema)]
+#[derive(Deserialize, Serialize)]
+#[cfg_attr(not(target = "wasm32-unknown-unknown"), derive(NearSchema))]
 #[serde(crate = "near_sdk::serde")]
-#[schemars(crate = "near_sdk::schemars")]
 pub struct AchievementInfo {
     name: String,
     points: U128,

@@ -1,4 +1,5 @@
 #![feature(coroutines, coroutine_trait)]
+#![allow(dead_code)]
 
 #[macro_use]
 extern crate alloc;
@@ -9,8 +10,8 @@ extern crate rand_chacha;
 
 use near_sdk::{
     borsh::{BorshDeserialize, BorshSerialize},
-    schemars::JsonSchema,
     serde::{Deserialize, Serialize},
+    NearSchema,
 };
 use std::{
     convert::TryFrom,
@@ -86,11 +87,10 @@ pub enum GameResult {
     BorshSerialize,
     Deserialize,
     Serialize,
-    JsonSchema,
 )]
+#[cfg_attr(not(target = "wasm32-unknown-unknown"), derive(NearSchema))]
 #[serde(crate = "near_sdk::serde")]
 #[borsh(crate = "near_sdk::borsh")]
-#[schemars(crate = "near_sdk::schemars")]
 pub enum Color {
     White,
     Black,

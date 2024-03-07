@@ -10,9 +10,10 @@ crate-type = ["cdylib"]
 [dependencies]
 chess-lib = { path = "../chess-lib" }
 
-[dependencies.near-sdk]
-workspace = true
-features = ["abi"]
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies.near-sdk]
+version = "5.0.0"
+default-features = false
+features = ["abi", "unstable"]
 
 [features]
 integration-test = ["chess-lib/integration-test"]
