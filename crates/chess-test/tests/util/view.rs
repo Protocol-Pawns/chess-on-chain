@@ -167,3 +167,8 @@ pub async fn ft_balance_of(contract: &Contract, account_id: &AccountId) -> anyho
     )?;
     Ok(res.json()?)
 }
+
+pub async fn ft_total_supply(contract: &Contract) -> anyhow::Result<U128> {
+    let res = log_view_result(contract.call("ft_total_supply").max_gas().view().await?)?;
+    Ok(res.json()?)
+}

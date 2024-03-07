@@ -379,7 +379,7 @@ impl Account {
         }
     }
 
-    pub fn apply_quest(&mut self, quest: Quest) {
+    pub fn apply_quest(&mut self, quest: Quest) -> u128 {
         let Account::V8(account) = self else {
             panic!("migration required");
         };
@@ -412,9 +412,10 @@ impl Account {
         if !on_cooldown {
             quests.push_back((current_timestamp, quest));
         }
+        mint_amount
     }
 
-    pub fn apply_achievement(&mut self, achievement: Achievement) {
+    pub fn apply_achievement(&mut self, achievement: Achievement) -> u128 {
         let Account::V8(account) = self else {
             panic!("migration required");
         };
@@ -430,6 +431,9 @@ impl Account {
             }
             .emit();
             achievements.push((env::block_timestamp_ms(), achievement));
+            mint_amount
+        } else {
+            0
         }
     }
 }

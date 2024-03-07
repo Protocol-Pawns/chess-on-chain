@@ -99,6 +99,7 @@ pub struct Chess {
     pub token_whitelist: Lazy<Vec<AccountId>>,
     pub bets: UnorderedMap<BetId, Bets>,
     pub is_running: bool,
+    pub points_total_supply: u128,
 }
 
 #[derive(BorshDeserialize, BorshSerialize, PanicOnDefault)]
@@ -113,6 +114,7 @@ pub struct OldChess {
     pub fees: Lazy<Fees>,
     pub token_whitelist: Lazy<Vec<AccountId>>,
     pub bets: UnorderedMap<BetId, Bets>,
+    pub is_running: bool,
 }
 
 #[derive(
@@ -170,6 +172,7 @@ impl Chess {
             token_whitelist: Lazy::new(StorageKey::TokenWhitelist, Vec::new()),
             bets: UnorderedMap::new(StorageKey::Bets),
             is_running: true,
+            points_total_supply: 0,
         })
     }
 
@@ -179,9 +182,11 @@ impl Chess {
         let chess: OldChess = env::state_read().unwrap();
 
         // let mut accounts = vec![];
-        // for (account_id, account) in chess.accounts.drain() {
-        //     accounts.push((account_id, account.migrate()));
-        // }
+        let mut points_total_supply = 0;
+        for account in chess.accounts.values() {
+            // accounts.push((account_id, account.migrate()));
+            points_total_supply += account.get_points();
+        }
         // for (account_id, account) in accounts {
         //     chess.accounts.insert(account_id, account);
         // }
@@ -196,7 +201,8 @@ impl Chess {
             fees: chess.fees,
             token_whitelist: chess.token_whitelist,
             bets: chess.bets,
-            is_running: true,
+            is_running: chess.is_running,
+            points_total_supply,
         }
     }
 
@@ -446,7 +452,8 @@ impl Chess {
             .accounts
             .get_mut(&account_id)
             .ok_or(ContractError::AccountNotRegistered(account_id.clone()))?;
-        account.apply_quest(Quest::DailyPlayMove);
+        let points = account.apply_quest(Quest::DailyPlayMove);
+        self.points_total_supply += points;
 
         if !game.is_turn(&account_id) {
             return Err(ContractError::NotYourTurn);

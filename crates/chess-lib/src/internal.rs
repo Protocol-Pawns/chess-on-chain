@@ -158,10 +158,11 @@ impl Chess {
                     Player::Ai(Difficulty::Medium) => Some(Achievement::FirstWinAiMedium),
                     Player::Ai(Difficulty::Hard) => Some(Achievement::FirstWinAiHard),
                 } {
-                    winner
+                    let points = winner
                         .as_account_mut(self)
                         .unwrap()
                         .apply_achievement(achievement);
+                    self.points_total_supply += points;
                 }
             }
         }
