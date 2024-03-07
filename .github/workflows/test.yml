@@ -42,6 +42,10 @@ jobs:
           override: true
           components: rustfmt, clippy
 
+      - name: Install Cargo Near
+        run: |
+          cargo install cargo-near
+
       - name: Install wasm-opt
         run: |
           echo $PATH
