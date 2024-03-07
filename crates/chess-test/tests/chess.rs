@@ -15,7 +15,7 @@ use util::*;
 
 #[tokio::test]
 async fn test_migrate() -> anyhow::Result<()> {
-    let (worker, _, contract, _, nada_bot_contract) =
+    let (worker, _, contract, _, _) =
         initialize_contracts(Some("../../res/chess_old.wasm")).await?;
 
     let player_a = worker.dev_create_account().await?;
@@ -45,7 +45,7 @@ async fn test_migrate() -> anyhow::Result<()> {
         .deploy(&fs::read("../../res/chess_testing.wasm").await?)
         .await?
         .into_result()?;
-    call::migrate(&contract, contract.as_account(), nada_bot_contract.id()).await?;
+    call::migrate(&contract, contract.as_account()).await?;
 
     let game_ids = view::get_game_ids(&contract, player_a.id()).await?;
     assert_eq!(game_ids, vec![game_id.clone()]);
@@ -65,6 +65,42 @@ async fn test_migrate() -> anyhow::Result<()> {
     })?;
     expected["last_block_height"].take();
     assert_eq!(actual, expected);
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn test_pausing() -> anyhow::Result<()> {
+    let (worker, _, contract, _, _) = initialize_contracts(None).await?;
+
+    let player_a = worker.dev_create_account().await?;
+    let player_b = worker.dev_create_account().await?;
+
+    let res = call::pause(&contract, &player_a).await;
+    assert!(res.is_err());
+
+    call::pause(&contract, contract.as_account()).await?;
+
+    let res = call::storage_deposit(&contract, &player_a, None, None).await;
+    assert!(res.is_err());
+    let res = call::challenge(&contract, &player_a, player_b.id()).await;
+    assert!(res.is_err());
+    let res = call::accept_challenge(&contract, &player_a, &"id".to_string()).await;
+    assert!(res.is_err());
+    let res = call::create_ai_game(&contract, &player_a, Difficulty::Easy).await;
+    assert!(res.is_err());
+    let res = call::play_move(
+        &contract,
+        &player_a,
+        &GameId(0, "a.near".parse()?, None),
+        "a2a4".to_string(),
+    )
+    .await;
+    assert!(res.is_err());
+
+    call::resume(&contract, contract.as_account()).await?;
+    let res = call::storage_deposit(&contract, &player_a, None, None).await;
+    assert!(res.is_ok());
 
     Ok(())
 }

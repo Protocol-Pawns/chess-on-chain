@@ -1,5 +1,5 @@
 use crate::{Chess, ChessExt, ContractError, GAS_FOR_IS_HUMAN_CALL};
-use near_sdk::{env, ext_contract, near_bindgen, AccountId, Promise};
+use near_sdk::{env, ext_contract, near_bindgen, require, AccountId, Promise};
 
 #[ext_contract(ext_registry)]
 pub trait ExtRegistry {
@@ -9,6 +9,7 @@ pub trait ExtRegistry {
 #[near_bindgen]
 impl Chess {
     pub fn update_is_human(&mut self, account_id: AccountId) -> Promise {
+        require!(self.is_running, "Contract is paused");
         ext_registry::ext(self.nada_bot_id.clone())
             .with_static_gas(GAS_FOR_IS_HUMAN_CALL)
             .is_human(account_id.clone())

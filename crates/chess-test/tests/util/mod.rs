@@ -73,26 +73,6 @@ pub async fn initialize_contracts(
         .await?
         .into_result()?;
 
-    // TODO replace once migration is complete
-    let iah_contract = {
-        let key = SecretKey::from_random(KeyType::ED25519);
-        let iah_contract = worker
-            .create_tla_and_deploy(
-                "iah-registry.test.near".parse()?,
-                key,
-                &fs::read("../../res/iah_registry_stub.wasm").await?,
-            )
-            .await?
-            .into_result()?;
-        iah_contract
-            .call("new")
-            .max_gas()
-            .transact()
-            .await?
-            .into_result()?;
-        iah_contract
-    };
-
     let key = SecretKey::from_random(KeyType::ED25519);
     let nada_bot_contract = worker
         .create_tla_and_deploy(
@@ -117,14 +97,7 @@ pub async fn initialize_contracts(
 
     contract
         .call("new")
-        .args_json((
-            social_contract.id(),
-            if path.is_some() {
-                iah_contract.id()
-            } else {
-                nada_bot_contract.id()
-            },
-        ))
+        .args_json((social_contract.id(), nada_bot_contract.id()))
         .max_gas()
         .transact()
         .await?

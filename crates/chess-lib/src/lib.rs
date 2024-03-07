@@ -34,13 +34,13 @@ use near_sdk::{
     borsh::{BorshDeserialize, BorshSerialize},
     env,
     json_types::U128,
-    near_bindgen,
+    near_bindgen, require,
     schemars::JsonSchema,
     serde::{Deserialize, Serialize},
     store::{Lazy, UnorderedMap},
     AccountId, BorshStorageKey, Gas, GasWeight, NearToken, PanicOnDefault, PromiseOrValue,
 };
-use std::collections::{HashMap, VecDeque};
+use std::collections::HashMap;
 
 pub const MAX_OPEN_GAMES: u32 = 5;
 pub const MAX_OPEN_CHALLENGES: u32 = 25;
@@ -98,17 +98,17 @@ pub struct Chess {
     pub fees: Lazy<Fees>,
     pub token_whitelist: Lazy<Vec<AccountId>>,
     pub bets: UnorderedMap<BetId, Bets>,
+    pub is_running: bool,
 }
 
 #[derive(BorshDeserialize, BorshSerialize, PanicOnDefault)]
 #[borsh(crate = "near_sdk::borsh")]
 pub struct OldChess {
     pub social_db: AccountId,
-    pub iah_registry: AccountId,
+    pub nada_bot_id: AccountId,
     pub accounts: UnorderedMap<AccountId, Account>,
     pub games: UnorderedMap<GameId, Game>,
     pub challenges: UnorderedMap<ChallengeId, Challenge>,
-    pub recent_finished_games: Lazy<VecDeque<GameId>>,
     pub treasury: UnorderedMap<AccountId, u128>,
     pub fees: Lazy<Fees>,
     pub token_whitelist: Lazy<Vec<AccountId>>,
@@ -169,27 +169,26 @@ impl Chess {
             ),
             token_whitelist: Lazy::new(StorageKey::TokenWhitelist, Vec::new()),
             bets: UnorderedMap::new(StorageKey::Bets),
+            is_running: true,
         })
     }
 
     #[private]
     #[init(ignore_state)]
-    pub fn migrate(nada_bot_id: AccountId) -> Self {
-        let mut chess: OldChess = env::state_read().unwrap();
+    pub fn migrate() -> Self {
+        let chess: OldChess = env::state_read().unwrap();
 
-        let mut accounts = vec![];
-        for (account_id, account) in chess.accounts.drain() {
-            accounts.push((account_id, account.migrate()));
-        }
-        for (account_id, account) in accounts {
-            chess.accounts.insert(account_id, account);
-        }
-
-        chess.recent_finished_games.clear();
+        // let mut accounts = vec![];
+        // for (account_id, account) in chess.accounts.drain() {
+        //     accounts.push((account_id, account.migrate()));
+        // }
+        // for (account_id, account) in accounts {
+        //     chess.accounts.insert(account_id, account);
+        // }
 
         Self {
             social_db: chess.social_db,
-            nada_bot_id,
+            nada_bot_id: chess.nada_bot_id,
             accounts: chess.accounts,
             games: chess.games,
             challenges: chess.challenges,
@@ -197,7 +196,18 @@ impl Chess {
             fees: chess.fees,
             token_whitelist: chess.token_whitelist,
             bets: chess.bets,
+            is_running: true,
         }
+    }
+
+    #[private]
+    pub fn pause(&mut self) {
+        self.is_running = false;
+    }
+
+    #[private]
+    pub fn resume(&mut self) {
+        self.is_running = true;
     }
 
     #[private]
@@ -304,6 +314,7 @@ impl Chess {
     /// There can only ever be 10 open games due to storage limitations.
     #[handle_result]
     pub fn create_ai_game(&mut self, difficulty: Difficulty) -> Result<GameId, ContractError> {
+        require!(self.is_running, "Contract is paused");
         let account_id = env::signer_account_id();
         let account = self
             .accounts
@@ -338,6 +349,7 @@ impl Chess {
     /// There can only ever be 10 open games due to storage limitations.
     #[handle_result]
     pub fn challenge(&mut self, challenged_id: AccountId) -> Result<(), ContractError> {
+        require!(self.is_running, "Contract is paused");
         let challenger_id = env::signer_account_id();
         if challenger_id == challenged_id {
             return Err(ContractError::SelfChallenge);
@@ -351,6 +363,7 @@ impl Chess {
     /// respective token that is used as wager.
     #[handle_result]
     pub fn accept_challenge(&mut self, challenge_id: ChallengeId) -> Result<GameId, ContractError> {
+        require!(self.is_running, "Contract is paused");
         let challenged_id = env::signer_account_id();
         Ok(self
             .internal_accept_challenge(challenged_id, challenge_id, None)?
@@ -364,6 +377,7 @@ impl Chess {
         challenge_id: ChallengeId,
         is_challenger: bool,
     ) -> Result<PromiseOrValue<()>, ContractError> {
+        require!(self.is_running, "Contract is paused");
         let challenge = self
             .challenges
             .remove(&challenge_id)
@@ -420,6 +434,7 @@ impl Chess {
         game_id: GameId,
         mv: MoveStr,
     ) -> Result<(Option<GameOutcome>, [String; 8]), ContractError> {
+        require!(self.is_running, "Contract is paused");
         let account_id = env::signer_account_id();
 
         let mv = Move::parse(mv).map_err(ContractError::MoveParse)?;
@@ -475,6 +490,7 @@ impl Chess {
     /// You can also only have 10 open games due to storage limitations.
     #[handle_result]
     pub fn resign(&mut self, game_id: GameId) -> Result<GameOutcome, ContractError> {
+        require!(self.is_running, "Contract is paused");
         let account_id = env::signer_account_id();
         let game = self
             .games
@@ -515,6 +531,7 @@ impl Chess {
     /// and hasn't been doing a move for the last approx. 3days (measured in block height)
     #[handle_result]
     pub fn cancel(&mut self, game_id: GameId) -> Result<PromiseOrValue<()>, ContractError> {
+        require!(self.is_running, "Contract is paused");
         let account_id = env::signer_account_id();
         let game = self
             .games
@@ -579,6 +596,7 @@ impl Chess {
         &mut self,
         token_id: AccountId,
     ) -> Result<PromiseOrValue<()>, ContractError> {
+        require!(self.is_running, "Contract is paused");
         assert_one_yocto();
 
         let signer_id = env::signer_account_id();

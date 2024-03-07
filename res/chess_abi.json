@@ -772,18 +772,7 @@
         "kind": "call",
         "modifiers": [
           "init"
-        ],
-        "params": {
-          "serialization_type": "json",
-          "args": [
-            {
-              "name": "nada_bot_id",
-              "type_schema": {
-                "$ref": "#/definitions/AccountId"
-              }
-            }
-          ]
-        }
+        ]
       },
       {
         "name": "new",
@@ -872,6 +861,13 @@
             "type": "null"
           }
         }
+      },
+      {
+        "name": "pause",
+        "kind": "call",
+        "modifiers": [
+          "private"
+        ]
       },
       {
         "name": "play_move",
@@ -1024,6 +1020,13 @@
             "$ref": "#/definitions/GameOutcome"
           }
         }
+      },
+      {
+        "name": "resume",
+        "kind": "call",
+        "modifiers": [
+          "private"
+        ]
       },
       {
         "name": "set_fees",

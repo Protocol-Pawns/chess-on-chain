@@ -3,7 +3,7 @@ use near_contract_standards::fungible_token::receiver::FungibleTokenReceiver;
 use near_sdk::{
     env,
     json_types::U128,
-    near_bindgen,
+    near_bindgen, require,
     serde::{Deserialize, Serialize},
     AccountId, PromiseOrValue,
 };
@@ -58,6 +58,7 @@ impl Chess {
         amount: U128,
         msg: String,
     ) -> Result<PromiseOrValue<U128>, ContractError> {
+        require!(self.is_running, "Contract is paused");
         let msg = serde_json::from_str(&msg).map_err(|_| ContractError::Deserialize)?;
         let token_id = env::predecessor_account_id();
         if !self.token_whitelist.contains(&token_id) {

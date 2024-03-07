@@ -16,13 +16,11 @@ use serde_json::json;
 pub async fn migrate(
     contract: &Contract,
     sender: &Account,
-    nada_bot_id: &AccountId,
 ) -> anyhow::Result<ExecutionResult<Value>> {
     let (res, _): (ExecutionResult<Value>, Vec<ContractEvent>) = log_tx_result(
         Some("migrate"),
         sender
             .call(contract.id(), "migrate")
-            .args_json((nada_bot_id,))
             .max_gas()
             .transact()
             .await?,
@@ -57,6 +55,36 @@ pub async fn update_is_human(
         sender
             .call(contract.id(), "update_is_human")
             .args_json((account_id,))
+            .max_gas()
+            .transact()
+            .await?,
+    )?;
+    Ok(res)
+}
+
+pub async fn pause(
+    contract: &Contract,
+    sender: &Account,
+) -> anyhow::Result<ExecutionResult<Value>> {
+    let (res, _) = log_tx_result(
+        Some("pause"),
+        sender
+            .call(contract.id(), "pause")
+            .max_gas()
+            .transact()
+            .await?,
+    )?;
+    Ok(res)
+}
+
+pub async fn resume(
+    contract: &Contract,
+    sender: &Account,
+) -> anyhow::Result<ExecutionResult<Value>> {
+    let (res, _) = log_tx_result(
+        Some("resume"),
+        sender
+            .call(contract.id(), "resume")
             .max_gas()
             .transact()
             .await?,

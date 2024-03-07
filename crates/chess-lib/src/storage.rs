@@ -2,7 +2,7 @@ use crate::{nada_bot, Chess, ChessExt, ContractError, GAS_FOR_IS_HUMAN_CALL, NO_
 use near_contract_standards::storage_management::{
     StorageBalance, StorageBalanceBounds, StorageManagement,
 };
-use near_sdk::{assert_one_yocto, env, near_bindgen, AccountId, NearToken, Promise};
+use near_sdk::{assert_one_yocto, env, near_bindgen, require, AccountId, NearToken, Promise};
 
 pub const STORAGE_ACCOUNT_COST: NearToken = NearToken::from_millinear(50);
 
@@ -14,6 +14,7 @@ impl StorageManagement for Chess {
         account_id: Option<AccountId>,
         registration_only: Option<bool>,
     ) -> StorageBalance {
+        require!(self.is_running, "Contract is paused");
         match self.internal_storage_deposit(account_id, registration_only) {
             Ok(res) => res,
             Err(err) => {
@@ -24,6 +25,7 @@ impl StorageManagement for Chess {
 
     #[payable]
     fn storage_withdraw(&mut self, amount: Option<NearToken>) -> StorageBalance {
+        require!(self.is_running, "Contract is paused");
         assert_one_yocto();
         match self.internal_storage_withdraw(amount) {
             Ok(res) => res,
@@ -35,6 +37,7 @@ impl StorageManagement for Chess {
 
     #[payable]
     fn storage_unregister(&mut self, force: Option<bool>) -> bool {
+        require!(self.is_running, "Contract is paused");
         assert_one_yocto();
         match self.internal_storage_unregister(force) {
             Ok(res) => res,
