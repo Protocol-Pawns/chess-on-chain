@@ -59,8 +59,7 @@ pub struct AccountV7 {
     tokens: UnorderedMap<AccountId, u128>,
 }
 
-#[derive(Deserialize, Serialize)]
-#[cfg_attr(not(target = "wasm32-unknown-unknown"), derive(NearSchema))]
+#[derive(Deserialize, Serialize, NearSchema)]
 #[serde(crate = "near_sdk::serde")]
 pub struct AccountInfo {
     pub near_amount: NearToken,

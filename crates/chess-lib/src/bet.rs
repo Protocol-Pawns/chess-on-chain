@@ -40,8 +40,7 @@ pub struct Bets {
     pub bets: UnorderedMap<AccountId, Vec<(AccountId, Bet)>>,
 }
 
-#[derive(Debug, Deserialize, Serialize)]
-#[cfg_attr(not(target = "wasm32-unknown-unknown"), derive(NearSchema))]
+#[derive(Debug, Deserialize, Serialize, NearSchema)]
 #[serde(crate = "near_sdk::serde")]
 pub struct BetInfo {
     pub is_locked: bool,
@@ -98,8 +97,7 @@ pub struct Bet {
     pub winner: AccountId,
 }
 
-#[derive(Deserialize, Serialize, Debug)]
-#[cfg_attr(not(target = "wasm32-unknown-unknown"), derive(NearSchema))]
+#[derive(Deserialize, Serialize, Debug, NearSchema)]
 #[serde(crate = "near_sdk::serde")]
 pub struct BetView {
     pub amount: U128,

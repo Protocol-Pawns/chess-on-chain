@@ -129,8 +129,8 @@ pub struct OldChess {
     PanicOnDefault,
     Deserialize,
     Serialize,
+    NearSchema,
 )]
-#[cfg_attr(not(target = "wasm32-unknown-unknown"), derive(NearSchema))]
 #[serde(crate = "near_sdk::serde")]
 #[borsh(crate = "near_sdk::borsh")]
 pub struct Fees {

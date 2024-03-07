@@ -87,8 +87,8 @@ pub enum GameResult {
     BorshSerialize,
     Deserialize,
     Serialize,
+    NearSchema,
 )]
-#[cfg_attr(not(target = "wasm32-unknown-unknown"), derive(NearSchema))]
 #[serde(crate = "near_sdk::serde")]
 #[borsh(crate = "near_sdk::borsh")]
 pub enum Color {

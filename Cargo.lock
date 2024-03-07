@@ -998,7 +998,6 @@ version = "1.0.0"
 dependencies = [
  "chess-engine",
  "maplit",
- "near-abi 0.4.2",
  "near-contract-standards",
  "near-sdk",
  "primitive-types 0.12.2",

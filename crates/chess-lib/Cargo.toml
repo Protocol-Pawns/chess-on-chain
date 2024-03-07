@@ -10,7 +10,6 @@ crate-type = ["rlib"]
 [dependencies]
 chess-engine = { path = "../chess-engine" }
 maplit.workspace = true
-near-abi.workspace = true
 near-contract-standards.workspace = true
 near-sdk.workspace = true
 primitive-types.workspace = true

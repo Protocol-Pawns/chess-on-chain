@@ -22,8 +22,8 @@ use strum::{AsRefStr, EnumIter};
     Serialize,
     EnumIter,
     AsRefStr,
+    NearSchema,
 )]
-#[cfg_attr(not(target = "wasm32-unknown-unknown"), derive(NearSchema))]
 #[serde(crate = "near_sdk::serde")]
 #[borsh(crate = "near_sdk::borsh")]
 pub enum Quest {
@@ -62,8 +62,7 @@ impl Quest {
     }
 }
 
-#[derive(Deserialize, Serialize)]
-#[cfg_attr(not(target = "wasm32-unknown-unknown"), derive(NearSchema))]
+#[derive(Deserialize, Serialize, NearSchema)]
 #[serde(crate = "near_sdk::serde")]
 pub struct QuestInfo {
     name: String,
@@ -93,8 +92,8 @@ impl From<Quest> for QuestInfo {
     Serialize,
     EnumIter,
     AsRefStr,
+    NearSchema,
 )]
-#[cfg_attr(not(target = "wasm32-unknown-unknown"), derive(NearSchema))]
 #[serde(crate = "near_sdk::serde")]
 #[borsh(crate = "near_sdk::borsh")]
 pub enum Achievement {
@@ -115,8 +114,7 @@ impl Achievement {
     }
 }
 
-#[derive(Deserialize, Serialize)]
-#[cfg_attr(not(target = "wasm32-unknown-unknown"), derive(NearSchema))]
+#[derive(Deserialize, Serialize, NearSchema)]
 #[serde(crate = "near_sdk::serde")]
 pub struct AchievementInfo {
     name: String,

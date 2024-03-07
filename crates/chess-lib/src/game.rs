@@ -28,14 +28,13 @@ use near_sdk::{
     PartialOrd,
     PartialEq,
     Eq,
+    NearSchema,
 )]
-#[cfg_attr(not(target = "wasm32-unknown-unknown"), derive(NearSchema))]
 #[serde(crate = "near_sdk::serde")]
 #[borsh(crate = "near_sdk::borsh")]
 pub struct GameId(pub u64, pub AccountId, pub Option<AccountId>);
 
-#[derive(BorshDeserialize, BorshSerialize, Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(not(target = "wasm32-unknown-unknown"), derive(NearSchema))]
+#[derive(BorshDeserialize, BorshSerialize, Clone, Debug, Serialize, Deserialize, NearSchema)]
 #[serde(crate = "near_sdk::serde", tag = "type", content = "value")]
 #[borsh(crate = "near_sdk::borsh")]
 pub enum Player {
@@ -80,8 +79,7 @@ impl Player {
 /// - Easy: ~8TGas
 /// - Medium: ~30TGas
 /// - Hard: ~110TGas
-#[derive(BorshDeserialize, BorshSerialize, Clone, Debug, Deserialize, Serialize)]
-#[cfg_attr(not(target = "wasm32-unknown-unknown"), derive(NearSchema))]
+#[derive(BorshDeserialize, BorshSerialize, Clone, Debug, Deserialize, Serialize, NearSchema)]
 #[serde(crate = "near_sdk::serde")]
 #[borsh(crate = "near_sdk::borsh")]
 
@@ -112,8 +110,7 @@ pub struct GameV4 {
     has_bets: bool,
 }
 
-#[derive(Deserialize, Serialize)]
-#[cfg_attr(not(target = "wasm32-unknown-unknown"), derive(NearSchema))]
+#[derive(Deserialize, Serialize, NearSchema)]
 #[serde(crate = "near_sdk::serde")]
 pub struct GameInfo {
     pub white: Player,
@@ -123,8 +120,17 @@ pub struct GameInfo {
     pub has_bets: bool,
 }
 
-#[derive(BorshDeserialize, BorshSerialize, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
-#[cfg_attr(not(target = "wasm32-unknown-unknown"), derive(NearSchema))]
+#[derive(
+    BorshDeserialize,
+    BorshSerialize,
+    Clone,
+    Debug,
+    Deserialize,
+    Serialize,
+    PartialEq,
+    Eq,
+    NearSchema,
+)]
 #[serde(crate = "near_sdk::serde", tag = "result", content = "color")]
 #[borsh(crate = "near_sdk::borsh")]
 pub enum GameOutcome {
