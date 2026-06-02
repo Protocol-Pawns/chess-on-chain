@@ -53,7 +53,7 @@ pub async fn initialize_contracts(
     let key = SecretKey::from_random(KeyType::ED25519);
     let social_contract = worker
         .create_tla_and_deploy(
-            "social.test.near".parse()?,
+            "social.registrar".parse()?,
             key,
             &fs::read("../../res/social_db.wasm").await?,
         )
@@ -76,7 +76,7 @@ pub async fn initialize_contracts(
     let key = SecretKey::from_random(KeyType::ED25519);
     let nada_bot_contract = worker
         .create_tla_and_deploy(
-            "nada-bot.test.near".parse()?,
+            "nada-bot.registrar".parse()?,
             key,
             &fs::read("../../res/nada_bot_stub.wasm").await?,
         )
@@ -91,7 +91,7 @@ pub async fn initialize_contracts(
 
     let key = SecretKey::from_random(KeyType::ED25519);
     let contract = worker
-        .create_tla_and_deploy("chess.test.near".parse()?, key, &wasm)
+        .create_tla_and_deploy("chess.registrar".parse()?, key, &wasm)
         .await?
         .into_result()?;
 
