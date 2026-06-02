@@ -1,7 +1,6 @@
 use super::{Board, Color, Move, Position};
-use crate::CoroutineIteratorAdapter;
 use near_sdk::borsh::{BorshDeserialize, BorshSerialize};
-use std::{convert::TryFrom, ops::Coroutine};
+use std::convert::TryFrom;
 
 /// A piece on a board.
 ///
@@ -412,8 +411,7 @@ impl Piece {
     /// This is used for move generation.
     pub(crate) fn get_legal_moves(self, board: &Board) -> impl Iterator<Item = Move> + '_ {
         let color = self.get_color();
-        let moves = CoroutineIteratorAdapter::new(self.get_moves(board));
-        moves.filter(move |x| match x {
+        self.get_moves(board).into_iter().filter(move |x| match x {
             Move::Piece(from, to) => {
                 if from.is_on_board() && to.is_on_board() {
                     board.is_legal_move(*x, color)
@@ -425,164 +423,151 @@ impl Piece {
         })
     }
 
-    pub(crate) fn get_moves(self, board: &Board) -> impl Coroutine<Yield = Move, Return = ()> + '_ {
-        move || {
-            match self {
-                Self::Pawn(ally_color, pos) => {
-                    let up = pos.pawn_up(ally_color);
-                    let next_up = up.pawn_up(ally_color);
-                    let up_left = up.next_left();
-                    let up_right = up.next_right();
+    pub(crate) fn get_moves(self, board: &Board) -> Vec<Move> {
+        let mut out: Vec<Move> = Vec::new();
+        match self {
+            Self::Pawn(ally_color, pos) => {
+                let up = pos.pawn_up(ally_color);
+                let next_up = up.pawn_up(ally_color);
+                let up_left = up.next_left();
+                let up_right = up.next_right();
 
-                    if let Some(en_passant) = board.get_en_passant() {
-                        if en_passant == up_left || en_passant == up_right {
-                            yield Move::Piece(pos, en_passant);
-                        }
+                if let Some(en_passant) = board.get_en_passant() {
+                    if en_passant == up_left || en_passant == up_right {
+                        out.push(Move::Piece(pos, en_passant));
                     }
+                }
 
-                    if next_up.is_on_board()
-                        && self.is_starting_pawn()
-                        && board.has_no_piece(up)
-                        && board.has_no_piece(next_up)
+                if next_up.is_on_board()
+                    && self.is_starting_pawn()
+                    && board.has_no_piece(up)
+                    && board.has_no_piece(next_up)
+                {
+                    out.push(Move::Piece(pos, next_up));
+                }
+
+                if up.is_on_board() && board.has_no_piece(up) {
+                    out.push(Move::Piece(pos, up));
+                }
+
+                if up_left.is_on_board() && board.has_enemy_piece(up_left, ally_color) {
+                    out.push(Move::Piece(pos, up_left));
+                }
+
+                if up_right.is_on_board() && board.has_enemy_piece(up_right, ally_color) {
+                    out.push(Move::Piece(pos, up_right));
+                }
+            }
+
+            Self::King(ally_color, pos) => {
+                for p in [
+                    pos.next_left(),
+                    pos.next_right(),
+                    pos.next_above(),
+                    pos.next_below(),
+                    pos.next_left().next_above(),
+                    pos.next_left().next_below(),
+                    pos.next_right().next_above(),
+                    pos.next_right().next_below(),
+                ] {
+                    if p.is_on_board() && !board.has_ally_piece(p, ally_color) {
+                        out.push(Move::Piece(pos, p));
+                    }
+                }
+                if board.can_kingside_castle(ally_color) {
+                    out.push(Move::KingSideCastle);
+                } else if board.can_queenside_castle(ally_color) {
+                    out.push(Move::QueenSideCastle);
+                }
+            }
+
+            Self::Queen(ally_color, pos) => {
+                for row in 0..8 {
+                    let new_pos = Position::new(row, pos.get_col());
+                    if new_pos != pos
+                        && !board.has_ally_piece(new_pos, ally_color)
+                        && new_pos.is_orthogonal_to(pos)
                     {
-                        yield Move::Piece(pos, next_up)
+                        out.push(Move::Piece(pos, new_pos));
                     }
-
-                    if up.is_on_board() && board.has_no_piece(up) {
-                        yield Move::Piece(pos, up)
-                    }
-
-                    if up_left.is_on_board() && board.has_enemy_piece(up_left, ally_color) {
-                        yield Move::Piece(pos, up_left)
-                    }
-
-                    if up_right.is_on_board() && board.has_enemy_piece(up_right, ally_color) {
-                        yield Move::Piece(pos, up_right)
+                }
+                for col in 0..8 {
+                    let new_pos = Position::new(pos.get_row(), col);
+                    if new_pos != pos
+                        && !board.has_ally_piece(new_pos, ally_color)
+                        && new_pos.is_orthogonal_to(pos)
+                    {
+                        out.push(Move::Piece(pos, new_pos));
                     }
                 }
 
-                Self::King(ally_color, pos) => {
-                    for p in [
-                        pos.next_left(),
-                        pos.next_right(),
-                        pos.next_above(),
-                        pos.next_below(),
-                        pos.next_left().next_above(),
-                        pos.next_left().next_below(),
-                        pos.next_right().next_above(),
-                        pos.next_right().next_below(),
-                    ] {
-                        if p.is_on_board() && !board.has_ally_piece(p, ally_color) {
-                            yield Move::Piece(pos, p)
-                        }
-                    }
-                    if board.can_kingside_castle(ally_color) {
-                        yield Move::KingSideCastle;
-                    } else if board.can_queenside_castle(ally_color) {
-                        yield Move::QueenSideCastle;
-                    }
-                }
-
-                Self::Queen(ally_color, pos) => {
-                    for row in 0..8 {
-                        let new_pos = Position::new(row, pos.get_col());
-                        if new_pos != pos
-                            && !board.has_ally_piece(new_pos, ally_color)
-                            && new_pos.is_orthogonal_to(pos)
-                        {
-                            yield Move::Piece(pos, new_pos);
-                        }
-                    }
+                for row in 0..8 {
                     for col in 0..8 {
-                        let new_pos = Position::new(pos.get_row(), col);
+                        let new_pos = Position::new(row, col);
                         if new_pos != pos
                             && !board.has_ally_piece(new_pos, ally_color)
-                            && new_pos.is_orthogonal_to(pos)
+                            && new_pos.is_diagonal_to(pos)
                         {
-                            yield Move::Piece(pos, new_pos);
-                        }
-                    }
-
-                    for row in 0..8 {
-                        for col in 0..8 {
-                            let new_pos = Position::new(row, col);
-                            if new_pos != pos
-                                && !board.has_ally_piece(new_pos, ally_color)
-                                && new_pos.is_diagonal_to(pos)
-                            {
-                                yield Move::Piece(pos, new_pos);
-                            }
-                        }
-                    }
-                }
-
-                Self::Rook(ally_color, pos) => {
-                    for row in 0..8 {
-                        let new_pos = Position::new(row, pos.get_col());
-                        if new_pos != pos
-                            && !board.has_ally_piece(new_pos, ally_color)
-                            && new_pos.is_orthogonal_to(pos)
-                        {
-                            yield Move::Piece(pos, new_pos);
-                        }
-                    }
-                    for col in 0..8 {
-                        let new_pos = Position::new(pos.get_row(), col);
-                        if new_pos != pos
-                            && !board.has_ally_piece(new_pos, ally_color)
-                            && new_pos.is_orthogonal_to(pos)
-                        {
-                            yield Move::Piece(pos, new_pos);
-                        }
-                    }
-                }
-
-                Self::Bishop(ally_color, pos) => {
-                    for row in 0..8 {
-                        for col in 0..8 {
-                            let new_pos = Position::new(row, col);
-                            if new_pos != pos
-                                && !board.has_ally_piece(new_pos, ally_color)
-                                && new_pos.is_diagonal_to(pos)
-                            {
-                                yield Move::Piece(pos, new_pos);
-                            }
-                        }
-                    }
-                }
-
-                Self::Knight(ally_color, pos) => {
-                    for p in [
-                        pos.next_left().next_left().next_above(),
-                        pos.next_left().next_above().next_above(),
-                        pos.next_left().next_left().next_below(),
-                        pos.next_left().next_below().next_below(),
-                        pos.next_right().next_right().next_above(),
-                        pos.next_right().next_above().next_above(),
-                        pos.next_right().next_right().next_below(),
-                        pos.next_right().next_below().next_below(),
-                    ] {
-                        if p.is_on_board() && !board.has_ally_piece(p, ally_color) {
-                            yield Move::Piece(pos, p)
+                            out.push(Move::Piece(pos, new_pos));
                         }
                     }
                 }
             }
 
-            // result
-            //     .into_iter()
-            //     .filter(|x| match x {
-            //         Move::Piece(from, to) => {
-            //             if from.is_on_board() && to.is_on_board() {
-            //                 board.is_legal_move(*x, color)
-            //             } else {
-            //                 false
-            //             }
-            //         }
-            //         _ => board.is_legal_move(*x, color),
-            //     })
-            //     .collect::<Vec<Move>>()
+            Self::Rook(ally_color, pos) => {
+                for row in 0..8 {
+                    let new_pos = Position::new(row, pos.get_col());
+                    if new_pos != pos
+                        && !board.has_ally_piece(new_pos, ally_color)
+                        && new_pos.is_orthogonal_to(pos)
+                    {
+                        out.push(Move::Piece(pos, new_pos));
+                    }
+                }
+                for col in 0..8 {
+                    let new_pos = Position::new(pos.get_row(), col);
+                    if new_pos != pos
+                        && !board.has_ally_piece(new_pos, ally_color)
+                        && new_pos.is_orthogonal_to(pos)
+                    {
+                        out.push(Move::Piece(pos, new_pos));
+                    }
+                }
+            }
+
+            Self::Bishop(ally_color, pos) => {
+                for row in 0..8 {
+                    for col in 0..8 {
+                        let new_pos = Position::new(row, col);
+                        if new_pos != pos
+                            && !board.has_ally_piece(new_pos, ally_color)
+                            && new_pos.is_diagonal_to(pos)
+                        {
+                            out.push(Move::Piece(pos, new_pos));
+                        }
+                    }
+                }
+            }
+
+            Self::Knight(ally_color, pos) => {
+                for p in [
+                    pos.next_left().next_left().next_above(),
+                    pos.next_left().next_above().next_above(),
+                    pos.next_left().next_left().next_below(),
+                    pos.next_left().next_below().next_below(),
+                    pos.next_right().next_right().next_above(),
+                    pos.next_right().next_above().next_above(),
+                    pos.next_right().next_right().next_below(),
+                    pos.next_right().next_below().next_below(),
+                ] {
+                    if p.is_on_board() && !board.has_ally_piece(p, ally_color) {
+                        out.push(Move::Piece(pos, p));
+                    }
+                }
+            }
         }
+
+        out
     }
 
     /// Verify that moving to a new position is a legal move.

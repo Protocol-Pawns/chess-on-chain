@@ -62,6 +62,12 @@ pub struct EloConfig {
     pub k: f64,
 }
 
+impl Default for EloConfig {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl EloConfig {
     #[must_use]
     /// Initialise a new `EloConfig` with a k value of `32.0`.

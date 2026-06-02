@@ -74,7 +74,7 @@ impl Chess {
         if notifications.is_empty() {
             return;
         }
-        social_db::ext(self.social_db.clone())
+        let _ = social_db::ext(self.social_db.clone())
             .with_static_gas(GAS_FOR_SOCIAL_NOTIFY_CALL)
             .set(json!({
                 env::current_account_id(): {

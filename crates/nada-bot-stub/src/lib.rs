@@ -14,6 +14,8 @@ pub struct Contract {
     hoomans: UnorderedSet<AccountId>,
 }
 
+impl near_sdk::state::ContractState for Contract {}
+
 #[near_bindgen]
 impl Contract {
     #[init]

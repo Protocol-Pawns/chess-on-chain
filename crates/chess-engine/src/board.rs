@@ -292,9 +292,7 @@ impl Board {
 
     pub fn get_next_move(&self, depths: &[u8], seed: [u8; 32]) -> (Move, u64, f64) {
         let mut rng = ChaCha20Rng::from_seed(seed);
-        let legal_moves = self
-            .get_legal_moves()
-            .choose_multiple(&mut rng, depths[0].into());
+        let legal_moves = self.get_legal_moves().sample(&mut rng, depths[0].into());
         let mut best_move_value = -999999.0;
         let mut best_move = Move::Resign;
 
@@ -394,10 +392,7 @@ impl Board {
                 let Either::Right((_, rng)) = &mut next_depth else {
                     panic!();
                 };
-                for m in self
-                    .get_legal_moves()
-                    .choose_multiple(rng, max_moves as usize)
-                {
+                for m in self.get_legal_moves().sample(rng, max_moves as usize) {
                     let child_board_value = self.apply_eval_move(m).minimax(
                         next_depth.clone(),
                         alpha,
@@ -450,10 +445,7 @@ impl Board {
                 let Either::Right((_, rng)) = &mut next_depth else {
                     panic!();
                 };
-                for m in self
-                    .get_legal_moves()
-                    .choose_multiple(rng, max_moves as usize)
-                {
+                for m in self.get_legal_moves().sample(rng, max_moves as usize) {
                     let child_board_value = self.apply_eval_move(m).minimax(
                         next_depth.clone(),
                         alpha,

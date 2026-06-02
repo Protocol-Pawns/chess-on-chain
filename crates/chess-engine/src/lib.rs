@@ -1,4 +1,3 @@
-#![feature(coroutines, coroutine_trait)]
 #![allow(dead_code)]
 
 #[macro_use]
@@ -13,11 +12,7 @@ use near_sdk::{
     serde::{Deserialize, Serialize},
     NearSchema,
 };
-use std::{
-    convert::TryFrom,
-    ops::{Coroutine, CoroutineState},
-    pin::Pin,
-};
+use std::convert::TryFrom;
 
 mod board;
 pub use board::{Board, BoardBuilder};
@@ -250,31 +245,6 @@ impl core::fmt::Display for Move {
             Move::KingSideCastle => write!(f, "O-O"),
             Move::QueenSideCastle => write!(f, "O-O-O"),
             Move::Resign => write!(f, "Resign"),
-        }
-    }
-}
-
-pub(crate) struct CoroutineIteratorAdapter<G>(Pin<Box<G>>);
-
-impl<G> CoroutineIteratorAdapter<G>
-where
-    G: Coroutine<Return = ()>,
-{
-    fn new(gen: G) -> Self {
-        Self(Box::pin(gen))
-    }
-}
-
-impl<G> Iterator for CoroutineIteratorAdapter<G>
-where
-    G: Coroutine<Return = ()>,
-{
-    type Item = G::Yield;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        match self.0.as_mut().resume(()) {
-            CoroutineState::Yielded(x) => Some(x),
-            CoroutineState::Complete(_) => None,
         }
     }
 }

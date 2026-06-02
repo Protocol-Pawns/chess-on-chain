@@ -7,6 +7,7 @@ authors = [
 ]
 description = "A dependency-free chess engine library built to run anywhere."
 license = "MIT"
+edition = "2021"
 
 [dependencies]
 either.workspace = true

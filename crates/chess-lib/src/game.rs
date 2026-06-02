@@ -82,7 +82,6 @@ impl Player {
 #[derive(BorshDeserialize, BorshSerialize, Clone, Debug, Deserialize, Serialize, NearSchema)]
 #[serde(crate = "near_sdk::serde")]
 #[borsh(crate = "near_sdk::borsh")]
-
 pub enum Difficulty {
     Easy,
     Medium,

@@ -104,6 +104,8 @@ pub struct Chess {
     pub points_total_supply: u128,
 }
 
+impl near_sdk::state::ContractState for Chess {}
+
 #[derive(BorshDeserialize, BorshSerialize, PanicOnDefault)]
 #[borsh(crate = "near_sdk::borsh")]
 pub struct OldChess {

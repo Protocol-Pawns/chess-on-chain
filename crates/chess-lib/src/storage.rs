@@ -82,11 +82,11 @@ impl Chess {
         }
         if already_registered {
             if amount.as_yoctonear() > 0 {
-                Promise::new(env::predecessor_account_id()).transfer(amount);
+                let _ = Promise::new(env::predecessor_account_id()).transfer(amount);
             }
             Ok(self.storage_balance_of(account_id).unwrap())
         } else {
-            nada_bot::ext_registry::ext(self.nada_bot_id.clone())
+            let _ = nada_bot::ext_registry::ext(self.nada_bot_id.clone())
                 .with_static_gas(GAS_FOR_IS_HUMAN_CALL)
                 .is_human(account_id.clone())
                 .then(
@@ -96,7 +96,7 @@ impl Chess {
                 );
             let refund = amount.checked_sub(min_balance).unwrap();
             if refund.as_yoctonear() > 0 {
-                Promise::new(env::predecessor_account_id()).transfer(refund);
+                let _ = Promise::new(env::predecessor_account_id()).transfer(refund);
             }
             Ok(StorageBalance {
                 total: min_balance,
@@ -121,7 +121,7 @@ impl Chess {
             if account.is_playing() {
                 return Err(ContractError::AccountIsPlaying);
             }
-            Promise::new(account_id.clone()).transfer(account.get_near_amount());
+            let _ = Promise::new(account_id.clone()).transfer(account.get_near_amount());
             self.accounts.remove(&account_id);
             Ok(true)
         } else {

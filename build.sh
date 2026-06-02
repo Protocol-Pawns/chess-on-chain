@@ -2,18 +2,15 @@
 set -e
 cd "`dirname $0`"
 
-cargo build --release -p chess --target wasm32-unknown-unknown
-cargo build --release -p test-token --target wasm32-unknown-unknown
-cargo build --release -p nada-bot-stub --target wasm32-unknown-unknown
-cp target/wasm32-unknown-unknown/release/*.wasm ./res/
+mkdir -p res
 
-cargo near abi --manifest-path ./crates/chess/Cargo.toml
-cp target/near/chess/chess_abi.json ./res/
+NEAR_TC="--override-toolchain 1.86.0"
 
-cargo build --release -p chess --target wasm32-unknown-unknown --features=integration-test
-cp target/wasm32-unknown-unknown/release/chess.wasm ./res/chess_testing.wasm
+cargo near build non-reproducible-wasm $NEAR_TC --manifest-path ./crates/chess/Cargo.toml --out-dir ./res
+cargo near build non-reproducible-wasm $NEAR_TC --manifest-path ./crates/test-token/Cargo.toml --out-dir ./res
+cargo near build non-reproducible-wasm $NEAR_TC --manifest-path ./crates/nada-bot-stub/Cargo.toml --out-dir ./res
 
-wasm-opt -O4 res/chess.wasm -o res/chess.wasm --strip-debug --vacuum
-wasm-opt -O4 res/chess_testing.wasm -o res/chess_testing.wasm --strip-debug --vacuum
-wasm-opt -O4 res/test_token.wasm -o res/test_token.wasm --strip-debug --vacuum
-wasm-opt -O4 res/nada_bot_stub.wasm -o res/nada_bot_stub.wasm --strip-debug --vacuum
+tmpdir=$(mktemp -d)
+cargo near build non-reproducible-wasm $NEAR_TC --manifest-path ./crates/chess/Cargo.toml --features integration-test --out-dir "$tmpdir"
+mv "$tmpdir/chess.wasm" res/chess_testing.wasm
+rm -rf "$tmpdir"

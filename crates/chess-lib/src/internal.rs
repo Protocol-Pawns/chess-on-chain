@@ -171,7 +171,7 @@ impl Chess {
             match outcome {
                 GameOutcome::Victory(color) => {
                     let wager_amount = 2 * amount.0 - self.deduct_fees(&token_id, amount.0);
-                    ext_ft_core::ext(token_id)
+                    let _ = ext_ft_core::ext(token_id)
                         .with_attached_deposit(ONE_YOCTO)
                         .with_unused_gas_weight(1)
                         .ft_transfer(
@@ -184,7 +184,7 @@ impl Chess {
                         );
                 }
                 GameOutcome::Stalemate => {
-                    ext_ft_core::ext(token_id.clone())
+                    let _ = ext_ft_core::ext(token_id.clone())
                         .with_attached_deposit(ONE_YOCTO)
                         .with_unused_gas_weight(1)
                         .ft_transfer(
@@ -386,7 +386,7 @@ impl Chess {
                     .as_u128();
                 total_royalty += royalty_amount;
 
-                ext_ft_core::ext(token_id.clone())
+                let _ = ext_ft_core::ext(token_id.clone())
                     .with_attached_deposit(ONE_YOCTO)
                     .with_unused_gas_weight(1)
                     .ft_transfer(royalty_account.clone(), royalty_amount.into(), None);

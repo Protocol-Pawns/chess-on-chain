@@ -28,7 +28,7 @@ impl BetId {
     }
 
     pub fn get_storage_key(&self) -> [u8; 32] {
-        env::sha256_array(&[self.0.as_bytes(), self.1.as_bytes()].concat())
+        env::sha256_array([self.0.as_bytes(), self.1.as_bytes()].concat())
     }
 }
 
