@@ -7,7 +7,7 @@ use near_workspaces::{types::NearToken, Account, Contract};
 
 #[tokio::test]
 async fn test_bet_basic() -> anyhow::Result<()> {
-    let (worker, _, contract, _, _) = initialize_contracts(None).await?;
+    let (worker, _, contract, _) = initialize_contracts(None).await?;
     let test_token = initialize_token(&worker, "SHITZU", "SHITZU", None, 24).await?;
     let bet_amount = 10_000_000;
 
@@ -143,7 +143,7 @@ async fn test_bet_basic() -> anyhow::Result<()> {
 
 #[tokio::test]
 async fn test_incomplete_bet() -> anyhow::Result<()> {
-    let (worker, _, contract, _, _) = initialize_contracts(None).await?;
+    let (worker, _, contract, _) = initialize_contracts(None).await?;
     let test_token = initialize_token(&worker, "SHITZU", "SHITZU", None, 24).await?;
     let bet_amount = 10_000_000;
 
@@ -216,7 +216,7 @@ async fn test_incomplete_bet() -> anyhow::Result<()> {
 
 #[tokio::test]
 async fn test_bet_increase() -> anyhow::Result<()> {
-    let (worker, _, contract, _, _) = initialize_contracts(None).await?;
+    let (worker, _, contract, _) = initialize_contracts(None).await?;
     let test_token = initialize_token(&worker, "SHITZU", "SHITZU", None, 24).await?;
     let bet_amount = 10_000_000;
 
@@ -312,7 +312,7 @@ async fn test_bet_increase() -> anyhow::Result<()> {
 
 #[tokio::test]
 async fn test_bet_weighted_win_imbalanced() -> anyhow::Result<()> {
-    let (worker, _, contract, _, _) = initialize_contracts(None).await?;
+    let (worker, _, contract, _) = initialize_contracts(None).await?;
     let test_token = initialize_token(&worker, "SHITZU", "SHITZU", None, 24).await?;
 
     let player_a = worker.dev_create_account().await?;
@@ -414,7 +414,7 @@ async fn test_bet_weighted_win_imbalanced() -> anyhow::Result<()> {
 
 #[tokio::test]
 async fn test_bet_weighted_win_imbalanced_reverse() -> anyhow::Result<()> {
-    let (worker, _, contract, _, _) = initialize_contracts(None).await?;
+    let (worker, _, contract, _) = initialize_contracts(None).await?;
     let test_token = initialize_token(&worker, "SHITZU", "SHITZU", None, 24).await?;
 
     let player_a = worker.dev_create_account().await?;
@@ -516,7 +516,7 @@ async fn test_bet_weighted_win_imbalanced_reverse() -> anyhow::Result<()> {
 
 #[tokio::test]
 async fn test_bet_weighted_win_with_refund() -> anyhow::Result<()> {
-    let (worker, _, contract, _, _) = initialize_contracts(None).await?;
+    let (worker, _, contract, _) = initialize_contracts(None).await?;
     let test_token = initialize_token(&worker, "SHITZU", "SHITZU", None, 24).await?;
 
     let player_a = worker.dev_create_account().await?;
@@ -618,7 +618,7 @@ async fn test_bet_weighted_win_with_refund() -> anyhow::Result<()> {
 
 #[tokio::test]
 async fn test_bet_weighted_win_with_refund_reverse() -> anyhow::Result<()> {
-    let (worker, _, contract, _, _) = initialize_contracts(None).await?;
+    let (worker, _, contract, _) = initialize_contracts(None).await?;
     let test_token = initialize_token(&worker, "SHITZU", "SHITZU", None, 24).await?;
 
     let player_a = worker.dev_create_account().await?;

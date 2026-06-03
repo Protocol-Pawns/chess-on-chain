@@ -43,7 +43,7 @@ macro_rules! print_log {
 
 pub async fn initialize_contracts(
     path: Option<&'static str>,
-) -> anyhow::Result<(Worker<Sandbox>, Account, Contract, Contract, Contract)> {
+) -> anyhow::Result<(Worker<Sandbox>, Account, Contract, Contract)> {
     let worker = near_workspaces::sandbox().await?;
 
     let owner = worker.dev_create_account().await?;
@@ -74,22 +74,6 @@ pub async fn initialize_contracts(
         .into_result()?;
 
     let key = SecretKey::from_random(KeyType::ED25519);
-    let nada_bot_contract = worker
-        .create_tla_and_deploy(
-            "nada-bot.registrar".parse()?,
-            key,
-            &fs::read("../../res/nada_bot_stub.wasm").await?,
-        )
-        .await?
-        .into_result()?;
-    nada_bot_contract
-        .call("new")
-        .max_gas()
-        .transact()
-        .await?
-        .into_result()?;
-
-    let key = SecretKey::from_random(KeyType::ED25519);
     let contract = worker
         .create_tla_and_deploy("chess.registrar".parse()?, key, &wasm)
         .await?
@@ -97,7 +81,7 @@ pub async fn initialize_contracts(
 
     contract
         .call("new")
-        .args_json((social_contract.id(), nada_bot_contract.id()))
+        .args_json((social_contract.id(),))
         .max_gas()
         .transact()
         .await?
@@ -116,7 +100,7 @@ pub async fn initialize_contracts(
         .await?
         .into_result()?;
 
-    Ok((worker, owner, contract, social_contract, nada_bot_contract))
+    Ok((worker, owner, contract, social_contract))
 }
 
 pub async fn initialize_token(

@@ -3,6 +3,7 @@ mod points;
 mod util;
 mod wager;
 
+use base64::Engine;
 use chess_engine::Color;
 use chess_lib::{
     create_challenge_id, Challenge, ChessEvent, ChessNotification, Difficulty, GameId, GameInfo,
@@ -10,18 +11,79 @@ use chess_lib::{
 };
 use futures::future::try_join_all;
 use maplit::hashmap;
+use near_workspaces::types::{KeyType, SecretKey};
 use tokio::fs;
 use util::*;
 
 #[tokio::test]
 async fn test_migrate() -> anyhow::Result<()> {
-    let (worker, _, contract, _, _) =
-        initialize_contracts(Some("../../res/chess_old.wasm")).await?;
+    let worker = near_workspaces::sandbox().await?;
+
+    let key = SecretKey::from_random(KeyType::ED25519);
+    let social_contract = worker
+        .create_tla_and_deploy(
+            "social.registrar".parse()?,
+            key,
+            &fs::read("../../res/social_db.wasm").await?,
+        )
+        .await?
+        .into_result()?;
+    social_contract
+        .call("new")
+        .max_gas()
+        .transact()
+        .await?
+        .into_result()?;
+    social_contract
+        .call("set_status")
+        .args_json(("Live",))
+        .max_gas()
+        .transact()
+        .await?
+        .into_result()?;
+
+    let key = SecretKey::from_random(KeyType::ED25519);
+    let nada_bot_contract = worker
+        .create_tla_and_deploy(
+            "nada-bot.registrar".parse()?,
+            key,
+            &fs::read("../../res/nada_bot_stub.wasm").await?,
+        )
+        .await?
+        .into_result()?;
+    nada_bot_contract
+        .call("new")
+        .max_gas()
+        .transact()
+        .await?
+        .into_result()?;
+
+    let key = SecretKey::from_random(KeyType::ED25519);
+    let contract = worker
+        .create_tla_and_deploy(
+            "chess.registrar".parse()?,
+            key,
+            &fs::read("../../res/chess_old.wasm").await?,
+        )
+        .await?
+        .into_result()?;
+    contract
+        .call("new")
+        .args_json((social_contract.id(), nada_bot_contract.id()))
+        .max_gas()
+        .transact()
+        .await?
+        .into_result()?;
 
     let player_a = worker.dev_create_account().await?;
     let player_b = worker.dev_create_account().await?;
     let player_c = worker.dev_create_account().await?;
 
+    tokio::try_join!(
+        call::add_human(&nada_bot_contract, &player_a, player_a.id()),
+        call::add_human(&nada_bot_contract, &player_b, player_b.id()),
+        call::add_human(&nada_bot_contract, &player_c, player_c.id()),
+    )?;
     tokio::try_join!(
         call::storage_deposit(&contract, &player_a, None, None),
         call::storage_deposit(&contract, &player_b, None, None),
@@ -71,7 +133,7 @@ async fn test_migrate() -> anyhow::Result<()> {
 
 #[tokio::test]
 async fn test_pausing() -> anyhow::Result<()> {
-    let (worker, _, contract, _, _) = initialize_contracts(None).await?;
+    let (worker, _, contract, _) = initialize_contracts(None).await?;
 
     let player_a = worker.dev_create_account().await?;
     let player_b = worker.dev_create_account().await?;
@@ -107,7 +169,7 @@ async fn test_pausing() -> anyhow::Result<()> {
 
 #[tokio::test]
 async fn test_ai_game() -> anyhow::Result<()> {
-    let (worker, _, contract, _, _) = initialize_contracts(None).await?;
+    let (worker, _, contract, _) = initialize_contracts(None).await?;
 
     let player_a = worker.dev_create_account().await?;
 
@@ -196,7 +258,7 @@ async fn test_ai_game() -> anyhow::Result<()> {
 
 #[tokio::test]
 async fn test_accept_challenge() -> anyhow::Result<()> {
-    let (worker, _, contract, _, _) = initialize_contracts(None).await?;
+    let (worker, _, contract, _) = initialize_contracts(None).await?;
 
     let player_a = worker.dev_create_account().await?;
     let player_b = worker.dev_create_account().await?;
@@ -285,7 +347,7 @@ async fn test_accept_challenge() -> anyhow::Result<()> {
 }
 #[tokio::test]
 async fn test_reject_challenge() -> anyhow::Result<()> {
-    let (worker, _, contract, _, _) = initialize_contracts(None).await?;
+    let (worker, _, contract, _) = initialize_contracts(None).await?;
 
     let player_a = worker.dev_create_account().await?;
     let player_b = worker.dev_create_account().await?;
@@ -330,7 +392,7 @@ async fn test_reject_challenge() -> anyhow::Result<()> {
 
 #[tokio::test]
 async fn test_accept_reject_challenge_check_sender() -> anyhow::Result<()> {
-    let (worker, _, contract, _, _) = initialize_contracts(None).await?;
+    let (worker, _, contract, _) = initialize_contracts(None).await?;
 
     let player_a = worker.dev_create_account().await?;
     let player_b = worker.dev_create_account().await?;
@@ -375,7 +437,7 @@ async fn test_accept_reject_challenge_check_sender() -> anyhow::Result<()> {
 
 #[tokio::test]
 async fn test_challenge_check_duplicate() -> anyhow::Result<()> {
-    let (worker, _, contract, _, _) = initialize_contracts(None).await?;
+    let (worker, _, contract, _) = initialize_contracts(None).await?;
 
     let player_a = worker.dev_create_account().await?;
     let player_b = worker.dev_create_account().await?;
@@ -397,15 +459,11 @@ async fn test_challenge_check_duplicate() -> anyhow::Result<()> {
 
 #[tokio::test]
 async fn test_resign() -> anyhow::Result<()> {
-    let (worker, _, contract, _, nada_bot_contract) = initialize_contracts(None).await?;
+    let (worker, _, contract, _) = initialize_contracts(None).await?;
 
     let player_a = worker.dev_create_account().await?;
     let player_b = worker.dev_create_account().await?;
 
-    tokio::try_join!(
-        call::add_human(&nada_bot_contract, &player_a, player_a.id()),
-        call::add_human(&nada_bot_contract, &player_b, player_b.id())
-    )?;
     tokio::try_join!(
         call::storage_deposit(&contract, &player_a, None, None),
         call::storage_deposit(&contract, &player_b, None, None)
@@ -446,19 +504,13 @@ async fn test_resign() -> anyhow::Result<()> {
 
 #[tokio::test]
 async fn test_cleanup_success() -> anyhow::Result<()> {
-    let (worker, _, contract, _, nada_bot_contract) = initialize_contracts(None).await?;
+    let (worker, _, contract, _) = initialize_contracts(None).await?;
 
     let player_a = worker.dev_create_account().await?;
     let player_b = worker.dev_create_account().await?;
     let player_c = worker.dev_create_account().await?;
     let player_d = worker.dev_create_account().await?;
 
-    tokio::try_join!(
-        call::add_human(&nada_bot_contract, &player_a, player_a.id()),
-        call::add_human(&nada_bot_contract, &player_b, player_b.id()),
-        call::add_human(&nada_bot_contract, &player_c, player_c.id()),
-        call::add_human(&nada_bot_contract, &player_d, player_d.id())
-    )?;
     tokio::try_join!(
         call::storage_deposit(&contract, &player_a, None, None),
         call::storage_deposit(&contract, &player_b, None, None),
@@ -527,19 +579,13 @@ async fn test_cleanup_success() -> anyhow::Result<()> {
 
 #[tokio::test]
 async fn test_cleanup_partial() -> anyhow::Result<()> {
-    let (worker, _, contract, _, nada_bot_contract) = initialize_contracts(None).await?;
+    let (worker, _, contract, _) = initialize_contracts(None).await?;
 
     let player_a = worker.dev_create_account().await?;
     let player_b = worker.dev_create_account().await?;
     let player_c = worker.dev_create_account().await?;
     let player_d = worker.dev_create_account().await?;
 
-    tokio::try_join!(
-        call::add_human(&nada_bot_contract, &player_a, player_a.id()),
-        call::add_human(&nada_bot_contract, &player_b, player_b.id()),
-        call::add_human(&nada_bot_contract, &player_c, player_c.id()),
-        call::add_human(&nada_bot_contract, &player_d, player_d.id())
-    )?;
     tokio::try_join!(
         call::storage_deposit(&contract, &player_a, None, None),
         call::storage_deposit(&contract, &player_b, None, None),
@@ -597,15 +643,11 @@ async fn test_cleanup_partial() -> anyhow::Result<()> {
 
 #[tokio::test]
 async fn test_cancel_success() -> anyhow::Result<()> {
-    let (worker, _, contract, _, nada_bot_contract) = initialize_contracts(None).await?;
+    let (worker, _, contract, _) = initialize_contracts(None).await?;
 
     let player_a = worker.dev_create_account().await?;
     let player_b = worker.dev_create_account().await?;
 
-    tokio::try_join!(
-        call::add_human(&nada_bot_contract, &player_a, player_a.id()),
-        call::add_human(&nada_bot_contract, &player_b, player_b.id())
-    )?;
     tokio::try_join!(
         call::storage_deposit(&contract, &player_a, None, None),
         call::storage_deposit(&contract, &player_b, None, None)
@@ -646,7 +688,7 @@ async fn test_cancel_success() -> anyhow::Result<()> {
 
 #[tokio::test]
 async fn test_cancel_not_enough_blocks() -> anyhow::Result<()> {
-    let (worker, _, contract, _, _) = initialize_contracts(None).await?;
+    let (worker, _, contract, _) = initialize_contracts(None).await?;
 
     let player_a = worker.dev_create_account().await?;
     let player_b = worker.dev_create_account().await?;
@@ -677,7 +719,7 @@ async fn test_cancel_not_enough_blocks() -> anyhow::Result<()> {
 
 #[tokio::test]
 async fn test_cancel_update_last_block_height() -> anyhow::Result<()> {
-    let (worker, _, contract, _, _) = initialize_contracts(None).await?;
+    let (worker, _, contract, _) = initialize_contracts(None).await?;
 
     let player_a = worker.dev_create_account().await?;
     let player_b = worker.dev_create_account().await?;
@@ -713,7 +755,7 @@ async fn test_cancel_update_last_block_height() -> anyhow::Result<()> {
 
 #[tokio::test]
 async fn test_cancel_check_opponent() -> anyhow::Result<()> {
-    let (worker, _, contract, _, _) = initialize_contracts(None).await?;
+    let (worker, _, contract, _) = initialize_contracts(None).await?;
 
     let player_a = worker.dev_create_account().await?;
     let player_b = worker.dev_create_account().await?;
@@ -744,7 +786,7 @@ async fn test_cancel_check_opponent() -> anyhow::Result<()> {
 
 #[tokio::test]
 async fn test_no_self_challenge() -> anyhow::Result<()> {
-    let (worker, _, contract, _, _) = initialize_contracts(None).await?;
+    let (worker, _, contract, _) = initialize_contracts(None).await?;
 
     let player_a = worker.dev_create_account().await?;
 
@@ -758,7 +800,7 @@ async fn test_no_self_challenge() -> anyhow::Result<()> {
 
 #[tokio::test]
 async fn test_max_open_games() -> anyhow::Result<()> {
-    let (worker, _, contract, _, _) = initialize_contracts(None).await?;
+    let (worker, _, contract, _) = initialize_contracts(None).await?;
 
     let player_a = worker.dev_create_account().await?;
     let player_b = worker.dev_create_account().await?;
@@ -785,7 +827,7 @@ async fn test_max_open_games() -> anyhow::Result<()> {
 
 #[tokio::test]
 async fn test_max_open_challenges() -> anyhow::Result<()> {
-    let (worker, _, contract, _, _) = initialize_contracts(None).await?;
+    let (worker, _, contract, _) = initialize_contracts(None).await?;
 
     let player_a = worker.dev_create_account().await?;
     let player_b = worker.dev_create_account().await?;
@@ -817,15 +859,11 @@ async fn test_max_open_challenges() -> anyhow::Result<()> {
 
 #[tokio::test]
 async fn test_finish_game() -> anyhow::Result<()> {
-    let (worker, _, contract, _, nada_bot_contract) = initialize_contracts(None).await?;
+    let (worker, _, contract, _) = initialize_contracts(None).await?;
 
     let player_a = worker.dev_create_account().await?;
     let player_b = worker.dev_create_account().await?;
 
-    tokio::try_join!(
-        call::add_human(&nada_bot_contract, &player_a, player_a.id()),
-        call::add_human(&nada_bot_contract, &player_b, player_b.id())
-    )?;
     tokio::try_join!(
         call::storage_deposit(&contract, &player_a, None, None),
         call::storage_deposit(&contract, &player_b, None, None)
@@ -887,7 +925,7 @@ async fn test_finish_game() -> anyhow::Result<()> {
 
 #[tokio::test]
 async fn test_notify() -> anyhow::Result<()> {
-    let (worker, _, contract, social_contract, _) = initialize_contracts(None).await?;
+    let (worker, _, contract, social_contract) = initialize_contracts(None).await?;
 
     let player_a = worker.dev_create_account().await?;
     let player_b = worker.dev_create_account().await?;
@@ -1011,76 +1049,107 @@ async fn test_notify() -> anyhow::Result<()> {
 }
 
 #[tokio::test]
-async fn test_no_elo_if_not_human() -> anyhow::Result<()> {
-    let (worker, _, contract, _, nada_bot_contract) = initialize_contracts(None).await?;
-
+async fn test_set_is_agent_toggle() -> anyhow::Result<()> {
+    let (worker, _, contract, _) = initialize_contracts(None).await?;
     let player_a = worker.dev_create_account().await?;
-    let player_b = worker.dev_create_account().await?;
 
-    tokio::try_join!(
-        call::storage_deposit(&contract, &player_a, None, None),
-        call::storage_deposit(&contract, &player_b, None, None)
-    )?;
-
-    call::challenge(&contract, &player_a, player_b.id()).await?;
-    let challenge_id = create_challenge_id(player_a.id(), player_b.id());
-    let (game_id, _) = call::accept_challenge(&contract, &player_b, &challenge_id).await?;
-    let block_height = game_id.0;
-    let game_id = GameId(
-        block_height,
-        player_a.id().clone(),
-        Some(player_b.id().clone()),
-    );
-    call::resign(&contract, &player_a, &game_id).await?;
-
+    call::storage_deposit(&contract, &player_a, None, None).await?;
     let account = view::get_account(&contract, player_a.id()).await?;
-    assert!(!account.is_human);
-    assert!(account.elo.is_none());
-    let account = view::get_account(&contract, player_b.id()).await?;
-    assert!(!account.is_human);
-    assert!(account.elo.is_none());
+    assert!(!account.is_agent);
 
-    call::add_human(&nada_bot_contract, &player_a, player_a.id()).await?;
-    call::update_is_human(&contract, &player_a, player_a.id()).await?;
-
-    call::challenge(&contract, &player_a, player_b.id()).await?;
-    let challenge_id = create_challenge_id(player_a.id(), player_b.id());
-    let (game_id, _) = call::accept_challenge(&contract, &player_b, &challenge_id).await?;
-    let block_height = game_id.0;
-    let game_id = GameId(
-        block_height,
-        player_a.id().clone(),
-        Some(player_b.id().clone()),
-    );
-    call::resign(&contract, &player_a, &game_id).await?;
-
+    call::set_is_agent(&contract, &player_a, true).await?;
     let account = view::get_account(&contract, player_a.id()).await?;
-    assert!(account.is_human);
-    assert_eq!(account.elo.unwrap(), 1_000.);
-    let account = view::get_account(&contract, player_b.id()).await?;
-    assert!(!account.is_human);
-    assert!(account.elo.is_none());
+    assert!(account.is_agent);
 
-    call::add_human(&nada_bot_contract, &player_b, player_b.id()).await?;
-    call::update_is_human(&contract, &player_b, player_b.id()).await?;
-
-    call::challenge(&contract, &player_a, player_b.id()).await?;
-    let challenge_id = create_challenge_id(player_a.id(), player_b.id());
-    let (game_id, _) = call::accept_challenge(&contract, &player_b, &challenge_id).await?;
-    let block_height = game_id.0;
-    let game_id = GameId(
-        block_height,
-        player_a.id().clone(),
-        Some(player_b.id().clone()),
-    );
-    call::resign(&contract, &player_a, &game_id).await?;
-
+    call::set_is_agent(&contract, &player_a, false).await?;
     let account = view::get_account(&contract, player_a.id()).await?;
-    assert!(account.is_human);
-    assert_eq!(account.elo.unwrap(), 984.);
-    let account = view::get_account(&contract, player_b.id()).await?;
-    assert!(account.is_human);
-    assert_eq!(account.elo.unwrap(), 1_016.);
+    assert!(!account.is_agent);
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn test_set_is_agent_requires_one_yocto() -> anyhow::Result<()> {
+    let (worker, _, contract, _) = initialize_contracts(None).await?;
+    let player_a = worker.dev_create_account().await?;
+
+    call::storage_deposit(&contract, &player_a, None, None).await?;
+    let res = call::set_is_agent_no_deposit(&contract, &player_a, true).await;
+    assert!(res.is_err());
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn test_mainnet_migration() -> anyhow::Result<()> {
+    let worker = near_workspaces::sandbox().await?;
+
+    let mainnet_wasm = fs::read("../../res/chess_mainnet.wasm").await?;
+    let new_wasm = fs::read("../../res/chess_testing.wasm").await?;
+    let state_json = fs::read_to_string("../../res/mainnet_state.json").await?;
+    let state_entries: Vec<(Vec<u8>, Vec<u8>)> =
+        serde_json::from_str::<Vec<serde_json::Value>>(&state_json)?
+            .into_iter()
+            .map(|entry| {
+                let k = base64::engine::general_purpose::STANDARD
+                    .decode(entry["key"].as_str().unwrap())
+                    .unwrap();
+                let v = base64::engine::general_purpose::STANDARD
+                    .decode(entry["value"].as_str().unwrap())
+                    .unwrap();
+                (k, v)
+            })
+            .collect();
+
+    let contract_id: near_sdk::AccountId = "app.chess-game.near".parse()?;
+
+    let key = SecretKey::from_random(KeyType::ED25519);
+    worker
+        .patch(&contract_id)
+        .account(
+            near_workspaces::AccountDetailsPatch::default()
+                .balance(near_workspaces::types::NearToken::from_near(100)),
+        )
+        .access_key(key.public_key(), near_workspaces::AccessKey::full_access())
+        .code(&mainnet_wasm)
+        .states(
+            state_entries
+                .iter()
+                .map(|(k, v)| (k.as_slice(), v.as_slice())),
+        )
+        .transact()
+        .await?;
+
+    let contract = near_workspaces::Contract::from_secret_key(contract_id.clone(), key, &worker);
+
+    let account_ids: Vec<String> = contract
+        .call("get_accounts")
+        .args_json((None::<usize>, None::<usize>))
+        .max_gas()
+        .view()
+        .await?
+        .json()?;
+
+    contract
+        .as_account()
+        .deploy(&new_wasm)
+        .await?
+        .into_result()?;
+
+    call::migrate(&contract, contract.as_account()).await?;
+
+    let account = view::get_account(&contract, &"marior.near".parse()?).await?;
+    assert!(account.elo.is_some());
+    assert!(!account.is_agent);
+
+    let account_ids_after: Vec<String> = contract
+        .call("get_accounts")
+        .args_json((None::<usize>, None::<usize>))
+        .max_gas()
+        .view()
+        .await?
+        .json()?;
+    assert_eq!(account_ids, account_ids_after);
 
     Ok(())
 }

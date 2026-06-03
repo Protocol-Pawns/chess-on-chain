@@ -28,6 +28,41 @@ pub async fn migrate(
     Ok(res)
 }
 
+pub async fn set_is_agent_no_deposit(
+    contract: &Contract,
+    sender: &Account,
+    is_agent: bool,
+) -> anyhow::Result<ExecutionResult<Value>> {
+    let (res, _) = log_tx_result(
+        Some("set_is_agent_no_deposit"),
+        sender
+            .call(contract.id(), "set_is_agent")
+            .args_json((is_agent,))
+            .max_gas()
+            .transact()
+            .await?,
+    )?;
+    Ok(res)
+}
+
+pub async fn set_is_agent(
+    contract: &Contract,
+    sender: &Account,
+    is_agent: bool,
+) -> anyhow::Result<ExecutionResult<Value>> {
+    let (res, _) = log_tx_result(
+        Some("set_is_agent"),
+        sender
+            .call(contract.id(), "set_is_agent")
+            .args_json((is_agent,))
+            .deposit(NearToken::from_yoctonear(1))
+            .max_gas()
+            .transact()
+            .await?,
+    )?;
+    Ok(res)
+}
+
 pub async fn add_human(
     contract: &Contract,
     sender: &Account,
@@ -37,23 +72,6 @@ pub async fn add_human(
         Some("add_human"),
         sender
             .call(contract.id(), "add_human")
-            .args_json((account_id,))
-            .max_gas()
-            .transact()
-            .await?,
-    )?;
-    Ok(res)
-}
-
-pub async fn update_is_human(
-    contract: &Contract,
-    sender: &Account,
-    account_id: &AccountId,
-) -> anyhow::Result<ExecutionResult<Value>> {
-    let (res, _) = log_tx_result(
-        Some("update_is_human"),
-        sender
-            .call(contract.id(), "update_is_human")
             .args_json((account_id,))
             .max_gas()
             .transact()

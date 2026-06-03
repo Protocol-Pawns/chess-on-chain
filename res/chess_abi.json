@@ -10,7 +10,7 @@
       "compiler": "rustc 1.86.0",
       "builder": "cargo-near cargo-near-build 0.11.3"
     },
-    "wasm_hash": "7dW3yPS3Zb3YB48f4khjrQpgLpNo6C6WH68fwot4vkQj"
+    "wasm_hash": "B7wEs3DJKjCfWeDwbLbug1MLnK4YQywAq6d34ehgLb6h"
   },
   "body": {
     "functions": [
@@ -817,81 +817,8 @@
                 "description": "NEAR Account Identifier.\n\nThis is a unique, syntactically valid, human-readable account identifier on the NEAR network.\n\n[See the crate-level docs for information about validation.](index.html#account-id-rules)\n\nAlso see [Error kind precedence](AccountId#error-kind-precedence).\n\n## Examples\n\n``` use near_account_id::AccountId;\n\nlet alice: AccountId = \"alice.near\".parse().unwrap();\n\nassert!(\"ƒelicia.near\".parse::<AccountId>().is_err()); // (ƒ is not f) ```",
                 "type": "string"
               }
-            },
-            {
-              "name": "nada_bot_id",
-              "type_schema": {
-                "description": "NEAR Account Identifier.\n\nThis is a unique, syntactically valid, human-readable account identifier on the NEAR network.\n\n[See the crate-level docs for information about validation.](index.html#account-id-rules)\n\nAlso see [Error kind precedence](AccountId#error-kind-precedence).\n\n## Examples\n\n``` use near_account_id::AccountId;\n\nlet alice: AccountId = \"alice.near\".parse().unwrap();\n\nassert!(\"ƒelicia.near\".parse::<AccountId>().is_err()); // (ƒ is not f) ```",
-                "type": "string"
-              }
             }
           ]
-        }
-      },
-      {
-        "name": "on_register_account",
-        "kind": "call",
-        "modifiers": [
-          "private"
-        ],
-        "params": {
-          "serialization_type": "json",
-          "args": [
-            {
-              "name": "account_id",
-              "type_schema": {
-                "description": "NEAR Account Identifier.\n\nThis is a unique, syntactically valid, human-readable account identifier on the NEAR network.\n\n[See the crate-level docs for information about validation.](index.html#account-id-rules)\n\nAlso see [Error kind precedence](AccountId#error-kind-precedence).\n\n## Examples\n\n``` use near_account_id::AccountId;\n\nlet alice: AccountId = \"alice.near\".parse().unwrap();\n\nassert!(\"ƒelicia.near\".parse::<AccountId>().is_err()); // (ƒ is not f) ```",
-                "type": "string"
-              }
-            },
-            {
-              "name": "min_balance",
-              "type_schema": {
-                "type": "string"
-              }
-            }
-          ]
-        },
-        "callbacks": [
-          {
-            "serialization_type": "json",
-            "type_schema": {
-              "type": "boolean"
-            }
-          }
-        ]
-      },
-      {
-        "name": "on_update_is_human",
-        "kind": "call",
-        "modifiers": [
-          "private"
-        ],
-        "params": {
-          "serialization_type": "json",
-          "args": [
-            {
-              "name": "account_id",
-              "type_schema": {
-                "description": "NEAR Account Identifier.\n\nThis is a unique, syntactically valid, human-readable account identifier on the NEAR network.\n\n[See the crate-level docs for information about validation.](index.html#account-id-rules)\n\nAlso see [Error kind precedence](AccountId#error-kind-precedence).\n\n## Examples\n\n``` use near_account_id::AccountId;\n\nlet alice: AccountId = \"alice.near\".parse().unwrap();\n\nassert!(\"ƒelicia.near\".parse::<AccountId>().is_err()); // (ƒ is not f) ```",
-                "type": "string"
-              }
-            }
-          ]
-        },
-        "callbacks": [
-          {
-            "serialization_type": "json",
-            "type_schema": {
-              "type": "boolean"
-            }
-          }
-        ],
-        "result": {
-          "serialization_type": "json",
-          "type_schema": {
-            "type": "null"
-          }
         }
       },
       {
@@ -1104,6 +1031,30 @@
         }
       },
       {
+        "name": "set_is_agent",
+        "kind": "call",
+        "modifiers": [
+          "payable"
+        ],
+        "params": {
+          "serialization_type": "json",
+          "args": [
+            {
+              "name": "is_agent",
+              "type_schema": {
+                "type": "boolean"
+              }
+            }
+          ]
+        },
+        "result": {
+          "serialization_type": "json",
+          "type_schema": {
+            "type": "null"
+          }
+        }
+      },
+      {
         "name": "set_wager_whitelist",
         "kind": "call",
         "modifiers": [
@@ -1256,28 +1207,6 @@
         }
       },
       {
-        "name": "update_is_human",
-        "kind": "call",
-        "params": {
-          "serialization_type": "json",
-          "args": [
-            {
-              "name": "account_id",
-              "type_schema": {
-                "description": "NEAR Account Identifier.\n\nThis is a unique, syntactically valid, human-readable account identifier on the NEAR network.\n\n[See the crate-level docs for information about validation.](index.html#account-id-rules)\n\nAlso see [Error kind precedence](AccountId#error-kind-precedence).\n\n## Examples\n\n``` use near_account_id::AccountId;\n\nlet alice: AccountId = \"alice.near\".parse().unwrap();\n\nassert!(\"ƒelicia.near\".parse::<AccountId>().is_err()); // (ƒ is not f) ```",
-                "type": "string"
-              }
-            }
-          ]
-        },
-        "result": {
-          "serialization_type": "json",
-          "type_schema": {
-            "$ref": "#/definitions/Promise"
-          }
-        }
-      },
-      {
         "name": "withdraw_token",
         "kind": "call",
         "modifiers": [
@@ -1311,7 +1240,7 @@
         "AccountInfo": {
           "type": "object",
           "required": [
-            "is_human",
+            "is_agent",
             "near_amount",
             "points"
           ],
@@ -1323,7 +1252,7 @@
               ],
               "format": "double"
             },
-            "is_human": {
+            "is_agent": {
               "type": "boolean"
             },
             "near_amount": {
@@ -1337,7 +1266,7 @@
         "Achievement": {
           "type": "string",
           "enum": [
-            "FirstWinHuman",
+            "FirstWin",
             "FirstWinAiEasy",
             "FirstWinAiMedium",
             "FirstWinAiHard"
@@ -1677,7 +1606,6 @@
             }
           ]
         },
-        "Promise": true,
         "PromiseOrValueNull": {
           "type": "null"
         },
@@ -1688,7 +1616,7 @@
           "type": "string",
           "enum": [
             "DailyPlayMove",
-            "WeeklyWinHuman"
+            "WeeklyWin"
           ]
         },
         "QuestInfo": {

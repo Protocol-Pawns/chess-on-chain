@@ -5,6 +5,7 @@ authors = ["Mario Reder <mario.reder@pm.me>"]
 edition = "2021"
 
 [dev-dependencies]
+base64 = "0.22"
 chess-common = { path = "../chess-common" }
 chess-engine = { path = "../chess-engine" }
 chess-lib = { path = "../chess-lib" }
@@ -13,7 +14,7 @@ anyhow.workspace = true
 futures.workspace = true
 maplit.workspace = true
 near-contract-standards.workspace = true
-near-sdk.workspace = true
+near-sdk = { workspace = true, features = ["unit-testing"] }
 near-workspaces.workspace = true
 owo-colors.workspace = true
 serde.workspace = true

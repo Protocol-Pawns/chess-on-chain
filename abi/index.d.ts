@@ -33,7 +33,6 @@ type AccountId = string;
 
 interface AccountInfo {
   elo?: number | null;
-  is_human: boolean;
   near_amount: string;
   points: string;
 }

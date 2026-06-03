@@ -9,7 +9,6 @@ mod event;
 mod ft_receiver;
 mod game;
 mod internal;
-mod nada_bot;
 mod points;
 mod social;
 mod storage;
@@ -23,7 +22,6 @@ pub use error::*;
 pub use event::*;
 pub use ft_receiver::*;
 pub use game::*;
-pub use nada_bot::*;
 pub use points::*;
 pub use social::*;
 pub use storage::*;
@@ -60,7 +58,6 @@ pub const MIN_BLOCK_DIFF_CLEANUP: u64 = 100;
 pub const MAX_GAMES_CLEANUP: usize = 50;
 
 pub const GAS_FOR_SOCIAL_NOTIFY_CALL: Gas = Gas::from_tgas(20);
-pub const GAS_FOR_IS_HUMAN_CALL: Gas = Gas::from_tgas(12);
 
 pub const NO_DEPOSIT: NearToken = NearToken::from_yoctonear(0);
 pub const ONE_YOCTO: NearToken = NearToken::from_yoctonear(1);
@@ -92,7 +89,6 @@ pub enum StorageKey {
 #[borsh(crate = "near_sdk::borsh")]
 pub struct Chess {
     pub social_db: AccountId,
-    pub nada_bot_id: AccountId,
     pub accounts: UnorderedMap<AccountId, Account>,
     pub games: UnorderedMap<GameId, Game>,
     pub challenges: UnorderedMap<ChallengeId, Challenge>,
@@ -119,6 +115,7 @@ pub struct OldChess {
     pub token_whitelist: Lazy<Vec<AccountId>>,
     pub bets: UnorderedMap<BetId, Bets>,
     pub is_running: bool,
+    pub points_total_supply: u128,
 }
 
 #[derive(
@@ -154,13 +151,12 @@ pub type MoveStr = String;
 impl Chess {
     #[init]
     #[handle_result]
-    pub fn new(social_db: AccountId, nada_bot_id: AccountId) -> Result<Self, ContractError> {
+    pub fn new(social_db: AccountId) -> Result<Self, ContractError> {
         if env::state_exists() {
             return Err(ContractError::AlreadyInitilized);
         }
         Ok(Self {
             social_db,
-            nada_bot_id,
             accounts: UnorderedMap::new(StorageKey::VAccounts),
             games: UnorderedMap::new(StorageKey::Games),
             challenges: UnorderedMap::new(StorageKey::Challenges),
@@ -182,22 +178,23 @@ impl Chess {
     #[private]
     #[init(ignore_state)]
     pub fn migrate() -> Self {
-        let chess: OldChess = env::state_read().unwrap();
+        let mut chess: OldChess = env::state_read().unwrap();
 
-        // let mut accounts = vec![];
-        let mut points_total_supply = 0;
-        for account in chess.accounts.values() {
-            // accounts.push((account_id, account.migrate()));
-            points_total_supply += account.get_points();
+        let account_ids: Vec<AccountId> = chess.accounts.keys().cloned().collect();
+        let mut account_data = Vec::with_capacity(account_ids.len());
+        for account_id in &account_ids {
+            let account = chess.accounts.remove(account_id).unwrap();
+            account_data.push((account_id.clone(), account.migrate()));
         }
-        // for (account_id, account) in accounts {
-        //     chess.accounts.insert(account_id, account);
-        // }
+        chess.accounts.flush();
+        let mut accounts = UnorderedMap::new(StorageKey::VAccounts);
+        for (id, account) in account_data {
+            accounts.insert(id, account);
+        }
 
         Self {
             social_db: chess.social_db,
-            nada_bot_id: chess.nada_bot_id,
-            accounts: chess.accounts,
+            accounts,
             games: chess.games,
             challenges: chess.challenges,
             treasury: chess.treasury,
@@ -205,13 +202,27 @@ impl Chess {
             token_whitelist: chess.token_whitelist,
             bets: chess.bets,
             is_running: chess.is_running,
-            points_total_supply,
+            points_total_supply: chess.points_total_supply,
         }
     }
 
     #[private]
     pub fn pause(&mut self) {
         self.is_running = false;
+    }
+
+    #[payable]
+    #[handle_result]
+    pub fn set_is_agent(&mut self, is_agent: bool) -> Result<(), ContractError> {
+        require!(self.is_running, "Contract is paused");
+        assert_one_yocto();
+        let account_id = env::signer_account_id();
+        let account = self
+            .accounts
+            .get_mut(&account_id)
+            .ok_or_else(|| ContractError::AccountNotRegistered(account_id.clone()))?;
+        account.set_is_agent(is_agent);
+        Ok(())
     }
 
     #[private]

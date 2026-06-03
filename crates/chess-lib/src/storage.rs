@@ -1,4 +1,4 @@
-use crate::{nada_bot, Chess, ChessExt, ContractError, GAS_FOR_IS_HUMAN_CALL, NO_DEPOSIT};
+use crate::{Chess, ChessExt, ContractError, NO_DEPOSIT};
 use near_contract_standards::storage_management::{
     StorageBalance, StorageBalanceBounds, StorageManagement,
 };
@@ -86,14 +86,7 @@ impl Chess {
             }
             Ok(self.storage_balance_of(account_id).unwrap())
         } else {
-            let _ = nada_bot::ext_registry::ext(self.nada_bot_id.clone())
-                .with_static_gas(GAS_FOR_IS_HUMAN_CALL)
-                .is_human(account_id.clone())
-                .then(
-                    Self::ext(env::current_account_id())
-                        .with_unused_gas_weight(1)
-                        .on_register_account(account_id.clone(), min_balance),
-                );
+            self.internal_register_account(account_id.clone(), min_balance);
             let refund = amount.checked_sub(min_balance).unwrap();
             if refund.as_yoctonear() > 0 {
                 let _ = Promise::new(env::predecessor_account_id()).transfer(refund);
@@ -127,18 +120,5 @@ impl Chess {
         } else {
             Ok(false)
         }
-    }
-}
-
-#[near_bindgen]
-impl Chess {
-    #[private]
-    pub fn on_register_account(
-        &mut self,
-        account_id: AccountId,
-        min_balance: NearToken,
-        #[callback_unwrap] is_human: bool,
-    ) {
-        self.internal_register_account(account_id, min_balance, is_human);
     }
 }

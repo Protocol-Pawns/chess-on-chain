@@ -146,14 +146,7 @@ impl Chess {
             };
             if winner.is_human() {
                 if let Some(achievement) = match looser {
-                    Player::Human(account_id) => {
-                        let looser_is_human = self.accounts.get(account_id).unwrap().is_human();
-                        if looser_is_human {
-                            Some(Achievement::FirstWinHuman)
-                        } else {
-                            None
-                        }
-                    }
+                    Player::Human(_) => Some(Achievement::FirstWin),
                     Player::Ai(Difficulty::Easy) => Some(Achievement::FirstWinAiEasy),
                     Player::Ai(Difficulty::Medium) => Some(Achievement::FirstWinAiMedium),
                     Player::Ai(Difficulty::Hard) => Some(Achievement::FirstWinAiHard),
@@ -358,9 +351,8 @@ impl Chess {
         &mut self,
         account_id: AccountId,
         amount: NearToken,
-        is_human: bool,
     ) {
-        let account = Account::new(account_id.clone(), amount, is_human);
+        let account = Account::new(account_id.clone(), amount);
         self.accounts.insert(account_id, account);
     }
 

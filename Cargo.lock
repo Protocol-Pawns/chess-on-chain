@@ -914,6 +914,7 @@ name = "chess-test"
 version = "1.0.0"
 dependencies = [
  "anyhow",
+ "base64 0.22.1",
  "chess-common",
  "chess-engine",
  "chess-lib",
@@ -1564,6 +1565,17 @@ name = "dotenv"
 version = "0.15.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "77c90badedccf4105eca100756a0b1289e191f6fcbdadd3cee1d2f614f97da8f"
+
+[[package]]
+name = "download-mainnet-state"
+version = "1.0.0"
+dependencies = [
+ "anyhow",
+ "base64 0.22.1",
+ "near-workspaces",
+ "serde_json",
+ "tokio",
+]
 
 [[package]]
 name = "dunce"
@@ -2876,13 +2888,6 @@ dependencies = [
  "libc",
  "wasi",
  "windows-sys 0.61.2",
-]
-
-[[package]]
-name = "nada-bot-stub"
-version = "0.1.0"
-dependencies = [
- "near-sdk",
 ]
 
 [[package]]

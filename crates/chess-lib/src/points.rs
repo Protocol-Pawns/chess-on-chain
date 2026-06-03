@@ -28,7 +28,7 @@ use strum::{AsRefStr, EnumIter};
 #[borsh(crate = "near_sdk::borsh")]
 pub enum Quest {
     DailyPlayMove,
-    WeeklyWinHuman,
+    WeeklyWin,
 }
 
 #[cfg(not(feature = "integration-test"))]
@@ -43,8 +43,8 @@ impl Quest {
         match (self, on_cooldown) {
             (Quest::DailyPlayMove, true) => 1_000,
             (Quest::DailyPlayMove, false) => 100_000,
-            (Quest::WeeklyWinHuman, true) => 200_000,
-            (Quest::WeeklyWinHuman, false) => 2_000_000,
+            (Quest::WeeklyWin, true) => 200_000,
+            (Quest::WeeklyWin, false) => 2_000_000,
         }
     }
 
@@ -52,12 +52,12 @@ impl Quest {
         #[cfg(not(feature = "integration-test"))]
         match self {
             Quest::DailyPlayMove => DAILY_COOLDOWN,
-            Quest::WeeklyWinHuman => WEEKLY_COOLDOWN,
+            Quest::WeeklyWin => WEEKLY_COOLDOWN,
         }
         #[cfg(feature = "integration-test")]
         match self {
             Quest::DailyPlayMove => 1_000 * 18,
-            Quest::WeeklyWinHuman => 1_000 * 18 * 7,
+            Quest::WeeklyWin => 1_000 * 18 * 7,
         }
     }
 }
@@ -97,7 +97,7 @@ impl From<Quest> for QuestInfo {
 #[serde(crate = "near_sdk::serde")]
 #[borsh(crate = "near_sdk::borsh")]
 pub enum Achievement {
-    FirstWinHuman,
+    FirstWin,
     FirstWinAiEasy,
     FirstWinAiMedium,
     FirstWinAiHard,
@@ -106,7 +106,7 @@ pub enum Achievement {
 impl Achievement {
     pub fn get_points(&self) -> u128 {
         match self {
-            Achievement::FirstWinHuman => 8_000_000,
+            Achievement::FirstWin => 8_000_000,
             Achievement::FirstWinAiEasy => 1_000_000,
             Achievement::FirstWinAiMedium => 2_500_000,
             Achievement::FirstWinAiHard => 5_000_000,

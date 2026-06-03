@@ -11,7 +11,7 @@ use near_workspaces::types::NearToken;
 
 #[tokio::test]
 async fn test_accept_challenge_success() -> anyhow::Result<()> {
-    let (worker, _, contract, _, _) = initialize_contracts(None).await?;
+    let (worker, _, contract, _) = initialize_contracts(None).await?;
     let test_token = initialize_token(&worker, "wrapped Near", "wNEAR", None, 24).await?;
     let wager_amount = 10_000_000_000_000_000_000_000_000; // 10 NEAR
 
@@ -137,7 +137,7 @@ async fn test_accept_challenge_success() -> anyhow::Result<()> {
 
 #[tokio::test]
 async fn test_accept_challenge_not_enough_wager() -> anyhow::Result<()> {
-    let (worker, _, contract, _, _) = initialize_contracts(None).await?;
+    let (worker, _, contract, _) = initialize_contracts(None).await?;
     let test_token = initialize_token(&worker, "wrapped Near", "wNEAR", None, 24).await?;
     let wager_amount = 10_000_000_000_000_000_000_000_000; // 10 NEAR
 
@@ -210,7 +210,7 @@ async fn test_accept_challenge_not_enough_wager() -> anyhow::Result<()> {
 
 #[tokio::test]
 async fn test_accept_challenge_refund_too_much_wager() -> anyhow::Result<()> {
-    let (worker, _, contract, _, _) = initialize_contracts(None).await?;
+    let (worker, _, contract, _) = initialize_contracts(None).await?;
     let test_token = initialize_token(&worker, "wrapped Near", "wNEAR", None, 24).await?;
     let wager_amount = 10_000_000_000_000_000_000_000_000; // 10 NEAR
 
@@ -323,7 +323,7 @@ async fn test_accept_challenge_refund_too_much_wager() -> anyhow::Result<()> {
 
 #[tokio::test]
 async fn test_reject_challenge_refund_wager() -> anyhow::Result<()> {
-    let (worker, _, contract, _, _) = initialize_contracts(None).await?;
+    let (worker, _, contract, _) = initialize_contracts(None).await?;
     let test_token = initialize_token(&worker, "wrapped Near", "wNEAR", None, 24).await?;
     let wager_amount = 10_000_000_000_000_000_000_000_000; // 10 NEAR
 
@@ -397,7 +397,7 @@ async fn test_reject_challenge_refund_wager() -> anyhow::Result<()> {
 
 #[tokio::test]
 async fn test_reject_wager_no_whitelist() -> anyhow::Result<()> {
-    let (worker, _, contract, _, _) = initialize_contracts(None).await?;
+    let (worker, _, contract, _) = initialize_contracts(None).await?;
     let test_token = initialize_token(&worker, "wrapped Near", "wNEAR", None, 24).await?;
     let wager_amount = 10_000_000_000_000_000_000_000_000; // 10 NEAR
 
@@ -448,7 +448,7 @@ async fn test_reject_wager_no_whitelist() -> anyhow::Result<()> {
 
 #[tokio::test]
 async fn test_reject_wager_wrong_token() -> anyhow::Result<()> {
-    let (worker, _, contract, _, _) = initialize_contracts(None).await?;
+    let (worker, _, contract, _) = initialize_contracts(None).await?;
     let test_token = initialize_token(&worker, "wrapped Near", "wNEAR", None, 6).await?;
     let wrong_test_token =
         initialize_token(&worker, "HarryPotterObamaSonicInu", "BITCOIN", None, 6).await?;
@@ -534,7 +534,7 @@ async fn test_reject_wager_wrong_token() -> anyhow::Result<()> {
 
 #[tokio::test]
 async fn test_cancel_game_refund_wager() -> anyhow::Result<()> {
-    let (worker, _, contract, _, _) = initialize_contracts(None).await?;
+    let (worker, _, contract, _) = initialize_contracts(None).await?;
     let test_token = initialize_token(&worker, "wrapped Near", "wNEAR", None, 24).await?;
     let wager_amount = 10_000_000_000_000_000_000_000_000; // 10 NEAR
 
@@ -628,7 +628,7 @@ async fn test_cancel_game_refund_wager() -> anyhow::Result<()> {
 
 #[tokio::test]
 async fn test_finish_game_payout_wager() -> anyhow::Result<()> {
-    let (worker, _, contract, _, _) = initialize_contracts(None).await?;
+    let (worker, _, contract, _) = initialize_contracts(None).await?;
     let test_token = initialize_token(&worker, "wrapped Near", "wNEAR", None, 24).await?;
     let wager_amount = 10_000_000_000_000_000_000_000_000; // 10 NEAR
 
@@ -736,7 +736,7 @@ async fn test_finish_game_payout_wager() -> anyhow::Result<()> {
 
 #[tokio::test]
 async fn test_finish_game_payout_fees() -> anyhow::Result<()> {
-    let (worker, _, contract, _, _) = initialize_contracts(None).await?;
+    let (worker, _, contract, _) = initialize_contracts(None).await?;
     let test_token = initialize_token(&worker, "wrapped Near", "wNEAR", None, 6).await?;
     let wager_amount = 10_000_000;
 
@@ -865,7 +865,7 @@ async fn test_finish_game_payout_fees() -> anyhow::Result<()> {
 
 #[tokio::test]
 async fn test_resign_payout_wager() -> anyhow::Result<()> {
-    let (worker, _, contract, _, _) = initialize_contracts(None).await?;
+    let (worker, _, contract, _) = initialize_contracts(None).await?;
     let test_token = initialize_token(&worker, "wrapped Near", "wNEAR", None, 24).await?;
     let wager_amount = 10_000_000_000_000_000_000_000_000; // 10 NEAR
 

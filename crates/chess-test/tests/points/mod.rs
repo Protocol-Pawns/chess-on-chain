@@ -5,15 +5,11 @@ use near_contract_standards::fungible_token::events::FtMint;
 
 #[tokio::test]
 async fn test_daily_play_move() -> anyhow::Result<()> {
-    let (worker, _, contract, _, nada_bot_contract) = initialize_contracts(None).await?;
+    let (worker, _, contract, _) = initialize_contracts(None).await?;
 
     let player_a = worker.dev_create_account().await?;
     let player_b = worker.dev_create_account().await?;
 
-    tokio::try_join!(
-        call::add_human(&nada_bot_contract, &player_a, player_a.id()),
-        call::add_human(&nada_bot_contract, &player_b, player_b.id())
-    )?;
     tokio::try_join!(
         call::storage_deposit(&contract, &player_a, None, None),
         call::storage_deposit(&contract, &player_b, None, None)
@@ -157,15 +153,11 @@ async fn test_daily_play_move() -> anyhow::Result<()> {
 
 #[tokio::test]
 async fn test_first_win_human() -> anyhow::Result<()> {
-    let (worker, _, contract, _, nada_bot_contract) = initialize_contracts(None).await?;
+    let (worker, _, contract, _) = initialize_contracts(None).await?;
 
     let player_a = worker.dev_create_account().await?;
     let player_b = worker.dev_create_account().await?;
 
-    tokio::try_join!(
-        call::add_human(&nada_bot_contract, &player_a, player_a.id()),
-        call::add_human(&nada_bot_contract, &player_b, player_b.id())
-    )?;
     tokio::try_join!(
         call::storage_deposit(&contract, &player_a, None, None),
         call::storage_deposit(&contract, &player_b, None, None)
@@ -197,7 +189,7 @@ async fn test_first_win_human() -> anyhow::Result<()> {
         points.0,
         Quest::DailyPlayMove.get_points(false)
             + 3 * Quest::DailyPlayMove.get_points(true)
-            + Achievement::FirstWinHuman.get_points()
+            + Achievement::FirstWin.get_points()
     );
     let points = view::ft_balance_of(&contract, player_b.id()).await?;
     assert_eq!(
@@ -209,13 +201,13 @@ async fn test_first_win_human() -> anyhow::Result<()> {
         supply.0,
         2 * Quest::DailyPlayMove.get_points(false)
             + 5 * Quest::DailyPlayMove.get_points(true)
-            + Achievement::FirstWinHuman.get_points()
+            + Achievement::FirstWin.get_points()
     );
     let achievements = view::get_achievements(&contract, player_a.id()).await?;
     let block = worker.view_block().block_hash(block_hash).await?;
     assert_eq!(
         achievements,
-        vec![(block.timestamp() / 1_000_000, Achievement::FirstWinHuman)]
+        vec![(block.timestamp() / 1_000_000, Achievement::FirstWin)]
     );
     assert_ft_mint_events(
         events,
@@ -227,8 +219,8 @@ async fn test_first_win_human() -> anyhow::Result<()> {
             },
             FtMint {
                 owner_id: player_a.id(),
-                amount: Achievement::FirstWinHuman.get_points().into(),
-                memo: Some("FirstWinHuman"),
+                amount: Achievement::FirstWin.get_points().into(),
+                memo: Some("FirstWin"),
             },
         ],
     )?;
@@ -237,8 +229,8 @@ async fn test_first_win_human() -> anyhow::Result<()> {
 }
 
 #[tokio::test]
-async fn test_first_win_not_human() -> anyhow::Result<()> {
-    let (worker, _, contract, _, _) = initialize_contracts(None).await?;
+async fn test_first_win_always_awarded() -> anyhow::Result<()> {
+    let (worker, _, contract, _) = initialize_contracts(None).await?;
 
     let player_a = worker.dev_create_account().await?;
     let player_b = worker.dev_create_account().await?;
@@ -272,7 +264,9 @@ async fn test_first_win_not_human() -> anyhow::Result<()> {
     let points = view::ft_balance_of(&contract, player_a.id()).await?;
     assert_eq!(
         points.0,
-        Quest::DailyPlayMove.get_points(false) + 3 * Quest::DailyPlayMove.get_points(true)
+        Quest::DailyPlayMove.get_points(false)
+            + 3 * Quest::DailyPlayMove.get_points(true)
+            + Achievement::FirstWin.get_points()
     );
     let points = view::ft_balance_of(&contract, player_b.id()).await?;
     assert_eq!(
@@ -282,18 +276,30 @@ async fn test_first_win_not_human() -> anyhow::Result<()> {
     let supply = view::ft_total_supply(&contract).await?;
     assert_eq!(
         supply.0,
-        2 * Quest::DailyPlayMove.get_points(false) + 5 * Quest::DailyPlayMove.get_points(true)
+        2 * Quest::DailyPlayMove.get_points(false)
+            + 5 * Quest::DailyPlayMove.get_points(true)
+            + Achievement::FirstWin.get_points()
     );
     let achievements = view::get_achievements(&contract, player_a.id()).await?;
-    worker.view_block().block_hash(block_hash).await?;
-    assert!(achievements.is_empty(),);
+    let block = worker.view_block().block_hash(block_hash).await?;
+    assert_eq!(
+        achievements,
+        vec![(block.timestamp() / 1_000_000, Achievement::FirstWin)]
+    );
     assert_ft_mint_events(
         events,
-        vec![FtMint {
-            owner_id: player_a.id(),
-            amount: Quest::DailyPlayMove.get_points(true).into(),
-            memo: Some("DailyPlayMove"),
-        }],
+        vec![
+            FtMint {
+                owner_id: player_a.id(),
+                amount: Quest::DailyPlayMove.get_points(true).into(),
+                memo: Some("DailyPlayMove"),
+            },
+            FtMint {
+                owner_id: player_a.id(),
+                amount: Achievement::FirstWin.get_points().into(),
+                memo: Some("FirstWin"),
+            },
+        ],
     )?;
 
     Ok(())
@@ -301,7 +307,7 @@ async fn test_first_win_not_human() -> anyhow::Result<()> {
 
 #[tokio::test]
 async fn test_first_win_ai() -> anyhow::Result<()> {
-    let (worker, _, contract, _, _) = initialize_contracts(None).await?;
+    let (worker, _, contract, _) = initialize_contracts(None).await?;
 
     let player_a = worker.dev_create_account().await?;
 
@@ -352,7 +358,7 @@ async fn test_first_win_ai() -> anyhow::Result<()> {
 
 #[tokio::test]
 async fn test_achievement_only_once() -> anyhow::Result<()> {
-    let (worker, _, contract, _, _) = initialize_contracts(None).await?;
+    let (worker, _, contract, _) = initialize_contracts(None).await?;
 
     let player_a = worker.dev_create_account().await?;
 
@@ -410,15 +416,11 @@ async fn test_achievement_only_once() -> anyhow::Result<()> {
 
 #[tokio::test]
 async fn test_multiple_achievements() -> anyhow::Result<()> {
-    let (worker, _, contract, _, nada_bot_contract) = initialize_contracts(None).await?;
+    let (worker, _, contract, _) = initialize_contracts(None).await?;
 
     let player_a = worker.dev_create_account().await?;
     let player_b = worker.dev_create_account().await?;
 
-    tokio::try_join!(
-        call::add_human(&nada_bot_contract, &player_a, player_a.id()),
-        call::add_human(&nada_bot_contract, &player_b, player_b.id())
-    )?;
     tokio::try_join!(
         call::storage_deposit(&contract, &player_a, None, None),
         call::storage_deposit(&contract, &player_b, None, None)
@@ -446,7 +448,7 @@ async fn test_multiple_achievements() -> anyhow::Result<()> {
 
     assert_eq!(outcome.unwrap(), GameOutcome::Victory(Color::White));
     let block = worker.view_block().block_hash(block_hash).await?;
-    let human_achievement = (block.timestamp() / 1_000_000, Achievement::FirstWinHuman);
+    let pvp_achievement = (block.timestamp() / 1_000_000, Achievement::FirstWin);
 
     worker.fast_forward(100).await?;
 
@@ -468,7 +470,7 @@ async fn test_multiple_achievements() -> anyhow::Result<()> {
         points.0,
         2 * Quest::DailyPlayMove.get_points(false)
             + 6 * Quest::DailyPlayMove.get_points(true)
-            + Achievement::FirstWinHuman.get_points()
+            + Achievement::FirstWin.get_points()
             + Achievement::FirstWinAiEasy.get_points()
     );
     let supply = view::ft_total_supply(&contract).await?;
@@ -476,11 +478,11 @@ async fn test_multiple_achievements() -> anyhow::Result<()> {
         supply.0,
         3 * Quest::DailyPlayMove.get_points(false)
             + 8 * Quest::DailyPlayMove.get_points(true)
-            + Achievement::FirstWinHuman.get_points()
+            + Achievement::FirstWin.get_points()
             + Achievement::FirstWinAiEasy.get_points()
     );
     let achievements = view::get_achievements(&contract, player_a.id()).await?;
-    assert_eq!(achievements, vec![human_achievement, ai_achievement]);
+    assert_eq!(achievements, vec![pvp_achievement, ai_achievement]);
 
     Ok(())
 }
