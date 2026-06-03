@@ -3,19 +3,38 @@ import { z } from 'zod';
 
 import {
   AccountSchema,
+  AccountStatsSchema,
+  ChallengeSchema,
   GameIdSchema,
+  GameMoveSchema,
   GameOverviewSchema,
   GameSchema,
-  InfoSchema
+  GlobalStatsSchema,
+  InfoSchema,
+  PaginatedGamesSchema,
+  PaginatedLeaderboardSchema
 } from './events';
+
+const NotFoundSchema = z.object({ error: z.literal('Not found') });
 
 export const getInfoRoute = createRoute({
   method: 'get',
-  path: '/',
+  path: '/info',
   responses: {
     200: {
       content: { 'application/json': { schema: InfoSchema } },
       description: 'Returns the last indexed block height'
+    }
+  }
+});
+
+export const getGlobalStatsRoute = createRoute({
+  method: 'get',
+  path: '/stats',
+  responses: {
+    200: {
+      content: { 'application/json': { schema: GlobalStatsSchema } },
+      description: 'Returns global platform statistics'
     }
   }
 });
@@ -31,7 +50,24 @@ export const getGameRoute = createRoute({
       content: { 'application/json': { schema: GameSchema } },
       description: 'Returns a game by ID'
     },
-    404: { description: 'Game not found' }
+    404: {
+      content: { 'application/json': { schema: NotFoundSchema } },
+      description: 'Game not found'
+    }
+  }
+});
+
+export const getGameMovesRoute = createRoute({
+  method: 'get',
+  path: '/game/{game_id}/moves',
+  request: {
+    params: z.object({ game_id: z.string() })
+  },
+  responses: {
+    200: {
+      content: { 'application/json': { schema: GameMoveSchema.array() } },
+      description: 'Returns move history for a game'
+    }
   }
 });
 
@@ -58,36 +94,39 @@ export const queryGamesRoute = createRoute({
   }
 });
 
-export const getRecentNewGamesRoute = createRoute({
+export const getGamesRoute = createRoute({
   method: 'get',
-  path: '/recent/new',
+  path: '/games',
   request: {
     query: z.object({
+      status: z.enum(['active', 'finished']).optional().default('active'),
+      cursor: z.string().optional(),
       limit: z.string().optional(),
       include_moves: z.string().optional()
     })
   },
   responses: {
     200: {
-      content: { 'application/json': { schema: GameOverviewSchema.array() } },
-      description: 'Returns recent new games'
+      content: { 'application/json': { schema: PaginatedGamesSchema } },
+      description: 'Returns paginated games filtered by status'
     }
   }
 });
 
-export const getRecentFinishedGamesRoute = createRoute({
+export const getActiveGameRoute = createRoute({
   method: 'get',
-  path: '/recent/finished',
+  path: '/account/{account_id}/active-game',
   request: {
-    query: z.object({
-      limit: z.string().optional(),
-      include_moves: z.string().optional()
-    })
+    params: z.object({ account_id: z.string() })
   },
   responses: {
     200: {
-      content: { 'application/json': { schema: GameOverviewSchema.array() } },
-      description: 'Returns recent finished games'
+      content: { 'application/json': { schema: GameSchema } },
+      description: 'Returns the active game for an account'
+    },
+    404: {
+      content: { 'application/json': { schema: NotFoundSchema } },
+      description: 'No active game found'
     }
   }
 });
@@ -102,6 +141,53 @@ export const getAccountRoute = createRoute({
     200: {
       content: { 'application/json': { schema: AccountSchema } },
       description: 'Returns account data with finished game IDs'
+    }
+  }
+});
+
+export const getAccountStatsRoute = createRoute({
+  method: 'get',
+  path: '/account/{account_id}/stats',
+  request: {
+    params: z.object({ account_id: z.string() })
+  },
+  responses: {
+    200: {
+      content: { 'application/json': { schema: AccountStatsSchema } },
+      description: 'Returns win/loss/draw statistics for an account'
+    }
+  }
+});
+
+export const getChallengesRoute = createRoute({
+  method: 'get',
+  path: '/account/{account_id}/challenges',
+  request: {
+    params: z.object({ account_id: z.string() })
+  },
+  responses: {
+    200: {
+      content: { 'application/json': { schema: ChallengeSchema.array() } },
+      description: 'Returns challenges for an account'
+    }
+  }
+});
+
+export const getLeaderboardRoute = createRoute({
+  method: 'get',
+  path: '/leaderboard',
+  request: {
+    query: z.object({
+      cursor: z.string().optional(),
+      limit: z.string().optional()
+    })
+  },
+  responses: {
+    200: {
+      content: {
+        'application/json': { schema: PaginatedLeaderboardSchema }
+      },
+      description: 'Returns top players ranked by wins'
     }
   }
 });

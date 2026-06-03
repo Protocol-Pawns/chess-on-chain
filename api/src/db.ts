@@ -1,21 +1,29 @@
 import postgres from 'postgres';
 
 import type {
+  Account,
+  AccountStats,
+  Challenge,
   Color,
   Game,
-  GameId,
+  GameMove,
   GameOutcome,
-  Player,
-  Account
+  GlobalStats,
+  LeaderboardEntry,
+  Player
 } from './events';
 
-const MAX_RECENT_LIMIT = 25;
+const MAX_LIMIT = 100;
+const DEFAULT_LIMIT = 25;
 
 export function getDb(connectionString: string) {
   return postgres(connectionString, {
     ssl: connectionString.includes('localhost')
       ? { rejectUnauthorized: false }
-      : true
+      : true,
+    max: 5,
+    idle_timeout: 20,
+    connect_timeout: 10
   });
 }
 
@@ -28,9 +36,33 @@ interface GameRow {
   black_type: string;
   black_value: string | null;
   board: string[];
-  moves: Array<{ color: string; mv: string; board: string[] }>;
+  fen: string | null;
+  moves: Array<{ color: string; mv: string; board: string[]; fen?: string }>;
   outcome: GameOutcome | null;
   resigner: Color | null;
+  status: string;
+  created_at: string;
+  finished_at: string | null;
+}
+
+interface GameMoveRow {
+  move_number: number;
+  color: string;
+  move_notation: string;
+  fen: string;
+  outcome: GameOutcome | null;
+}
+
+interface ChallengeRow {
+  id: string;
+  challenger: string;
+  challenged: string;
+  wager_token: string | null;
+  wager_amount: string | null;
+  status: string;
+  game_id: string | null;
+  created_at: string;
+  resolved_at: string | null;
 }
 
 function parsePlayer(type: string, value: string | null): Player {
@@ -45,13 +77,18 @@ function rowToGame(row: GameRow): Game {
     white: parsePlayer(row.white_type, row.white_value),
     black: parsePlayer(row.black_type, row.black_value),
     board: row.board,
+    fen: row.fen,
     moves: row.moves.map(m => ({
       color: m.color as Color,
       mv: m.mv,
-      board: m.board
+      board: m.board,
+      fen: m.fen
     })),
+    status: row.status as Game['status'],
     outcome: row.outcome,
-    resigner: row.resigner
+    resigner: row.resigner,
+    created_at: row.created_at,
+    finished_at: row.finished_at
   };
 }
 
@@ -61,16 +98,83 @@ function rowToGameOverview(row: GameRow, includeMoves: boolean) {
   return includeMoves ? { ...overview, moves } : overview;
 }
 
+function rowToGameMove(row: GameMoveRow): GameMove {
+  return {
+    move_number: row.move_number,
+    color: row.color as Color,
+    move_notation: row.move_notation,
+    fen: row.fen,
+    outcome: row.outcome
+  };
+}
+
+function rowToChallenge(row: ChallengeRow): Challenge {
+  return {
+    id: row.id,
+    challenger: row.challenger,
+    challenged: row.challenged,
+    wager_token: row.wager_token,
+    wager_amount: row.wager_amount,
+    status: row.status as Challenge['status'],
+    game_id: row.game_id,
+    created_at: row.created_at,
+    resolved_at: row.resolved_at
+  };
+}
+
+function clampLimit(
+  limit: unknown,
+  max = MAX_LIMIT,
+  fallback = DEFAULT_LIMIT
+): number {
+  const n = Number(limit);
+  if (!Number.isFinite(n) || n <= 0) return fallback;
+  return Math.min(n, max);
+}
+
 export async function getInfo(db: Db): Promise<{ lastBlockHeight: number }> {
   const rows =
     await db`SELECT COALESCE(MAX(trigger_block_height), 0) AS last_block_height FROM chess_events`;
   return { lastBlockHeight: Number(rows[0].last_block_height) };
 }
 
+export async function getGlobalStats(db: Db): Promise<GlobalStats> {
+  const [games, moves] = await Promise.all([
+    db`
+      SELECT
+        COUNT(*) AS total,
+        COUNT(*) FILTER (WHERE status = 'in_progress') AS active,
+        COUNT(*) FILTER (WHERE status = 'finished') AS finished,
+        COUNT(*) FILTER (WHERE status = 'cancelled') AS cancelled
+      FROM games
+    `,
+    db`SELECT COUNT(*) AS total FROM game_moves`
+  ]);
+  return {
+    total_games: Number(games[0].total),
+    active_games: Number(games[0].active),
+    finished_games: Number(games[0].finished),
+    cancelled_games: Number(games[0].cancelled),
+    total_moves: Number(moves[0].total)
+  };
+}
+
 export async function getGame(db: Db, gameId: string): Promise<Game | null> {
   const rows = await db`SELECT * FROM games WHERE game_id = ${gameId}`;
   if (rows.length === 0) return null;
   return rowToGame(rows[0] as unknown as GameRow);
+}
+
+export async function getGameMoves(
+  db: Db,
+  gameId: string
+): Promise<GameMove[]> {
+  const rows = await db`
+    SELECT move_number, color, move_notation, fen, outcome
+    FROM game_moves WHERE game_id = ${gameId}
+    ORDER BY move_number ASC
+  `;
+  return rows.map((r: unknown) => rowToGameMove(r as GameMoveRow));
 }
 
 export async function queryGames(
@@ -85,38 +189,63 @@ export async function queryGames(
   );
 }
 
-export async function getRecentNewGames(
+export async function getGames(
   db: Db,
+  status: 'active' | 'finished',
+  cursor: string | null,
   limit: number,
   includeMoves: boolean
 ) {
-  const actualLimit = Math.min(limit, MAX_RECENT_LIMIT);
-  const rows = await db`
-    SELECT * FROM games
-    WHERE finished_at IS NULL
-    ORDER BY created_at DESC
-    LIMIT ${actualLimit}
-  `;
-  return rows.map((r: unknown) =>
+  const actualLimit = clampLimit(limit);
+  const statusFilter = status === 'active' ? 'in_progress' : 'finished';
+  const orderBy = status === 'active' ? 'created_at' : 'finished_at';
+
+  let rows;
+  if (cursor) {
+    rows = await db`
+      SELECT * FROM games
+      WHERE status = ${statusFilter} AND ${db(orderBy)} < ${cursor}
+      ORDER BY ${db(orderBy)} DESC
+      LIMIT ${actualLimit + 1}
+    `;
+  } else {
+    rows = await db`
+      SELECT * FROM games
+      WHERE status = ${statusFilter}
+      ORDER BY ${db(orderBy)} DESC
+      LIMIT ${actualLimit + 1}
+    `;
+  }
+
+  const hasMore = rows.length > actualLimit;
+  const items = (hasMore ? rows.slice(0, -1) : rows).map((r: unknown) =>
     rowToGameOverview(r as GameRow, includeMoves)
   );
+  const lastItem = items[items.length - 1] as
+    | { created_at?: string; finished_at?: string }
+    | undefined;
+  const nextCursor =
+    hasMore && lastItem
+      ? ((status === 'active' ? lastItem.created_at : lastItem.finished_at) ??
+        null)
+      : null;
+
+  return { items, next_cursor: nextCursor };
 }
 
-export async function getRecentFinishedGames(
+export async function getActiveGame(
   db: Db,
-  limit: number,
-  includeMoves: boolean
-) {
-  const actualLimit = Math.min(limit, MAX_RECENT_LIMIT);
+  accountId: string
+): Promise<Game | null> {
   const rows = await db`
-    SELECT * FROM games
-    WHERE finished_at IS NOT NULL
-    ORDER BY finished_at DESC
-    LIMIT ${actualLimit}
+    SELECT g.* FROM games g
+    WHERE g.status = 'in_progress'
+      AND (g.white_value = ${accountId} OR g.black_value = ${accountId})
+    ORDER BY g.created_at DESC
+    LIMIT 1
   `;
-  return rows.map((r: unknown) =>
-    rowToGameOverview(r as GameRow, includeMoves)
-  );
+  if (rows.length === 0) return null;
+  return rowToGame(rows[0] as unknown as GameRow);
 }
 
 export async function getAccount(db: Db, accountId: string): Promise<Account> {
@@ -126,7 +255,143 @@ export async function getAccount(db: Db, accountId: string): Promise<Account> {
   `;
   return {
     finishedGameIds: rows.map(
-      (r: unknown) => JSON.parse((r as { game_id: string }).game_id) as GameId
+      (r: unknown) =>
+        JSON.parse((r as { game_id: string }).game_id) as [
+          number,
+          string,
+          string | null
+        ]
     )
   };
+}
+
+export async function getAccountStats(
+  db: Db,
+  accountId: string
+): Promise<AccountStats> {
+  const rows = await db`
+    SELECT
+      COUNT(*) FILTER (
+        WHERE g.outcome IS NOT NULL
+          AND g.status = 'finished'
+          AND (
+            (g.white_value = ${accountId} AND g.outcome->>'result' = 'Victory' AND g.outcome->>'color' = 'White')
+            OR (g.black_value = ${accountId} AND g.outcome->>'result' = 'Victory' AND g.outcome->>'color' = 'Black')
+          )
+      ) AS wins,
+      COUNT(*) FILTER (
+        WHERE g.outcome IS NOT NULL
+          AND g.status = 'finished'
+          AND (
+            (g.white_value = ${accountId} AND g.outcome->>'result' = 'Victory' AND g.outcome->>'color' = 'Black')
+            OR (g.black_value = ${accountId} AND g.outcome->>'result' = 'Victory' AND g.outcome->>'color' = 'White')
+          )
+      ) AS losses,
+      COUNT(*) FILTER (
+        WHERE g.outcome IS NOT NULL
+          AND g.status = 'finished'
+          AND g.outcome->>'result' = 'Stalemate'
+      ) AS draws,
+      COUNT(*) FILTER (WHERE g.status = 'finished') AS total_games
+    FROM games g
+    WHERE g.white_value = ${accountId} OR g.black_value = ${accountId}
+  `;
+  const r = rows[0] as unknown as Record<string, string>;
+  return {
+    account_id: accountId,
+    wins: Number(r.wins),
+    losses: Number(r.losses),
+    draws: Number(r.draws),
+    total_games: Number(r.total_games)
+  };
+}
+
+export async function getChallenges(
+  db: Db,
+  accountId: string
+): Promise<Challenge[]> {
+  const rows = await db`
+    SELECT * FROM challenges
+    WHERE challenger = ${accountId} OR challenged = ${accountId}
+    ORDER BY created_at DESC
+  `;
+  return rows.map((r: unknown) => rowToChallenge(r as ChallengeRow));
+}
+
+export async function getLeaderboard(
+  db: Db,
+  cursor: string | null,
+  limit: number
+) {
+  const actualLimit = clampLimit(limit, 100, 25);
+  let rows;
+  if (cursor) {
+    rows = await db`
+      SELECT
+        afg.account_id,
+        COUNT(*) FILTER (
+          WHERE g.outcome->>'result' = 'Victory'
+            AND ((g.white_value = afg.account_id AND g.outcome->>'color' = 'White')
+              OR (g.black_value = afg.account_id AND g.outcome->>'color' = 'Black'))
+        ) AS wins,
+        COUNT(*) FILTER (
+          WHERE g.outcome->>'result' = 'Victory'
+            AND ((g.white_value = afg.account_id AND g.outcome->>'color' = 'Black')
+              OR (g.black_value = afg.account_id AND g.outcome->>'color' = 'White'))
+        ) AS losses,
+        COUNT(*) FILTER (WHERE g.outcome->>'result' = 'Stalemate') AS draws,
+        COUNT(*) AS total_games
+      FROM account_finished_games afg
+      JOIN games g ON g.game_id = afg.game_id
+      WHERE g.status = 'finished' AND g.outcome IS NOT NULL
+        AND afg.account_id < ${cursor}
+      GROUP BY afg.account_id
+      ORDER BY wins DESC, total_games ASC
+      LIMIT ${actualLimit + 1}
+    `;
+  } else {
+    rows = await db`
+      SELECT
+        afg.account_id,
+        COUNT(*) FILTER (
+          WHERE g.outcome->>'result' = 'Victory'
+            AND ((g.white_value = afg.account_id AND g.outcome->>'color' = 'White')
+              OR (g.black_value = afg.account_id AND g.outcome->>'color' = 'Black'))
+        ) AS wins,
+        COUNT(*) FILTER (
+          WHERE g.outcome->>'result' = 'Victory'
+            AND ((g.white_value = afg.account_id AND g.outcome->>'color' = 'Black')
+              OR (g.black_value = afg.account_id AND g.outcome->>'color' = 'White'))
+        ) AS losses,
+        COUNT(*) FILTER (WHERE g.outcome->>'result' = 'Stalemate') AS draws,
+        COUNT(*) AS total_games
+      FROM account_finished_games afg
+      JOIN games g ON g.game_id = afg.game_id
+      WHERE g.status = 'finished' AND g.outcome IS NOT NULL
+      GROUP BY afg.account_id
+      ORDER BY wins DESC, total_games ASC
+      LIMIT ${actualLimit + 1}
+    `;
+  }
+
+  const hasMore = rows.length > actualLimit;
+  const items = (hasMore ? rows.slice(0, -1) : rows).map((r: unknown) => {
+    const row = r as Record<string, string>;
+    const wins = Number(row.wins);
+    const total = Number(row.total_games);
+    return {
+      account_id: row.account_id,
+      wins,
+      losses: Number(row.losses),
+      draws: Number(row.draws),
+      total_games: total,
+      win_rate: total > 0 ? Math.round((wins / total) * 1000) / 1000 : 0
+    } satisfies LeaderboardEntry;
+  });
+  const lastItem = items[items.length - 1] as
+    | { account_id: string }
+    | undefined;
+  const nextCursor = hasMore && lastItem ? lastItem.account_id : null;
+
+  return { items, next_cursor: nextCursor };
 }

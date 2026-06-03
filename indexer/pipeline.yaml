@@ -1,4 +1,4 @@
-name: chess-on-chain-events
+name: chess-on-chain-events-v2
 resource_size: s
 description: Indexes chess game events from the Protocol Pawns NEAR smart contract
 
@@ -38,7 +38,15 @@ transforms:
       event_data: string
     script: |
       function process(row) {
-        const GAME_EVENTS = ['create_game', 'play_move', 'resign_game', 'cancel_game'];
+        const CHESS_EVENTS = [
+          'challenge',
+          'accept_challenge',
+          'reject_challenge',
+          'create_game',
+          'play_move',
+          'resign_game',
+          'cancel_game'
+        ];
         const results = [];
 
         const logs = row.logs || [];
@@ -50,14 +58,16 @@ transforms:
           try {
             const parsed = JSON.parse(trimmed.slice(prefix.length));
             if (parsed.standard !== 'chess-game') continue;
-            if (!GAME_EVENTS.includes(parsed.event)) continue;
+            if (!CHESS_EVENTS.includes(parsed.event)) continue;
+
+            const payload = (parsed.data && parsed.data[0]) || {};
 
             results.push({
               id: row.id + '_' + parsed.event + '_' + results.length,
               trigger_block_height: String(row.trigger_block_height),
               trigger_block_timestamp: String(row.trigger_block_timestamp),
               event_type: parsed.event,
-              event_data: JSON.stringify(parsed.data || {})
+              event_data: JSON.stringify(payload)
             });
           } catch {}
         }
