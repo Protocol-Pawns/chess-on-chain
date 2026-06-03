@@ -1,0 +1,75 @@
+name: chess-on-chain-events
+resource_size: s
+description: Indexes chess game events from the Protocol Pawns NEAR smart contract
+
+sources:
+  near_eo:
+    type: dataset
+    dataset_name: near.execution_outcomes
+    version: 1.1.0
+    start_at: latest
+
+transforms:
+  chess_contract_outcomes:
+    type: sql
+    primary_key: id
+    sql: |
+      SELECT
+        id,
+        trigger_block_height,
+        trigger_block_hash,
+        trigger_block_timestamp,
+        executor_id,
+        logs
+      FROM near_eo
+      WHERE executor_id = 'app.chess-game.near'
+        AND status = 'SUCCESS'
+
+  parsed_events:
+    type: script
+    from: chess_contract_outcomes
+    language: javascript
+    primary_key: id
+    schema:
+      id: string
+      trigger_block_height: string
+      trigger_block_timestamp: string
+      event_type: string
+      event_data: string
+    script: |
+      function process(row) {
+        const GAME_EVENTS = ['create_game', 'play_move', 'resign_game', 'cancel_game'];
+        const results = [];
+
+        const logs = row.logs || [];
+        for (const log of logs) {
+          const trimmed = (log || '').trim();
+          const prefix = 'EVENT_JSON:';
+          if (!trimmed.startsWith(prefix)) continue;
+
+          try {
+            const parsed = JSON.parse(trimmed.slice(prefix.length));
+            if (parsed.standard !== 'chess-game') continue;
+            if (!GAME_EVENTS.includes(parsed.event)) continue;
+
+            results.push({
+              id: row.id + '_' + parsed.event + '_' + results.length,
+              trigger_block_height: String(row.trigger_block_height),
+              trigger_block_timestamp: String(row.trigger_block_timestamp),
+              event_type: parsed.event,
+              event_data: JSON.stringify(parsed.data || {})
+            });
+          } catch {}
+        }
+
+        return results;
+      }
+
+sinks:
+  postgres_events:
+    type: postgres
+    from: parsed_events
+    schema: public
+    table: chess_events
+    secret_name: CHESS_POSTGRES
+    primary_key: id

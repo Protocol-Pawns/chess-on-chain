@@ -1,19 +1,21 @@
 import { z } from 'zod';
 
-import { Optional } from './types';
+export const GameIdSchema = z.tuple([
+  z.number(),
+  z.string(),
+  z.nullable(z.string())
+]);
+export type GameId = z.infer<typeof GameIdSchema>;
 
-const zodGameId = z.tuple([z.number(), z.string(), z.nullable(z.string())]);
-export type GameId = z.infer<typeof zodGameId>;
+export const DifficultySchema = z.enum(['Easy', 'Medium', 'Hard']);
+export type Difficulty = z.infer<typeof DifficultySchema>;
 
-const zodDifficulty = z.enum(['Easy', 'Medium', 'Hard']);
-export type Difficulty = z.infer<typeof zodDifficulty>;
+export const ColorSchema = z.enum(['White', 'Black']);
+export type Color = z.infer<typeof ColorSchema>;
 
-const zodColor = z.enum(['White', 'Black']);
-export type Color = z.infer<typeof zodColor>;
+const BoardSchema = z.string().array().length(8);
 
-const zodBoard = z.string().array().length(8);
-
-const zodGameOutcome = z.discriminatedUnion('result', [
+export const GameOutcomeSchema = z.discriminatedUnion('result', [
   z
     .object({
       result: z.literal('Stalemate')
@@ -22,13 +24,13 @@ const zodGameOutcome = z.discriminatedUnion('result', [
   z
     .object({
       result: z.literal('Victory'),
-      color: zodColor
+      color: ColorSchema
     })
     .strict()
 ]);
-export type GameOutcome = z.infer<typeof zodGameOutcome>;
+export type GameOutcome = z.infer<typeof GameOutcomeSchema>;
 
-const zodPlayer = z.discriminatedUnion('type', [
+export const PlayerSchema = z.discriminatedUnion('type', [
   z
     .object({
       type: z.literal('Human'),
@@ -38,99 +40,48 @@ const zodPlayer = z.discriminatedUnion('type', [
   z
     .object({
       type: z.literal('Ai'),
-      value: zodDifficulty
+      value: DifficultySchema
     })
     .strict()
 ]);
-export type Player = z.infer<typeof zodPlayer>;
+export type Player = z.infer<typeof PlayerSchema>;
 
-const zodCreateGame = z
+export const CreateGameSchema = z
   .object({
-    game_id: zodGameId,
-    white: zodPlayer,
-    black: zodPlayer,
-    board: zodBoard
+    game_id: GameIdSchema,
+    white: PlayerSchema,
+    black: PlayerSchema,
+    board: BoardSchema
   })
   .strict();
-export type CreateGame = z.infer<typeof zodCreateGame>;
+export type CreateGame = z.infer<typeof CreateGameSchema>;
 
-export type Move = {
-  color: Color;
-  mv: string;
-  board: string[];
-};
-
-export type Game = CreateGame & {
-  moves: Move[];
-  resigner?: Color | null;
-  outcome?: GameOutcome | null;
-};
-
-export type GameOverview = Optional<Game, 'moves'>;
-
-export type Account = {
-  finishedGameIds: GameId[];
-};
-
-const zodPlayMove = z
-  .object({
-    game_id: zodGameId,
-    color: zodColor,
-    mv: z.string(),
-    board: zodBoard,
-    outcome: zodGameOutcome.nullish()
-  })
-  .strict();
-export type PlayMove = z.infer<typeof zodPlayMove>;
-
-const zodResignGame = z
-  .object({
-    game_id: zodGameId,
-    resigner: zodColor,
-    outcome: zodGameOutcome
-  })
-  .strict();
-export type ResignGame = z.infer<typeof zodResignGame>;
-
-const zodCancelGame = z
-  .object({
-    game_id: zodGameId,
-    cancelled_by: z.string()
-  })
-  .strict();
-export type CancelGame = z.infer<typeof zodCancelGame>;
-
-export const zodBatchEvent = z.object({
-  block_height: z.number(),
-  timestamp: z.number(),
-  events: z
-    .discriminatedUnion('event', [
-      z
-        .object({
-          event: z.literal('create_game'),
-          data: zodCreateGame
-        })
-        .strict(),
-      z
-        .object({
-          event: z.literal('play_move'),
-          data: zodPlayMove
-        })
-        .strict(),
-      z
-        .object({
-          event: z.literal('resign_game'),
-          data: zodResignGame
-        })
-        .strict(),
-      z
-        .object({
-          event: z.literal('cancel_game'),
-          data: zodCancelGame
-        })
-        .strict()
-    ])
-    .array()
+export const MoveSchema = z.object({
+  color: ColorSchema,
+  mv: z.string(),
+  board: BoardSchema
 });
+export type Move = z.infer<typeof MoveSchema>;
 
-export type BatchEvent = z.infer<typeof zodBatchEvent>;
+export const GameSchema = CreateGameSchema.extend({
+  moves: MoveSchema.array(),
+  resigner: ColorSchema.nullable().optional(),
+  outcome: GameOutcomeSchema.nullable().optional()
+});
+export type Game = z.infer<typeof GameSchema>;
+
+export const GameOverviewSchema = CreateGameSchema.extend({
+  moves: MoveSchema.array().optional(),
+  resigner: ColorSchema.nullable().optional(),
+  outcome: GameOutcomeSchema.nullable().optional()
+});
+export type GameOverview = z.infer<typeof GameOverviewSchema>;
+
+export const AccountSchema = z.object({
+  finishedGameIds: GameIdSchema.array()
+});
+export type Account = z.infer<typeof AccountSchema>;
+
+export const InfoSchema = z.object({
+  lastBlockHeight: z.number()
+});
