@@ -8,6 +8,7 @@
   } from '$lib/near/account';
   import { contract } from '$lib/near/connector';
   import { showTxToast } from '$lib/toast';
+  import { fmtPPP, fmtOneDecimal } from '$lib/format';
 
   let questList = $state<
     Array<{
@@ -20,18 +21,10 @@
   let achievementList = $state<Array<{ name: string; points: string }>>([]);
   let loading = $state(true);
 
-  function formatPPP(raw: string): string {
-    const val = BigInt(raw);
-    const whole = val / BigInt(1000000);
-    const frac = val % BigInt(1000000);
-    return `${whole}.${frac.toString().padStart(6, '0').slice(0, 2)}`;
-  }
-
   function formatCooldown(ms: number): string {
     const hours = Math.round(ms / 3600000);
     if (hours >= 24) {
-      const days = (hours / 24).toFixed(1);
-      return `~${days}d`;
+      return `~${fmtOneDecimal(hours / 24)}d`;
     }
     return `~${hours}h`;
   }
@@ -167,10 +160,10 @@
               <tr class="border-t border-primary/20">
                 <td class="py-1.5">{QUEST_LABELS[q.name] ?? q.name}</td>
                 <td class="py-1.5 text-right text-primary-green"
-                  >{formatPPP(q.points)}</td
+                  >{fmtPPP(q.points)}</td
                 >
                 <td class="py-1.5 text-right text-white/50"
-                  >{formatPPP(q.points_on_cd)}</td
+                  >{fmtPPP(q.points_on_cd)}</td
                 >
                 <td class="py-1.5 text-right text-white/50"
                   >{formatCooldown(q.cooldown)}</td
@@ -203,7 +196,7 @@
               <tr class="border-t border-primary/20">
                 <td class="py-1.5">{ACHIEVEMENT_LABELS[a.name] ?? a.name}</td>
                 <td class="py-1.5 text-right text-primary-green"
-                  >{formatPPP(a.points)}</td
+                  >{fmtPPP(a.points)}</td
                 >
               </tr>
             {/each}

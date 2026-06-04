@@ -2,6 +2,7 @@
   import { onMount } from 'svelte';
   import { page } from '$app/state';
   import { api, type AccountStats, type GameOverview } from '$lib/api/client';
+  import { fmtOneDecimal } from '$lib/format';
   import { contract } from '$lib/near/connector';
   import GameCard from '$lib/components/GameCard.svelte';
 
@@ -147,7 +148,7 @@
           <div class="text-center">
             <div class="text-lg font-bold text-primary">
               {stats.total_games > 0
-                ? ((stats.wins / stats.total_games) * 100).toFixed(1)
+                ? fmtOneDecimal((stats.wins / stats.total_games) * 100)
                 : 0}%
             </div>
             <div class="text-xs text-white/50">Win Rate</div>

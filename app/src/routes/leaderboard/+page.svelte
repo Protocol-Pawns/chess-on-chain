@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
+  import { fmtOneDecimal } from '$lib/format';
   import {
     api,
     type EloLeaderboardPage,
@@ -100,7 +101,7 @@
                 <td class="py-1.5 text-right text-white/50">{stats.draws}</td>
                 <td class="py-1.5 text-right text-white/70"
                   >{stats.total_games > 0
-                    ? ((stats.wins / stats.total_games) * 100).toFixed(1)
+                    ? fmtOneDecimal((stats.wins / stats.total_games) * 100)
                     : 0}%</td
                 >
               {:else}

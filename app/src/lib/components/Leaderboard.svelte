@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { LeaderboardEntry } from '$lib/api/client';
+  import { fmtOneDecimal } from '$lib/format';
 
   let { entries }: { entries: LeaderboardEntry[] } = $props();
 </script>
@@ -31,7 +32,7 @@
           <td class="py-1 text-right text-primary-green">{entry.wins}</td>
           <td class="py-1 text-right text-primary-err">{entry.losses}</td>
           <td class="py-1 text-right text-white/70">{entry.draws}</td>
-          <td class="py-1 text-right">{(entry.win_rate * 100).toFixed(1)}%</td>
+          <td class="py-1 text-right">{fmtOneDecimal(entry.win_rate * 100)}%</td>
         </tr>
       {/each}
     </tbody>
