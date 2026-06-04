@@ -33,5 +33,6 @@
     "typescript": "6.0.3",
     "typescript-eslint": "^8.60.1",
     "wrangler": "^4.97.0"
-  }
+  },
+  "packageManager": "yarn@4.16.0"
 }

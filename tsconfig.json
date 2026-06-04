@@ -12,5 +12,5 @@
     "resolveJsonModule": true,
     "types": ["@cloudflare/workers-types"]
   },
-  "exclude": ["node_modules", "api/dist/**/*", "app"]
+  "exclude": ["node_modules", "api/dist/**/*", "app", "app-old"]
 }

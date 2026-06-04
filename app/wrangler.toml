@@ -1,0 +1,10 @@
+name = "protocol-pawns"
+compatibility_date = "2024-12-01"
+compatibility_flags = ["nodejs_compat"]
+pages_build_output_dir = ".svelte-kit/cloudflare"
+
+[vars]
+VITE_API_URL = "https://api.protocol-pawns.com"
+VITE_CONTRACT_ID = "app.chess-game.near"
+VITE_NETWORK_ID = "mainnet"
+VITE_RPC_URL = "https://rpc.mainnet.near.org"

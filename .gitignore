@@ -9,3 +9,10 @@ build
 abi-gen
 
 .svelte-kit
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/sdks
+!.yarn/versions
+.pnp.*
