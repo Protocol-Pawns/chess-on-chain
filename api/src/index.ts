@@ -4,6 +4,7 @@ import { cors } from 'hono/cors';
 import { poweredBy } from 'hono/powered-by';
 
 import {
+  addPushSubscription,
   getAccount,
   getAccountStats,
   getActiveGame,
@@ -15,8 +16,11 @@ import {
   getGlobalStats,
   getInfo,
   getLeaderboard,
-  queryGames
+  queryGames,
+  removePushSubscription
 } from './db';
+import { processNotifications } from './notify';
+import { importVapidKey } from './push';
 import {
   getAccountRoute,
   getAccountStatsRoute,
@@ -28,7 +32,10 @@ import {
   getGlobalStatsRoute,
   getInfoRoute,
   getLeaderboardRoute,
-  queryGamesRoute
+  getVapidPublicKeyRoute,
+  queryGamesRoute,
+  subscribePushRoute,
+  unsubscribePushRoute
 } from './routes';
 import type { AppEnv } from './types';
 
@@ -149,10 +156,53 @@ app.openapi(getLeaderboardRoute, async c => {
   return c.json(result, 200);
 });
 
+app.openapi(getVapidPublicKeyRoute, async c => {
+  return c.json({ publicKey: c.env.VAPID_PUBLIC_KEY }, 200);
+});
+
+app.openapi(subscribePushRoute, async c => {
+  const accountId = c.req.param('account_id');
+  const { endpoint, keys } = c.req.valid('json');
+  const db = c.get('DB');
+  await addPushSubscription(db, accountId, endpoint, keys.p256dh, keys.auth);
+  return c.json({ ok: true }, 200);
+});
+
+app.openapi(unsubscribePushRoute, async c => {
+  const accountId = c.req.param('account_id');
+  const { endpoint } = c.req.valid('json');
+  const db = c.get('DB');
+  const ok = await removePushSubscription(db, accountId, endpoint);
+  return c.json({ ok }, 200);
+});
+
 app.notFound(() => {
   return new Response(null, { status: 404 });
 });
 
-export default app;
+export default {
+  fetch: app.fetch,
+  scheduled: async (_event: ScheduledEvent, env: AppEnv['Bindings']) => {
+    const connectionString = env.HYPERDRIVE
+      ? env.HYPERDRIVE.connectionString
+      : env.DATABASE_URL!;
+    const db = getDb(connectionString);
+
+    try {
+      const vapidPrivateKey = await importVapidKey(env.VAPID_PRIVATE_KEY);
+      const processed = await processNotifications(
+        db,
+        vapidPrivateKey,
+        env.VAPID_PUBLIC_KEY,
+        env.VAPID_SUBJECT
+      );
+      console.log(`Processed ${processed} notifications`);
+    } catch (err) {
+      console.error('Notification cron error:', err);
+    } finally {
+      await db.end();
+    }
+  }
+};
 
 export type AppType = typeof app;

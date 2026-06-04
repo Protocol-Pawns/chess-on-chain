@@ -12,7 +12,9 @@ import {
   GlobalStatsSchema,
   InfoSchema,
   PaginatedGamesSchema,
-  PaginatedLeaderboardSchema
+  PaginatedLeaderboardSchema,
+  PushSubscriptionSchema,
+  VapidPublicKeySchema
 } from './events';
 
 const NotFoundSchema = z.object({ error: z.literal('Not found') });
@@ -188,6 +190,63 @@ export const getLeaderboardRoute = createRoute({
         'application/json': { schema: PaginatedLeaderboardSchema }
       },
       description: 'Returns top players ranked by wins'
+    }
+  }
+});
+
+export const getVapidPublicKeyRoute = createRoute({
+  method: 'get',
+  path: '/vapid-public-key',
+  responses: {
+    200: {
+      content: { 'application/json': { schema: VapidPublicKeySchema } },
+      description: 'Returns the VAPID public key for push subscriptions'
+    }
+  }
+});
+
+export const subscribePushRoute = createRoute({
+  method: 'post',
+  path: '/account/{account_id}/push-subscription',
+  request: {
+    params: z.object({ account_id: z.string() }),
+    body: {
+      content: {
+        'application/json': {
+          schema: PushSubscriptionSchema
+        }
+      }
+    }
+  },
+  responses: {
+    200: {
+      content: {
+        'application/json': { schema: z.object({ ok: z.boolean() }) }
+      },
+      description: 'Push subscription registered'
+    }
+  }
+});
+
+export const unsubscribePushRoute = createRoute({
+  method: 'delete',
+  path: '/account/{account_id}/push-subscription',
+  request: {
+    params: z.object({ account_id: z.string() }),
+    body: {
+      content: {
+        'application/json': {
+          schema: z.object({ endpoint: z.string() })
+        }
+      }
+    }
+  },
+  responses: {
+    200: {
+      content: {
+        'application/json': { schema: z.object({ ok: z.boolean() }) }
+      },
+      description: 'Push subscription removed'
     }
   }
 });

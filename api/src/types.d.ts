@@ -6,6 +6,9 @@ export type AppEnv = {
   Bindings: {
     HYPERDRIVE?: { connectionString: string };
     DATABASE_URL?: string;
+    VAPID_PRIVATE_KEY: string;
+    VAPID_PUBLIC_KEY: string;
+    VAPID_SUBJECT: string;
   };
   Variables: {
     DB: Sql;

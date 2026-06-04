@@ -175,3 +175,16 @@ export const ErrorSchema = z.object({
   error: z.string(),
   message: z.string().optional()
 });
+
+export const PushSubscriptionSchema = z.object({
+  endpoint: z.string().url(),
+  keys: z.object({
+    p256dh: z.string(),
+    auth: z.string()
+  })
+});
+export type PushSubscriptionRequest = z.infer<typeof PushSubscriptionSchema>;
+
+export const VapidPublicKeySchema = z.object({
+  publicKey: z.string()
+});

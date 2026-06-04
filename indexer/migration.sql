@@ -7,11 +7,13 @@ CREATE TABLE IF NOT EXISTS chess_events (
   event_type TEXT NOT NULL,
   event_data JSONB NOT NULL,
   processed BOOLEAN NOT NULL DEFAULT FALSE,
+  notified BOOLEAN NOT NULL DEFAULT FALSE,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 CREATE INDEX IF NOT EXISTS idx_chess_events_type ON chess_events (event_type);
 CREATE INDEX IF NOT EXISTS idx_chess_events_unprocessed ON chess_events (processed) WHERE NOT processed;
+CREATE INDEX IF NOT EXISTS idx_chess_events_unnotified ON chess_events (notified) WHERE processed = true AND notified = false;
 
 CREATE TABLE IF NOT EXISTS games (
   game_id TEXT PRIMARY KEY,
@@ -73,6 +75,16 @@ CREATE TABLE IF NOT EXISTS account_finished_games (
 );
 
 CREATE INDEX IF NOT EXISTS idx_account_games ON account_finished_games (account_id);
+
+CREATE TABLE IF NOT EXISTS push_subscriptions (
+  endpoint TEXT PRIMARY KEY,
+  account_id TEXT NOT NULL,
+  p256dh TEXT NOT NULL,
+  auth TEXT NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_push_subs_account ON push_subscriptions (account_id);
 
 CREATE OR REPLACE FUNCTION ascii_board_to_fen(board JSONB) RETURNS TEXT AS $$
 DECLARE

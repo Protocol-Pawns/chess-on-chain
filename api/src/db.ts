@@ -395,3 +395,89 @@ export async function getLeaderboard(
 
   return { items, next_cursor: nextCursor };
 }
+
+export interface PushSubscriptionRow {
+  endpoint: string;
+  p256dh: string;
+  auth: string;
+}
+
+export async function addPushSubscription(
+  db: Db,
+  accountId: string,
+  endpoint: string,
+  p256dh: string,
+  auth: string
+): Promise<void> {
+  await db`
+    INSERT INTO push_subscriptions (endpoint, account_id, p256dh, auth)
+    VALUES (${endpoint}, ${accountId}, ${p256dh}, ${auth})
+    ON CONFLICT (endpoint) DO UPDATE SET
+      account_id = ${accountId},
+      p256dh = ${p256dh},
+      auth = ${auth}
+  `;
+}
+
+export async function removePushSubscription(
+  db: Db,
+  accountId: string,
+  endpoint: string
+): Promise<boolean> {
+  const result = await db`
+    DELETE FROM push_subscriptions
+    WHERE endpoint = ${endpoint} AND account_id = ${accountId}
+  `;
+  return result.count > 0;
+}
+
+export async function getPushSubscriptions(
+  db: Db,
+  accountIds: string[]
+): Promise<Map<string, PushSubscriptionRow[]>> {
+  if (accountIds.length === 0) return new Map();
+  const rows = await db`
+    SELECT account_id, endpoint, p256dh, auth FROM push_subscriptions
+    WHERE account_id = ANY(${accountIds})
+  `;
+  const map = new Map<string, PushSubscriptionRow[]>();
+  for (const r of rows as unknown as Array<{
+    account_id: string;
+    endpoint: string;
+    p256dh: string;
+    auth: string;
+  }>) {
+    const list = map.get(r.account_id) || [];
+    list.push({ endpoint: r.endpoint, p256dh: r.p256dh, auth: r.auth });
+    map.set(r.account_id, list);
+  }
+  return map;
+}
+
+interface UnnotifiedEvent {
+  id: string;
+  event_type: string;
+  event_data: Record<string, unknown>;
+}
+
+export async function getUnnotifiedEvents(db: Db): Promise<UnnotifiedEvent[]> {
+  return db`
+    SELECT id, event_type, event_data FROM chess_events
+    WHERE processed = true AND notified = false
+    ORDER BY trigger_block_timestamp ASC
+    LIMIT 100
+  ` as Promise<UnnotifiedEvent[]>;
+}
+
+export async function markEventsNotified(db: Db, ids: string[]): Promise<void> {
+  if (ids.length === 0) return;
+  await db`UPDATE chess_events SET notified = true WHERE id = ANY(${ids})`;
+}
+
+export async function deleteExpiredSubscriptions(
+  db: Db,
+  endpoints: string[]
+): Promise<void> {
+  if (endpoints.length === 0) return;
+  await db`DELETE FROM push_subscriptions WHERE endpoint = ANY(${endpoints})`;
+}

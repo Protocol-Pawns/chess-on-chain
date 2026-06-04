@@ -9,3 +9,8 @@ routes = [
 ]
 
 [vars]
+VAPID_SUBJECT = "mailto:admin@protocol-pawns.com"
+VAPID_PUBLIC_KEY = "BM4Wktu_G9xs5JWCqXaQHa2TrGdjIdz6hUF1JrKZUfa43ANx_bZl8_wXj3pnLGr2xNg6Ot12oCqgbhqwEFgVA18"
+
+[triggers]
+crons = ["* * * * *"]
