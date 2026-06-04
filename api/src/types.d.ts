@@ -4,8 +4,7 @@ export type Optional<T, K extends keyof T> = Omit<T, K> & Partial<T>;
 
 export type AppEnv = {
   Bindings: {
-    HYPERDRIVE?: { connectionString: string };
-    DATABASE_URL?: string;
+    DATABASE_URL: string;
     VAPID_PRIVATE_KEY: string;
     VAPID_PUBLIC_KEY: string;
     VAPID_SUBJECT: string;

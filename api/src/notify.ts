@@ -281,10 +281,15 @@ export async function processNotifications(
   }
 
   const expiredEndpoints: string[] = [];
+  const MAX_PUSH_SENDS = 40;
+  let sends = 0;
 
   for (const notif of allNotifications) {
+    if (sends >= MAX_PUSH_SENDS) break;
     const accountSubs = subsByAccount.get(notif.accountId) || [];
     for (const sub of accountSubs) {
+      if (sends >= MAX_PUSH_SENDS) break;
+      sends++;
       const result = await sendPush(
         sub,
         notif.payload,

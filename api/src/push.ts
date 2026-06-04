@@ -8,12 +8,13 @@ function base64urlEncode(data: ArrayBuffer | Uint8Array): string {
     .replace(/=+$/, '');
 }
 
-function base64urlDecode(str: string): Uint8Array {
+function base64urlDecode(str: string): ArrayBuffer {
   const padded = str.replace(/-/g, '+').replace(/_/g, '/');
   const binary = atob(padded);
-  const bytes = new Uint8Array(binary.length);
-  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-  return bytes;
+  const buffer = new ArrayBuffer(binary.length);
+  const view = new Uint8Array(buffer);
+  for (let i = 0; i < binary.length; i++) view[i] = binary.charCodeAt(i);
+  return buffer;
 }
 
 function concat(...arrays: Uint8Array[]): Uint8Array {
@@ -27,10 +28,16 @@ function concat(...arrays: Uint8Array[]): Uint8Array {
   return result;
 }
 
+function toBuffer(data: Uint8Array): ArrayBuffer {
+  const buffer = new ArrayBuffer(data.byteLength);
+  new Uint8Array(buffer).set(data);
+  return buffer;
+}
+
 async function hmacSha256(
-  key: Uint8Array,
-  data: Uint8Array
-): Promise<Uint8Array> {
+  key: ArrayBuffer,
+  data: ArrayBuffer
+): Promise<ArrayBuffer> {
   const cryptoKey = await crypto.subtle.importKey(
     'raw',
     key,
@@ -38,15 +45,13 @@ async function hmacSha256(
     false,
     ['sign']
   );
-  const sig = await crypto.subtle.sign('HMAC', cryptoKey, data);
-  return new Uint8Array(sig);
+  return crypto.subtle.sign('HMAC', cryptoKey, data);
 }
 
 async function importEcdhPublicKey(rawBase64url: string): Promise<CryptoKey> {
-  const raw = base64urlDecode(rawBase64url);
   return crypto.subtle.importKey(
     'raw',
-    raw,
+    base64urlDecode(rawBase64url),
     { name: 'ECDH', namedCurve: 'P-256' },
     true,
     []
@@ -116,8 +121,8 @@ async function encryptPayload(
   payload: string,
   p256dhBase64url: string,
   authBase64url: string
-): Promise<Uint8Array> {
-  const auth = base64urlDecode(authBase64url);
+): Promise<ArrayBuffer> {
+  const auth = new Uint8Array(base64urlDecode(authBase64url));
 
   const ephemeralKey = await crypto.subtle.generateKey(
     { name: 'ECDH', namedCurve: 'P-256' },
@@ -141,21 +146,30 @@ async function encryptPayload(
     )
   );
 
-  const prk = await hmacSha256(auth, sharedSecret);
+  const prk = new Uint8Array(
+    await hmacSha256(toBuffer(auth), toBuffer(sharedSecret))
+  );
 
   const keyInfoPrefix = new TextEncoder().encode(
     'Content-Encoding: aes128gcm\0'
   );
   const context = buildContext(ephemeralPubRaw, subscriptionPubRaw);
   const keyInfo = concat(keyInfoPrefix, context);
-  const cekFull = await hmacSha256(prk, concat(keyInfo, new Uint8Array([1])));
+  const cekFull = new Uint8Array(
+    await hmacSha256(
+      toBuffer(prk),
+      toBuffer(concat(keyInfo, new Uint8Array([1])))
+    )
+  );
   const cek = cekFull.slice(0, 16);
 
   const nonceInfoPrefix = new TextEncoder().encode('Content-Encoding: nonce\0');
   const nonceInfo = concat(nonceInfoPrefix, context);
-  const nonceFull = await hmacSha256(
-    prk,
-    concat(nonceInfo, new Uint8Array([1]))
+  const nonceFull = new Uint8Array(
+    await hmacSha256(
+      toBuffer(prk),
+      toBuffer(concat(nonceInfo, new Uint8Array([1])))
+    )
   );
   const nonce = nonceFull.slice(0, 12);
 
@@ -166,26 +180,28 @@ async function encryptPayload(
 
   const aesKey = await crypto.subtle.importKey(
     'raw',
-    cek,
+    toBuffer(cek),
     { name: 'AES-GCM' },
     false,
     ['encrypt']
   );
   const encrypted = await crypto.subtle.encrypt(
-    { name: 'AES-GCM', iv: nonce, tagLength: 128 },
+    { name: 'AES-GCM', iv: toBuffer(nonce), tagLength: 128 },
     aesKey,
-    plaintext
+    toBuffer(plaintext)
   );
 
   const salt = crypto.getRandomValues(new Uint8Array(16));
   const rs = new Uint8Array([0, 0, 0x10, 0]);
 
-  return concat(
-    salt,
-    rs,
-    new Uint8Array([65]),
-    ephemeralPubRaw,
-    new Uint8Array(encrypted)
+  return toBuffer(
+    concat(
+      salt,
+      rs,
+      new Uint8Array([65]),
+      ephemeralPubRaw,
+      new Uint8Array(encrypted)
+    )
   );
 }
 

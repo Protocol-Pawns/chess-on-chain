@@ -19,6 +19,7 @@ import {
   queryGames,
   removePushSubscription
 } from './db';
+import type { Db } from './db';
 import { processNotifications } from './notify';
 import { importVapidKey } from './push';
 import {
@@ -41,19 +42,18 @@ import type { AppEnv } from './types';
 
 const app = new OpenAPIHono<AppEnv>();
 
+function initDb(env: AppEnv['Bindings']): Db {
+  return getDb(env.DATABASE_URL);
+}
+
 app.use('*', poweredBy());
 app.use('*', cors());
 
 app.use('*', async (c, next) => {
-  if (!c.get('DB')) {
-    const env = c.env;
-    const connectionString = env.HYPERDRIVE
-      ? env.HYPERDRIVE.connectionString
-      : env.DATABASE_URL;
-    if (!connectionString) {
-      return c.json({ error: 'Database not configured' }, 500);
-    }
-    c.set('DB', getDb(connectionString));
+  try {
+    c.set('DB', initDb(c.env));
+  } catch {
+    return c.json({ error: 'Database not configured' }, 500);
   }
   await next();
 });
@@ -186,16 +186,8 @@ app.notFound(() => {
 export default {
   fetch: app.fetch,
   scheduled: async (_event: ScheduledEvent, env: AppEnv['Bindings']) => {
-    const connectionString = env.HYPERDRIVE
-      ? env.HYPERDRIVE.connectionString
-      : env.DATABASE_URL;
-    if (!connectionString) {
-      console.error('Notification cron: no database connection');
-      return;
-    }
-    const db = getDb(connectionString);
-
     try {
+      const db = initDb(env);
       const vapidPrivateKey = await importVapidKey(env.VAPID_PRIVATE_KEY);
       const processed = await processNotifications(
         db,
@@ -206,8 +198,6 @@ export default {
       console.log(`Processed ${processed} notifications`);
     } catch (err) {
       console.error('Notification cron error:', err);
-    } finally {
-      await db.end();
     }
   }
 };

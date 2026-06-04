@@ -18,12 +18,10 @@ const DEFAULT_LIMIT = 25;
 
 export function getDb(connectionString: string) {
   return postgres(connectionString, {
-    ssl: connectionString.includes('localhost')
-      ? { rejectUnauthorized: false }
-      : true,
-    max: 5,
-    idle_timeout: 20,
-    connect_timeout: 10
+    ssl: false,
+    max: 1,
+    idle_timeout: 10,
+    connect_timeout: 15
   });
 }
 
