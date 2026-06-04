@@ -33,6 +33,7 @@
 
 	let canResign = $derived(game?.status === 'in_progress' && $accountStore && (game.white.value === $accountStore || game.black?.value === $accountStore));
 	let canCancel = $derived(game?.status === 'waiting' && $accountStore && (game.white.value === $accountStore || game.black?.value === $accountStore));
+	let isSpectating = $derived($accountStore && game && game.white.value !== $accountStore && game.black?.value !== $accountStore);
 
 	async function load() {
 		try {
@@ -80,7 +81,24 @@
 </script>
 
 {#if loading}
-	<div class="text-center py-12 text-white/50">Loading game...</div>
+	<div class="flex flex-col gap-4 animate-pulse">
+		<div class="card">
+			<div class="flex justify-between items-center mb-2">
+				<div class="h-4 w-24 rounded bg-white/10"></div>
+				<div class="h-5 w-16 rounded bg-white/10"></div>
+				<div class="h-4 w-24 rounded bg-white/10"></div>
+			</div>
+			<div class="mx-auto bg-board-dark rounded aspect-square" style="width: min(100%, 30rem);"></div>
+		</div>
+		<div class="card">
+			<div class="h-4 w-16 rounded bg-white/10 mb-2"></div>
+			<div class="grid grid-cols-2 gap-x-4 gap-y-1">
+				{#each Array(6) as _}
+					<div class="h-3 rounded bg-white/5"></div>
+				{/each}
+			</div>
+		</div>
+	</div>
 {:else if error}
 	<div class="text-center py-12 text-primary-err">{error}</div>
 {:else if game}
@@ -96,7 +114,11 @@
 					game.status === 'finished' ? 'bg-white/10 text-white/50' :
 					'bg-primary-bgErr text-primary-err'
 				}">
-					{game.status?.replace('_', ' ') ?? 'unknown'}
+					{#if isSpectating}
+						Spectating
+					{:else}
+						{game.status?.replace('_', ' ') ?? 'unknown'}
+					{/if}
 				</span>
 				<span class="text-sm">
 					{game.black?.type === 'Human' ? game.black.value : game.black?.type === 'AI' ? 'AI' : '...'}

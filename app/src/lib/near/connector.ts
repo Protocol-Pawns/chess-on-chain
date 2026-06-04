@@ -3,7 +3,7 @@ import { JsonRpcProvider } from 'near-api-js';
 
 const NETWORK = import.meta.env.VITE_NETWORK_ID || 'mainnet';
 const CONTRACT_ID = import.meta.env.VITE_CONTRACT_ID || 'app.chess-game.near';
-const RPC_URL = import.meta.env.VITE_RPC_URL || 'https://rpc.mainnet.near.org';
+const RPC_URL = import.meta.env.VITE_RPC_URL || 'https://rpc.shitzuapes.xyz';
 const GAS = '30000000000000';
 
 let connector: NearConnector | undefined;
@@ -120,5 +120,29 @@ export const contract = {
 
 	getEloRatingsByIds(accountIds: string[]): Promise<[string, number][]> {
 		return viewFunction('get_elo_ratings_by_ids', { account_ids: accountIds });
+	},
+
+	getQuestList(): Promise<Array<{
+		name: string;
+		points: string;
+		points_on_cd: string;
+		cooldown: number;
+	}>> {
+		return viewFunction('get_quest_list', {});
+	},
+
+	getQuestCooldowns(accountId: string): Promise<Array<[number, string]>> {
+		return viewFunction('get_quest_cooldowns', { account_id: accountId });
+	},
+
+	getAchievementList(): Promise<Array<{
+		name: string;
+		points: string;
+	}>> {
+		return viewFunction('get_achievement_list', {});
+	},
+
+	getAchievements(accountId: string): Promise<Array<[number, string]>> {
+		return viewFunction('get_achievements', { account_id: accountId });
 	}
 };

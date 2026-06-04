@@ -44,7 +44,23 @@
 {#if !$isLoggedIn}
 	<div class="text-center py-12 text-white/50">Connect your wallet to view challenges</div>
 {:else if loading}
-	<div class="text-center py-12 text-white/50">Loading...</div>
+	<div class="space-y-6 animate-pulse">
+		<div class="card">
+			<div class="h-4 w-32 rounded bg-white/10 mb-2"></div>
+			<div class="flex gap-2">
+				<div class="flex-1 h-8 rounded bg-white/5"></div>
+				<div class="h-8 w-20 rounded bg-white/5"></div>
+			</div>
+		</div>
+		<div class="space-y-2">
+			{#each Array(2) as _}
+				<div class="card">
+					<div class="h-4 w-2/3 rounded bg-white/10 mb-1"></div>
+					<div class="h-3 w-1/3 rounded bg-white/5"></div>
+				</div>
+			{/each}
+		</div>
+	</div>
 {:else}
 	<div class="space-y-6">
 		<section class="card">
@@ -53,7 +69,7 @@
 				<input
 					type="text"
 					bind:value={challengeTarget}
-					placeholder="account.near"
+					placeholder="wallet.near"
 					class="flex-1 bg-transparent border border-primary rounded px-2 py-1.5 text-sm focus:outline-none focus:border-primary-light"
 				/>
 				<button class="btn-primary text-sm" onclick={sendChallenge} disabled={!challengeTarget.trim()}>

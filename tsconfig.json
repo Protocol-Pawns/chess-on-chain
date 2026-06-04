@@ -10,7 +10,8 @@
     "lib": ["esnext", "webworker"],
     "allowSyntheticDefaultImports": true,
     "resolveJsonModule": true,
-    "types": ["@cloudflare/workers-types"]
+    "types": ["@cloudflare/workers-types"],
+    "ignoreDeprecations": "6.0"
   },
   "exclude": ["node_modules", "api/dist/**/*", "app", "app-old"]
 }

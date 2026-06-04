@@ -1,12 +1,12 @@
 import { getConnector, contract } from './connector';
 import { browser } from '$app/environment';
 import { writable, derived } from 'svelte/store';
-import { registerPushNotifications, unregisterPushNotifications } from '$lib/push/register';
 
 export const accountStore = writable<string | undefined>(undefined);
 export const isLoggedIn = derived(accountStore, ($a) => $a !== undefined);
 export const isRegistered = writable(false);
 export const isCheckingRegistration = writable(false);
+export const pushEnabled = writable(false);
 
 if (browser) {
 	const c = getConnector();
@@ -15,23 +15,13 @@ if (browser) {
 		if (accountId) {
 			accountStore.set(accountId);
 			await checkRegistration(accountId);
-			if ('serviceWorker' in navigator) {
-				try {
-					await navigator.serviceWorker.register('/sw.js');
-					registerPushNotifications(accountId);
-				} catch (e) {
-					console.warn('SW registration failed:', e);
-				}
-			}
+			checkPushStatus();
 		}
 	});
-	c.on('wallet:signOut', async () => {
-		const accountId = await new Promise<string | undefined>((resolve) => {
-			const unsub = accountStore.subscribe((v) => { resolve(v); unsub(); });
-		});
-		if (accountId) unregisterPushNotifications(accountId);
+	c.on('wallet:signOut', () => {
 		accountStore.set(undefined);
 		isRegistered.set(false);
+		pushEnabled.set(false);
 	});
 }
 
@@ -47,6 +37,14 @@ async function checkRegistration(accountId: string) {
 	}
 }
 
+function checkPushStatus() {
+	if (!('serviceWorker' in navigator)) return;
+	navigator.serviceWorker.ready.then(async (reg: ServiceWorkerRegistration) => {
+		const sub = await reg.pushManager.getSubscription();
+		pushEnabled.set(sub !== null);
+	}).catch(() => {});
+}
+
 export async function connect() {
 	const c = getConnector();
 	await c.connect();
@@ -57,6 +55,7 @@ export async function disconnect() {
 	await c.disconnect();
 	accountStore.set(undefined);
 	isRegistered.set(false);
+	pushEnabled.set(false);
 }
 
 export async function register() {
@@ -72,4 +71,30 @@ export async function register() {
 	} finally {
 		isCheckingRegistration.set(false);
 	}
+}
+
+export async function enablePush() {
+	if (!('serviceWorker' in navigator)) return false;
+	await navigator.serviceWorker.register('/sw.js');
+	const reg = await navigator.serviceWorker.ready;
+	const { registerPushNotifications } = await import('$lib/push/register');
+	const accountId = await new Promise<string>((resolve) => {
+		const unsub = accountStore.subscribe((v) => {
+			if (v) { resolve(v); unsub(); }
+		});
+	});
+	const ok = await registerPushNotifications(accountId);
+	if (ok) pushEnabled.set(true);
+	return ok;
+}
+
+export async function disablePush() {
+	const accountId = await new Promise<string>((resolve) => {
+		const unsub = accountStore.subscribe((v) => {
+			if (v) { resolve(v); unsub(); }
+		});
+	});
+	const { unregisterPushNotifications } = await import('$lib/push/register');
+	await unregisterPushNotifications(accountId);
+	pushEnabled.set(false);
 }

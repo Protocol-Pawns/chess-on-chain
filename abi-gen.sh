@@ -15,13 +15,13 @@ done
 
 for key in "${keys[@]}"; do
     key=$(echo $key | sed 's/"//g')
-    if [[ "$key" == "BetView" ]]; then
+    if [[ "$key" == "BetView" || "$key" == "Base64VecU8" ]]; then
         continue
     fi
     set +e
     yarn json2ts --cwd=abi-gen abi-gen/$key.json abi-gen/$key.d.ts
     if [ $? -eq 0 ]; then
-        echo "export * from './$key';" >> abi-gen/index.ts
+        grep -q "export \* from './$key';" abi-gen/index.ts || echo "export * from './$key';" >> abi-gen/index.ts
     fi
     set -e
 done
