@@ -49,7 +49,10 @@ app.use('*', async (c, next) => {
     const env = c.env;
     const connectionString = env.HYPERDRIVE
       ? env.HYPERDRIVE.connectionString
-      : env.DATABASE_URL!;
+      : env.DATABASE_URL;
+    if (!connectionString) {
+      return c.json({ error: 'Database not configured' }, 500);
+    }
     c.set('DB', getDb(connectionString));
   }
   await next();
@@ -185,7 +188,11 @@ export default {
   scheduled: async (_event: ScheduledEvent, env: AppEnv['Bindings']) => {
     const connectionString = env.HYPERDRIVE
       ? env.HYPERDRIVE.connectionString
-      : env.DATABASE_URL!;
+      : env.DATABASE_URL;
+    if (!connectionString) {
+      console.error('Notification cron: no database connection');
+      return;
+    }
     const db = getDb(connectionString);
 
     try {
