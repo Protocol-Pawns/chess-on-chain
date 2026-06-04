@@ -20,6 +20,7 @@ import {
   removePushSubscription
 } from './db';
 import type { Db } from './db';
+import { getLeaderboardPage, fetchAndCacheLeaderboard } from './leaderboard';
 import { processNotifications } from './notify';
 import { importVapidKey } from './push';
 import {
@@ -32,6 +33,7 @@ import {
   getGamesRoute,
   getGlobalStatsRoute,
   getInfoRoute,
+  getLeaderboardEloRoute,
   getLeaderboardRoute,
   getVapidPublicKeyRoute,
   queryGamesRoute,
@@ -152,6 +154,18 @@ app.openapi(getChallengesRoute, async c => {
   return c.json(challenges, 200);
 });
 
+app.openapi(getLeaderboardEloRoute, async c => {
+  const { page, per_page } = c.req.valid('query');
+  const result = await getLeaderboardPage(
+    c.env.LEADERBOARD_CACHE,
+    c.env.RPC_URL,
+    c.env.CONTRACT_ID,
+    Number(page) || 1,
+    Number(per_page) || 25
+  );
+  return c.json(result, 200);
+});
+
 app.openapi(getLeaderboardRoute, async c => {
   const { cursor, limit } = c.req.valid('query');
   const db = c.get('DB');
@@ -186,19 +200,42 @@ app.notFound(() => {
 export default {
   fetch: app.fetch,
   scheduled: async (_event: ScheduledEvent, env: AppEnv['Bindings']) => {
-    try {
-      const db = initDb(env);
-      const vapidPrivateKey = await importVapidKey(env.VAPID_PRIVATE_KEY);
-      const processed = await processNotifications(
-        db,
-        vapidPrivateKey,
-        env.VAPID_PUBLIC_KEY,
-        env.VAPID_SUBJECT
-      );
-      console.log(`Processed ${processed} notifications`);
-    } catch (err) {
-      console.error('Notification cron error:', err);
-    }
+    const promises: Promise<void>[] = [];
+
+    promises.push(
+      (async () => {
+        try {
+          const db = initDb(env);
+          const vapidPrivateKey = await importVapidKey(env.VAPID_PRIVATE_KEY);
+          const processed = await processNotifications(
+            db,
+            vapidPrivateKey,
+            env.VAPID_PUBLIC_KEY,
+            env.VAPID_SUBJECT
+          );
+          console.log(`Processed ${processed} notifications`);
+        } catch (err) {
+          console.error('Notification cron error:', err);
+        }
+      })()
+    );
+
+    promises.push(
+      (async () => {
+        try {
+          await fetchAndCacheLeaderboard(
+            env.LEADERBOARD_CACHE,
+            env.RPC_URL,
+            env.CONTRACT_ID
+          );
+          console.log('Leaderboard cache refreshed');
+        } catch (err) {
+          console.error('Leaderboard cache error:', err);
+        }
+      })()
+    );
+
+    await Promise.all(promises);
   }
 };
 

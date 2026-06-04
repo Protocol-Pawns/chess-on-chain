@@ -1,4 +1,5 @@
 import type { Sql } from 'postgres';
+import type { KVNamespace } from '@cloudflare/workers-types';
 
 export type Optional<T, K extends keyof T> = Omit<T, K> & Partial<T>;
 
@@ -8,6 +9,9 @@ export type AppEnv = {
     VAPID_PRIVATE_KEY: string;
     VAPID_PUBLIC_KEY: string;
     VAPID_SUBJECT: string;
+    LEADERBOARD_CACHE: KVNamespace;
+    RPC_URL: string;
+    CONTRACT_ID: string;
   };
   Variables: {
     DB: Sql;

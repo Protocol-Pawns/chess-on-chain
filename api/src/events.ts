@@ -188,3 +188,17 @@ export type PushSubscriptionRequest = z.infer<typeof PushSubscriptionSchema>;
 export const VapidPublicKeySchema = z.object({
   publicKey: z.string()
 });
+
+export const EloLeaderboardEntrySchema = z.object({
+  rank: z.number(),
+  account_id: z.string(),
+  elo: z.number()
+});
+
+export const EloLeaderboardPageSchema = z.object({
+  total: z.number(),
+  page: z.number(),
+  per_page: z.number(),
+  total_pages: z.number(),
+  entries: EloLeaderboardEntrySchema.array()
+});

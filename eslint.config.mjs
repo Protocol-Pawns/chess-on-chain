@@ -18,7 +18,9 @@ export default tseslint.config(
       'pnpm-lock.yaml',
       'package-lock.json',
       'yarn.lock',
-    ],
+      'app-old',
+      'res'
+    ]
   },
   js.configs.recommended,
   ...tseslint.configs.recommended,
@@ -27,7 +29,7 @@ export default tseslint.config(
     files: ['**/*.ts'],
     plugins: {
       prettier,
-      'import-x': importPlugin,
+      'import-x': importPlugin
     },
     languageOptions: {
       ecmaVersion: 2022,
@@ -36,18 +38,18 @@ export default tseslint.config(
         ...globals.browser,
         ...globals.es2020,
         ...globals.node,
-        ...globals.worker,
-      },
+        ...globals.worker
+      }
     },
     settings: {
       'import/parsers': {
-        '@typescript-eslint/parser': ['.ts'],
+        '@typescript-eslint/parser': ['.ts']
       },
       'import/resolver': {
         typescript: {
-          alwaysTryTypes: true,
-        },
-      },
+          alwaysTryTypes: true
+        }
+      }
     },
     rules: {
       'prettier/prettier': 'error',
@@ -57,11 +59,11 @@ export default tseslint.config(
           groups: [['builtin', 'external'], 'parent', ['sibling', 'index']],
           'newlines-between': 'always',
           alphabetize: {
-            order: 'asc',
-          },
-        },
+            order: 'asc'
+          }
+        }
       ],
-      'import-x/no-duplicates': 'off',
-    },
+      'import-x/no-duplicates': 'off'
+    }
   }
 );

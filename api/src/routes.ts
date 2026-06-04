@@ -5,6 +5,7 @@ import {
   AccountSchema,
   AccountStatsSchema,
   ChallengeSchema,
+  EloLeaderboardPageSchema,
   GameIdSchema,
   GameMoveSchema,
   GameOverviewSchema,
@@ -190,6 +191,25 @@ export const getLeaderboardRoute = createRoute({
         'application/json': { schema: PaginatedLeaderboardSchema }
       },
       description: 'Returns top players ranked by wins'
+    }
+  }
+});
+
+export const getLeaderboardEloRoute = createRoute({
+  method: 'get',
+  path: '/leaderboard/elo',
+  request: {
+    query: z.object({
+      page: z.string().optional().default('1'),
+      per_page: z.string().optional().default('25')
+    })
+  },
+  responses: {
+    200: {
+      content: {
+        'application/json': { schema: EloLeaderboardPageSchema }
+      },
+      description: 'Returns ELO-ranked leaderboard with pagination'
     }
   }
 });
