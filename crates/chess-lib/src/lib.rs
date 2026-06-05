@@ -10,7 +10,6 @@ mod ft_receiver;
 mod game;
 mod internal;
 mod points;
-mod social;
 mod storage;
 mod view;
 
@@ -23,11 +22,9 @@ pub use event::*;
 pub use ft_receiver::*;
 pub use game::*;
 pub use points::*;
-pub use social::*;
 pub use storage::*;
 
 use chess_engine::{Color, Move};
-use maplit::hashmap;
 use near_contract_standards::fungible_token::core::ext_ft_core;
 use near_sdk::{
     assert_one_yocto,
@@ -40,7 +37,6 @@ use near_sdk::{
     AccountId, BorshStorageKey, Gas, GasWeight, NearSchema, NearToken, PanicOnDefault,
     PromiseOrValue,
 };
-use std::collections::HashMap;
 
 pub const MAX_OPEN_GAMES: u32 = 5;
 pub const MAX_OPEN_CHALLENGES: u32 = 25;
@@ -57,8 +53,6 @@ pub const MIN_BLOCK_DIFF_CLEANUP: u64 = 60 * 60 * 24 * 14; // ~14 days
 pub const MIN_BLOCK_DIFF_CLEANUP: u64 = 100;
 
 pub const MAX_GAMES_CLEANUP: usize = 50;
-
-pub const GAS_FOR_SOCIAL_NOTIFY_CALL: Gas = Gas::from_tgas(20);
 
 pub const NO_DEPOSIT: NearToken = NearToken::from_yoctonear(0);
 pub const ONE_YOCTO: NearToken = NearToken::from_yoctonear(1);
@@ -91,7 +85,6 @@ pub enum StorageKey {
 #[borsh(crate = "near_sdk::borsh")]
 pub struct Chess {
     pub owner_id: AccountId,
-    pub social_db: AccountId,
     pub accounts: UnorderedMap<AccountId, Account>,
     pub games: UnorderedMap<GameId, Game>,
     pub challenges: UnorderedMap<ChallengeId, Challenge>,
@@ -155,13 +148,12 @@ pub type MoveStr = String;
 impl Chess {
     #[init]
     #[handle_result]
-    pub fn new(social_db: AccountId, owner_id: AccountId) -> Result<Self, ContractError> {
+    pub fn new(owner_id: AccountId) -> Result<Self, ContractError> {
         if env::state_exists() {
             return Err(ContractError::AlreadyInitilized);
         }
         Ok(Self {
             owner_id,
-            social_db,
             accounts: UnorderedMap::new(StorageKey::VAccounts),
             games: UnorderedMap::new(StorageKey::Games),
             challenges: UnorderedMap::new(StorageKey::Challenges),
@@ -200,7 +192,6 @@ impl Chess {
 
         Self {
             owner_id,
-            social_db: chess.social_db,
             accounts,
             games: chess.games,
             challenges: chess.challenges,
@@ -295,15 +286,16 @@ impl Chess {
 
     pub fn withdraw_treasury(&mut self, token_id: AccountId) {
         self.assert_owner();
-        let amount = self
-            .treasury
-            .remove(&token_id)
-            .unwrap_or(0);
+        let amount = self.treasury.remove(&token_id).unwrap_or(0);
         if amount > 0 {
             let _ = ext_ft_core::ext(token_id)
                 .with_attached_deposit(ONE_YOCTO)
                 .with_unused_gas_weight(1)
-                .ft_transfer(self.owner_id.clone(), amount.into(), Some("treasury withdrawal".to_string()));
+                .ft_transfer(
+                    self.owner_id.clone(),
+                    amount.into(),
+                    Some("treasury withdrawal".to_string()),
+                );
         }
     }
 
@@ -458,14 +450,6 @@ impl Chess {
         let event = ChessEvent::RejectChallenge { challenge_id };
         event.emit();
 
-        if !is_challenger {
-            self.internal_send_notify(hashmap! {
-                challenger_id.clone() => vec![ChessNotification::RejectedChallenge {
-                    challenged_id: challenged_id.clone(),
-                }]
-            });
-        }
-
         Ok(if let Some((token_id, amount)) = wager {
             PromiseOrValue::Promise(
                 ext_ft_core::ext(token_id)
@@ -512,31 +496,12 @@ impl Chess {
 
         let move_result = game.play_move(mv)?;
 
-        let mut notifications = HashMap::new();
-        let player = match move_result.1 {
-            Color::White => game.get_white(),
-            Color::Black => game.get_black(),
-        };
-
-        if game.get_black().is_human() {
-            if let Player::Human(account_id) = player.clone() {
-                notifications.insert(
-                    account_id,
-                    vec![ChessNotification::YourTurn {
-                        game_id: game_id.clone(),
-                    }],
-                );
-            }
-        }
-
         let (outcome, board) = if let Some((outcome, board_state)) = move_result.0 {
-            self.internal_handle_outcome(game_id, &outcome, &mut notifications);
+            self.internal_handle_outcome(game_id, &outcome);
             (Some(outcome), board_state)
         } else {
             (None, self.games.get(&game_id).unwrap().get_board_state())
         };
-
-        self.internal_send_notify(notifications);
 
         Ok((outcome, board))
     }
@@ -569,9 +534,7 @@ impl Chess {
             (GameOutcome::Victory(Color::Black), Color::White)
         };
 
-        let mut notifications = HashMap::new();
-        self.internal_handle_outcome(game_id.clone(), &outcome, &mut notifications);
-        self.internal_send_notify(notifications);
+        self.internal_handle_outcome(game_id.clone(), &outcome);
 
         let event = ChessEvent::ResignGame {
             game_id,

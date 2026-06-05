@@ -3,19 +3,18 @@ pub mod macros;
 pub mod view;
 
 use chess_common::{ContractEvent, KNOWN_EVENT_KINDS};
-use chess_lib::{chess_notification_to_value, ChessEvent, ChessNotification};
+use chess_lib::ChessEvent;
 use near_contract_standards::fungible_token::events::FtMint;
-use near_sdk::AccountId;
 use near_workspaces::{
     network::Sandbox,
     result::{ExecutionFinalResult, ExecutionResult, Value, ViewResultDetails},
-    types::{KeyType, NearToken, SecretKey},
+    types::{KeyType, SecretKey},
     Account, Contract, Worker,
 };
 use owo_colors::OwoColorize;
 use serde::Serialize;
 use serde_json::json;
-use std::{collections::HashMap, fmt};
+use std::fmt;
 use tokio::fs;
 
 #[macro_export]
@@ -43,35 +42,12 @@ macro_rules! print_log {
 
 pub async fn initialize_contracts(
     path: Option<&'static str>,
-) -> anyhow::Result<(Worker<Sandbox>, Account, Contract, Contract)> {
+) -> anyhow::Result<(Worker<Sandbox>, Account, Contract)> {
     let worker = near_workspaces::sandbox().await?;
 
     let owner = worker.dev_create_account().await?;
 
     let wasm = fs::read(path.unwrap_or("../../res/chess_testing.wasm")).await?;
-
-    let key = SecretKey::from_random(KeyType::ED25519);
-    let social_contract = worker
-        .create_tla_and_deploy(
-            "social.registrar".parse()?,
-            key,
-            &fs::read("../../res/social_db.wasm").await?,
-        )
-        .await?
-        .into_result()?;
-    social_contract
-        .call("new")
-        .max_gas()
-        .transact()
-        .await?
-        .into_result()?;
-    social_contract
-        .call("set_status")
-        .args_json(("Live",))
-        .max_gas()
-        .transact()
-        .await?
-        .into_result()?;
 
     let key = SecretKey::from_random(KeyType::ED25519);
     let contract = worker
@@ -81,26 +57,13 @@ pub async fn initialize_contracts(
 
     contract
         .call("new")
-        .args_json((social_contract.id(), owner.id()))
+        .args_json((owner.id(),))
         .max_gas()
         .transact()
         .await?
         .into_result()?;
 
-    contract
-        .as_account()
-        .call(social_contract.id(), "set")
-        .args_json(serde_json::json!({
-            "data": {
-                contract.id().as_str(): {}
-            }
-        }))
-        .deposit(NearToken::from_near(2))
-        .transact()
-        .await?
-        .into_result()?;
-
-    Ok((worker, owner, contract, social_contract))
+    Ok((worker, owner, contract))
 }
 
 pub async fn initialize_token(
@@ -239,55 +202,5 @@ where
         &actual,
         &expected
     );
-    Ok(())
-}
-
-pub async fn assert_notification(
-    contract: &Contract,
-    social_contract: &Contract,
-    notifications: HashMap<AccountId, Vec<ChessNotification>>,
-) -> anyhow::Result<()> {
-    let actual_notification = view::get_social(
-        social_contract,
-        vec![format!("{}/index/notify", contract.id()).to_string()],
-    )
-    .await?;
-    let mut actual: serde_json::Value = serde_json::from_str(
-        actual_notification
-            .get(contract.id())
-            .unwrap()
-            .get("index")
-            .unwrap()
-            .get("notify")
-            .unwrap()
-            .as_str()
-            .unwrap(),
-    )?;
-    let sorting = |a: &serde_json::Value, b: &serde_json::Value| {
-        a.get("key")
-            .unwrap()
-            .as_str()
-            .unwrap()
-            .cmp(b.get("key").unwrap().as_str().unwrap())
-    };
-    actual.as_array_mut().unwrap().sort_by(sorting);
-    let mut expected = json!(&notifications
-        .iter()
-        .flat_map(|(account_id, notifications)| {
-            let mut notifications: Vec<_> = notifications
-                .iter()
-                .map(|notification| chess_notification_to_value(account_id, notification))
-                .collect();
-            notifications.push(json!({
-                "key": account_id,
-                "value": {
-                    "type": "poke"
-                }
-            }));
-            notifications
-        })
-        .collect::<Vec<_>>());
-    expected.as_array_mut().unwrap().sort_by(sorting);
-    assert_eq!(actual, expected);
     Ok(())
 }

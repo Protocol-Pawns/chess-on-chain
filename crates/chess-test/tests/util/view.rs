@@ -4,8 +4,6 @@ use chess_lib::{
 };
 use near_sdk::json_types::U128;
 use near_workspaces::{AccountId, Contract};
-use serde_json::Value;
-use std::collections::HashMap;
 
 pub async fn get_game_ids(
     contract: &Contract,
@@ -147,18 +145,9 @@ pub async fn get_owner(contract: &Contract) -> anyhow::Result<AccountId> {
 }
 
 pub async fn get_treasury_tokens(contract: &Contract) -> anyhow::Result<Vec<(AccountId, U128)>> {
-    let res = log_view_result(contract.call("get_treasury_tokens").max_gas().view().await?)?;
-    Ok(res.json()?)
-}
-
-pub async fn get_social(
-    contract: &Contract,
-    keys: Vec<String>,
-) -> anyhow::Result<HashMap<AccountId, Value>> {
     let res = log_view_result(
         contract
-            .call("get")
-            .args_json((keys, None::<String>))
+            .call("get_treasury_tokens")
             .max_gas()
             .view()
             .await?,

@@ -5,7 +5,7 @@ use near_contract_standards::fungible_token::events::FtMint;
 
 #[tokio::test]
 async fn test_daily_play_move() -> anyhow::Result<()> {
-    let (worker, _, contract, _) = initialize_contracts(None).await?;
+    let (worker, _, contract) = initialize_contracts(None).await?;
 
     let player_a = worker.dev_create_account().await?;
     let player_b = worker.dev_create_account().await?;
@@ -153,7 +153,7 @@ async fn test_daily_play_move() -> anyhow::Result<()> {
 
 #[tokio::test]
 async fn test_first_win_human() -> anyhow::Result<()> {
-    let (worker, _, contract, _) = initialize_contracts(None).await?;
+    let (worker, _, contract) = initialize_contracts(None).await?;
 
     let player_a = worker.dev_create_account().await?;
     let player_b = worker.dev_create_account().await?;
@@ -230,7 +230,7 @@ async fn test_first_win_human() -> anyhow::Result<()> {
 
 #[tokio::test]
 async fn test_first_win_always_awarded() -> anyhow::Result<()> {
-    let (worker, _, contract, _) = initialize_contracts(None).await?;
+    let (worker, _, contract) = initialize_contracts(None).await?;
 
     let player_a = worker.dev_create_account().await?;
     let player_b = worker.dev_create_account().await?;
@@ -307,7 +307,7 @@ async fn test_first_win_always_awarded() -> anyhow::Result<()> {
 
 #[tokio::test]
 async fn test_first_win_ai() -> anyhow::Result<()> {
-    let (worker, _, contract, _) = initialize_contracts(None).await?;
+    let (worker, _, contract) = initialize_contracts(None).await?;
 
     let player_a = worker.dev_create_account().await?;
 
@@ -358,7 +358,7 @@ async fn test_first_win_ai() -> anyhow::Result<()> {
 
 #[tokio::test]
 async fn test_achievement_only_once() -> anyhow::Result<()> {
-    let (worker, _, contract, _) = initialize_contracts(None).await?;
+    let (worker, _, contract) = initialize_contracts(None).await?;
 
     let player_a = worker.dev_create_account().await?;
 
@@ -416,7 +416,7 @@ async fn test_achievement_only_once() -> anyhow::Result<()> {
 
 #[tokio::test]
 async fn test_multiple_achievements() -> anyhow::Result<()> {
-    let (worker, _, contract, _) = initialize_contracts(None).await?;
+    let (worker, _, contract) = initialize_contracts(None).await?;
 
     let player_a = worker.dev_create_account().await?;
     let player_b = worker.dev_create_account().await?;

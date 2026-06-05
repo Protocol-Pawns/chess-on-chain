@@ -1,14 +1,13 @@
 use crate::{
     calculate_elo, create_challenge_id, Account, Achievement, BetId, BetPayoutEvent, Challenge,
-    ChallengeId, Chess, ChessEvent, ChessNotification, ContractError, Difficulty, EloConfig,
-    EloOutcome, Game, GameId, GameOutcome, Player, Wager, ONE_YOCTO,
+    ChallengeId, Chess, ChessEvent, ContractError, Difficulty, EloConfig, EloOutcome, Game, GameId,
+    GameOutcome, Player, Wager, ONE_YOCTO,
 };
 use chess_engine::Color;
-use maplit::hashmap;
 use near_contract_standards::fungible_token::core::ext_ft_core;
 use near_sdk::{AccountId, NearToken};
 use primitive_types::U128;
-use std::{cmp, collections::{HashMap, HashSet}, ops::Div};
+use std::{cmp, collections::HashSet, ops::Div};
 
 impl Chess {
     pub(crate) fn internal_challenge(
@@ -41,17 +40,9 @@ impl Chess {
 
         self.challenges
             .insert(challenge.id().clone(), challenge.clone());
-        let challenge_id = challenge.id().clone();
 
         let event = ChessEvent::Challenge(challenge);
         event.emit();
-
-        self.internal_send_notify(hashmap! {
-            challenged_id =>  vec![ChessNotification::Challenged {
-                challenge_id,
-                challenger_id,
-            }]
-        });
 
         Ok(())
     }
@@ -124,22 +115,10 @@ impl Chess {
         event.emit();
         self.games.insert(game_id.clone(), game);
 
-        self.internal_send_notify(hashmap! {
-            challenger_id.clone() => vec![ChessNotification::AcceptedChallenge {
-                game_id: game_id.clone(),
-                challenged_id,
-            }]
-        });
-
         Ok((game_id, refund))
     }
 
-    pub(crate) fn internal_handle_outcome(
-        &mut self,
-        game_id: GameId,
-        outcome: &GameOutcome,
-        notifications: &mut HashMap<AccountId, Vec<ChessNotification>>,
-    ) {
+    pub(crate) fn internal_handle_outcome(&mut self, game_id: GameId, outcome: &GameOutcome) {
         let game = self.games.remove(&game_id).unwrap();
         if let Some(account) = game.get_white().as_account_mut(self) {
             account.remove_game_id(&game_id);
@@ -325,25 +304,6 @@ impl Chess {
                 payouts,
             };
             event.emit();
-        }
-
-        if let Player::Human(account_id) = game.get_white() {
-            notifications.insert(
-                account_id.clone(),
-                vec![ChessNotification::Outcome {
-                    game_id: game_id.clone(),
-                    outcome: outcome.clone(),
-                }],
-            );
-        }
-        if let Player::Human(account_id) = game.get_black() {
-            notifications.insert(
-                account_id.clone(),
-                vec![ChessNotification::Outcome {
-                    game_id,
-                    outcome: outcome.clone(),
-                }],
-            );
         }
     }
 

@@ -1,13 +1,15 @@
 use crate::{bet, util::*};
 use chess_engine::Color;
-use chess_lib::{create_challenge_id, BetInfo, BetMsg, BetView, ChessEvent, Fees, GameId, GameOutcome};
+use chess_lib::{
+    create_challenge_id, BetInfo, BetMsg, BetView, ChessEvent, Fees, GameId, GameOutcome,
+};
 use maplit::hashmap;
 use near_sdk::json_types::U128;
 use near_workspaces::{types::NearToken, Account, AccountId, Contract};
 
 #[tokio::test]
 async fn test_bet_basic() -> anyhow::Result<()> {
-    let (worker, _, contract, _) = initialize_contracts(None).await?;
+    let (worker, _, contract) = initialize_contracts(None).await?;
     let test_token = initialize_token(&worker, "SHITZU", "SHITZU", None, 24).await?;
     let bet_amount = 10_000_000;
 
@@ -173,7 +175,7 @@ async fn test_bet_basic() -> anyhow::Result<()> {
 
 #[tokio::test]
 async fn test_incomplete_bet() -> anyhow::Result<()> {
-    let (worker, _, contract, _) = initialize_contracts(None).await?;
+    let (worker, _, contract) = initialize_contracts(None).await?;
     let test_token = initialize_token(&worker, "SHITZU", "SHITZU", None, 24).await?;
     let bet_amount = 10_000_000;
 
@@ -246,7 +248,7 @@ async fn test_incomplete_bet() -> anyhow::Result<()> {
 
 #[tokio::test]
 async fn test_bet_increase() -> anyhow::Result<()> {
-    let (worker, _, contract, _) = initialize_contracts(None).await?;
+    let (worker, _, contract) = initialize_contracts(None).await?;
     let test_token = initialize_token(&worker, "SHITZU", "SHITZU", None, 24).await?;
     let bet_amount = 10_000_000;
 
@@ -342,7 +344,7 @@ async fn test_bet_increase() -> anyhow::Result<()> {
 
 #[tokio::test]
 async fn test_bet_weighted_win_imbalanced() -> anyhow::Result<()> {
-    let (worker, _, contract, _) = initialize_contracts(None).await?;
+    let (worker, _, contract) = initialize_contracts(None).await?;
     let test_token = initialize_token(&worker, "SHITZU", "SHITZU", None, 24).await?;
 
     let player_a = worker.dev_create_account().await?;
@@ -444,7 +446,7 @@ async fn test_bet_weighted_win_imbalanced() -> anyhow::Result<()> {
 
 #[tokio::test]
 async fn test_bet_weighted_win_imbalanced_reverse() -> anyhow::Result<()> {
-    let (worker, _, contract, _) = initialize_contracts(None).await?;
+    let (worker, _, contract) = initialize_contracts(None).await?;
     let test_token = initialize_token(&worker, "SHITZU", "SHITZU", None, 24).await?;
 
     let player_a = worker.dev_create_account().await?;
@@ -546,7 +548,7 @@ async fn test_bet_weighted_win_imbalanced_reverse() -> anyhow::Result<()> {
 
 #[tokio::test]
 async fn test_bet_weighted_win_with_refund() -> anyhow::Result<()> {
-    let (worker, _, contract, _) = initialize_contracts(None).await?;
+    let (worker, _, contract) = initialize_contracts(None).await?;
     let test_token = initialize_token(&worker, "SHITZU", "SHITZU", None, 24).await?;
 
     let player_a = worker.dev_create_account().await?;
@@ -648,7 +650,7 @@ async fn test_bet_weighted_win_with_refund() -> anyhow::Result<()> {
 
 #[tokio::test]
 async fn test_bet_weighted_win_with_refund_reverse() -> anyhow::Result<()> {
-    let (worker, _, contract, _) = initialize_contracts(None).await?;
+    let (worker, _, contract) = initialize_contracts(None).await?;
     let test_token = initialize_token(&worker, "SHITZU", "SHITZU", None, 24).await?;
 
     let player_a = worker.dev_create_account().await?;
@@ -769,7 +771,7 @@ async fn play_game(contract: &Contract, winner: &Account, looser: &Account) -> a
 
 #[tokio::test]
 async fn test_bet_events_lifecycle() -> anyhow::Result<()> {
-    let (worker, _, contract, _) = initialize_contracts(None).await?;
+    let (worker, _, contract) = initialize_contracts(None).await?;
     let test_token = initialize_token(&worker, "SHITZU", "SHITZU", None, 24).await?;
     let bet_amount = 10_000_000;
 
@@ -913,8 +915,9 @@ async fn test_bet_events_lifecycle() -> anyhow::Result<()> {
     Ok(())
 }
 
-async fn setup_bet_test() -> anyhow::Result<(Contract, AccountId, AccountId, Account, Account, AccountId)> {
-    let (worker, _, contract, _) = initialize_contracts(None).await?;
+async fn setup_bet_test(
+) -> anyhow::Result<(Contract, AccountId, AccountId, Account, Account, AccountId)> {
+    let (worker, _, contract) = initialize_contracts(None).await?;
     let test_token = initialize_token(&worker, "SHITZU", "SHITZU", None, 24).await?;
     let token_id = test_token.id().clone();
 
@@ -928,22 +931,49 @@ async fn setup_bet_test() -> anyhow::Result<(Contract, AccountId, AccountId, Acc
         call::storage_deposit(&contract, &better, None, None),
     )?;
     tokio::try_join!(
-        call::storage_deposit(&test_token, contract.as_account(), None, Some(NearToken::from_millinear(100))),
-        call::storage_deposit(&test_token, &player_a, None, Some(NearToken::from_millinear(100))),
-        call::storage_deposit(&test_token, &player_b, None, Some(NearToken::from_millinear(100))),
-        call::storage_deposit(&test_token, &better, None, Some(NearToken::from_millinear(100))),
+        call::storage_deposit(
+            &test_token,
+            contract.as_account(),
+            None,
+            Some(NearToken::from_millinear(100))
+        ),
+        call::storage_deposit(
+            &test_token,
+            &player_a,
+            None,
+            Some(NearToken::from_millinear(100))
+        ),
+        call::storage_deposit(
+            &test_token,
+            &player_b,
+            None,
+            Some(NearToken::from_millinear(100))
+        ),
+        call::storage_deposit(
+            &test_token,
+            &better,
+            None,
+            Some(NearToken::from_millinear(100))
+        ),
     )?;
     call::mint_tokens(&test_token, better.id(), 10_000_000).await?;
 
     let whitelist = vec![test_token.id().clone()];
     call::set_wager_whitelist(&contract, contract.as_account(), &whitelist).await?;
 
-    Ok((contract, player_a.id().clone(), player_b.id().clone(), player_a, player_b, token_id))
+    Ok((
+        contract,
+        player_a.id().clone(),
+        player_b.id().clone(),
+        player_a,
+        player_b,
+        token_id,
+    ))
 }
 
 #[tokio::test]
 async fn test_bet_winner_must_be_a_player() -> anyhow::Result<()> {
-    let (worker, _, contract, _) = initialize_contracts(None).await?;
+    let (worker, _, contract) = initialize_contracts(None).await?;
     let test_token = initialize_token(&worker, "SHITZU", "SHITZU", None, 24).await?;
     let bet_amount = 10_000_000;
 
@@ -957,8 +987,18 @@ async fn test_bet_winner_must_be_a_player() -> anyhow::Result<()> {
         call::storage_deposit(&contract, &better, None, None),
     )?;
     tokio::try_join!(
-        call::storage_deposit(&test_token, contract.as_account(), None, Some(NearToken::from_millinear(100))),
-        call::storage_deposit(&test_token, &better, None, Some(NearToken::from_millinear(100))),
+        call::storage_deposit(
+            &test_token,
+            contract.as_account(),
+            None,
+            Some(NearToken::from_millinear(100))
+        ),
+        call::storage_deposit(
+            &test_token,
+            &better,
+            None,
+            Some(NearToken::from_millinear(100))
+        ),
     )?;
     call::mint_tokens(&test_token, better.id(), bet_amount).await?;
 
@@ -991,7 +1031,7 @@ async fn test_bet_winner_must_be_a_player() -> anyhow::Result<()> {
 
 #[tokio::test]
 async fn test_bet_zero_amount_fails() -> anyhow::Result<()> {
-    let (worker, _, contract, _) = initialize_contracts(None).await?;
+    let (worker, _, contract) = initialize_contracts(None).await?;
     let test_token = initialize_token(&worker, "SHITZU", "SHITZU", None, 24).await?;
 
     let player_a = worker.dev_create_account().await?;
@@ -1004,8 +1044,18 @@ async fn test_bet_zero_amount_fails() -> anyhow::Result<()> {
         call::storage_deposit(&contract, &better, None, None),
     )?;
     tokio::try_join!(
-        call::storage_deposit(&test_token, contract.as_account(), None, Some(NearToken::from_millinear(100))),
-        call::storage_deposit(&test_token, &better, None, Some(NearToken::from_millinear(100))),
+        call::storage_deposit(
+            &test_token,
+            contract.as_account(),
+            None,
+            Some(NearToken::from_millinear(100))
+        ),
+        call::storage_deposit(
+            &test_token,
+            &better,
+            None,
+            Some(NearToken::from_millinear(100))
+        ),
     )?;
     call::mint_tokens(&test_token, better.id(), 10_000_000).await?;
 
@@ -1030,7 +1080,7 @@ async fn test_bet_zero_amount_fails() -> anyhow::Result<()> {
 
 #[tokio::test]
 async fn test_bet_unregistered_bettor_fails() -> anyhow::Result<()> {
-    let (worker, _, contract, _) = initialize_contracts(None).await?;
+    let (worker, _, contract) = initialize_contracts(None).await?;
     let test_token = initialize_token(&worker, "SHITZU", "SHITZU", None, 24).await?;
     let bet_amount = 10_000_000;
 
@@ -1043,8 +1093,18 @@ async fn test_bet_unregistered_bettor_fails() -> anyhow::Result<()> {
         call::storage_deposit(&contract, &player_b, None, None),
     )?;
     tokio::try_join!(
-        call::storage_deposit(&test_token, contract.as_account(), None, Some(NearToken::from_millinear(100))),
-        call::storage_deposit(&test_token, &unregistered, None, Some(NearToken::from_millinear(100))),
+        call::storage_deposit(
+            &test_token,
+            contract.as_account(),
+            None,
+            Some(NearToken::from_millinear(100))
+        ),
+        call::storage_deposit(
+            &test_token,
+            &unregistered,
+            None,
+            Some(NearToken::from_millinear(100))
+        ),
     )?;
     call::mint_tokens(&test_token, unregistered.id(), bet_amount).await?;
 
@@ -1070,14 +1130,17 @@ async fn test_bet_unregistered_bettor_fails() -> anyhow::Result<()> {
     );
 
     let bet_info = view::get_bet_info(&contract, (player_a.id(), player_b.id())).await;
-    assert!(bet_info.is_err(), "No bet should have been recorded for unregistered bettor");
+    assert!(
+        bet_info.is_err(),
+        "No bet should have been recorded for unregistered bettor"
+    );
 
     Ok(())
 }
 
 #[tokio::test]
 async fn test_set_fees_exceed_100_percent_fails() -> anyhow::Result<()> {
-    let (_, _, contract, _) = initialize_contracts(None).await?;
+    let (_, _, contract) = initialize_contracts(None).await?;
 
     let res = call::set_fees(
         &contract,
@@ -1095,21 +1158,36 @@ async fn test_set_fees_exceed_100_percent_fails() -> anyhow::Result<()> {
 
     let current_fees = view::get_fees(&contract).await?;
     assert_eq!(current_fees.treasury, 0, "Fees should not have changed");
-    assert!(current_fees.royalties.is_empty(), "Royalties should not have changed");
+    assert!(
+        current_fees.royalties.is_empty(),
+        "Royalties should not have changed"
+    );
 
     Ok(())
 }
 
 #[tokio::test]
 async fn test_max_open_bets_per_bettor() -> anyhow::Result<()> {
-    let (worker, _, contract, _) = initialize_contracts(None).await?;
+    let (worker, _, contract) = initialize_contracts(None).await?;
     let test_token = initialize_token(&worker, "SHITZU", "SHITZU", None, 24).await?;
     let bet_amount = 1_000_000;
 
     let better = worker.dev_create_account().await?;
     call::storage_deposit(&contract, &better, None, None).await?;
-    call::storage_deposit(&test_token, contract.as_account(), None, Some(NearToken::from_millinear(100))).await?;
-    call::storage_deposit(&test_token, &better, None, Some(NearToken::from_millinear(100))).await?;
+    call::storage_deposit(
+        &test_token,
+        contract.as_account(),
+        None,
+        Some(NearToken::from_millinear(100)),
+    )
+    .await?;
+    call::storage_deposit(
+        &test_token,
+        &better,
+        None,
+        Some(NearToken::from_millinear(100)),
+    )
+    .await?;
     call::mint_tokens(&test_token, better.id(), bet_amount * 20).await?;
 
     let whitelist = vec![test_token.id().clone()];
