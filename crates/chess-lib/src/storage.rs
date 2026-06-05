@@ -36,15 +36,8 @@ impl StorageManagement for Chess {
     }
 
     #[payable]
-    fn storage_unregister(&mut self, force: Option<bool>) -> bool {
-        require!(self.is_running, "Contract is paused");
-        assert_one_yocto();
-        match self.internal_storage_unregister(force) {
-            Ok(res) => res,
-            Err(err) => {
-                panic!("{}", err);
-            }
-        }
+    fn storage_unregister(&mut self, _force: Option<bool>) -> bool {
+        panic!("storage_unregister is not implemented");
     }
 
     fn storage_balance_bounds(&self) -> StorageBalanceBounds {
@@ -103,22 +96,5 @@ impl Chess {
         _amount: Option<NearToken>,
     ) -> Result<StorageBalance, ContractError> {
         Err(ContractError::OperationNotSupported)
-    }
-
-    fn internal_storage_unregister(&mut self, force: Option<bool>) -> Result<bool, ContractError> {
-        if force.is_some() {
-            return Err(ContractError::OperationNotSupported);
-        }
-        let account_id = env::predecessor_account_id();
-        if let Ok(account) = self.internal_get_account(&account_id) {
-            if account.is_playing() {
-                return Err(ContractError::AccountIsPlaying);
-            }
-            let _ = Promise::new(account_id.clone()).transfer(account.get_near_amount());
-            self.accounts.remove(&account_id);
-            Ok(true)
-        } else {
-            Ok(false)
-        }
     }
 }
