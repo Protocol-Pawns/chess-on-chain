@@ -850,15 +850,15 @@ async fn test_finish_game_payout_fees() -> anyhow::Result<()> {
     let game_ids = view::get_game_ids(&contract, player_b.id()).await?;
     assert!(game_ids.is_empty());
     let balance = view::ft_balance_of(&test_token, player_a.id()).await?;
-    assert_eq!(balance.0, 19_000_000);
+    assert_eq!(balance.0, 18_000_000);
     let balance = view::ft_balance_of(&test_token, player_b.id()).await?;
     assert_eq!(balance.0, 0);
     let balance = view::ft_balance_of(&test_token, contract.id()).await?;
-    assert_eq!(balance.0, 900_000);
+    assert_eq!(balance.0, 1_800_000);
     let balance = view::ft_balance_of(&test_token, royalty_account_a.id()).await?;
-    assert_eq!(balance.0, 70_000);
+    assert_eq!(balance.0, 140_000);
     let balance = view::ft_balance_of(&test_token, royalty_account_b.id()).await?;
-    assert_eq!(balance.0, 30_000);
+    assert_eq!(balance.0, 60_000);
 
     Ok(())
 }
@@ -973,6 +973,113 @@ fn get_game_id(events: &[ContractEvent]) -> GameId {
 // TODO stalemate refund wager
 
 #[tokio::test]
+async fn test_fee_deducted_from_total_pool() -> anyhow::Result<()> {
+    let (worker, owner, contract) = initialize_contracts(None).await?;
+    let test_token = initialize_token(&worker, "wrapped Near", "wNEAR", None, 6).await?;
+    let wager_amount = 10_000_000;
+    let total_pool = 2 * wager_amount;
+
+    let player_a = worker.dev_create_account().await?;
+    let player_b = worker.dev_create_account().await?;
+    let royalty_account = worker.dev_create_account().await?;
+
+    tokio::try_join!(
+        call::storage_deposit(&contract, &player_a, None, None),
+        call::storage_deposit(&contract, &player_b, None, None),
+        call::storage_deposit(
+            &test_token,
+            &player_a,
+            None,
+            Some(NearToken::from_millinear(100)),
+        ),
+        call::storage_deposit(
+            &test_token,
+            &player_b,
+            None,
+            Some(NearToken::from_millinear(100)),
+        ),
+        call::storage_deposit(
+            &test_token,
+            &royalty_account,
+            None,
+            Some(NearToken::from_millinear(100)),
+        ),
+    )?;
+    tokio::try_join!(
+        call::mint_tokens(&test_token, player_a.id(), wager_amount),
+        call::mint_tokens(&test_token, player_b.id(), wager_amount)
+    )?;
+
+    let fees = Fees {
+        treasury: 500,
+        royalties: vec![(royalty_account.id().clone(), 500)],
+    };
+    call::set_fees(&contract, &owner, &fees).await?;
+
+    let whitelist = vec![test_token.id().clone()];
+    call::set_wager_whitelist(&contract, &owner, &whitelist).await?;
+
+    call::storage_deposit(
+        &test_token,
+        contract.as_account(),
+        None,
+        Some(NearToken::from_millinear(100)),
+    )
+    .await?;
+
+    call::challenge_with_wager(
+        &player_a,
+        test_token.id(),
+        contract.id(),
+        wager_amount.into(),
+        ChallengeMsg {
+            challenged_id: player_b.id().clone(),
+        },
+    )
+    .await?;
+    let challenge_id = create_challenge_id(player_a.id(), player_b.id());
+
+    let (_res, events) = call::accept_challenge_with_wager(
+        &player_b,
+        test_token.id(),
+        contract.id(),
+        wager_amount.into(),
+        AcceptChallengeMsg { challenge_id },
+    )
+    .await?;
+    let game_id = get_game_id(&events);
+
+    call::play_move(&contract, &player_a, &game_id, "e2e4".to_string()).await?;
+    call::play_move(&contract, &player_b, &game_id, "a7a6".to_string()).await?;
+    call::play_move(&contract, &player_a, &game_id, "d1f3".to_string()).await?;
+    call::play_move(&contract, &player_b, &game_id, "a6a5".to_string()).await?;
+    call::play_move(&contract, &player_a, &game_id, "f1c4".to_string()).await?;
+    call::play_move(&contract, &player_b, &game_id, "a5a4".to_string()).await?;
+    let ((outcome, _), _, _) =
+        call::play_move(&contract, &player_a, &game_id, "f3f7".to_string()).await?;
+    assert_eq!(outcome.unwrap(), GameOutcome::Victory(Color::White));
+
+    let treasury_balance = view::ft_balance_of(&test_token, contract.id()).await?;
+    let royalty_balance = view::ft_balance_of(&test_token, royalty_account.id()).await?;
+    let winner_balance = view::ft_balance_of(&test_token, player_a.id()).await?;
+    let loser_balance = view::ft_balance_of(&test_token, player_b.id()).await?;
+
+    let total_fees = treasury_balance.0 + royalty_balance.0;
+    assert_eq!(
+        total_fees,
+        total_pool / 10,
+        "total fees should be 10% of the total pool (20M), not 10% of one wager (10M)"
+    );
+
+    assert_eq!(winner_balance.0, total_pool - total_fees);
+    assert_eq!(loser_balance.0, 0);
+    assert_eq!(treasury_balance.0, 1_000_000);
+    assert_eq!(royalty_balance.0, 1_000_000);
+
+    Ok(())
+}
+
+#[tokio::test]
 async fn test_withdraw_treasury() -> anyhow::Result<()> {
     let (worker, owner, contract) = initialize_contracts(None).await?;
     let test_token = initialize_token(&worker, "wrapped Near", "wNEAR", None, 6).await?;
@@ -1062,10 +1169,10 @@ async fn test_withdraw_treasury() -> anyhow::Result<()> {
     let treasury_tokens = view::get_treasury_tokens(&contract).await?;
     assert_eq!(treasury_tokens.len(), 1);
     assert_eq!(treasury_tokens[0].0, test_token.id().clone());
-    assert_eq!(treasury_tokens[0].1 .0, 900_000);
+    assert_eq!(treasury_tokens[0].1 .0, 1_800_000);
 
     let contract_balance_before = view::ft_balance_of(&test_token, contract.id()).await?;
-    assert_eq!(contract_balance_before.0, 900_000);
+    assert_eq!(contract_balance_before.0, 1_800_000);
 
     call::withdraw_treasury(&contract, &owner, test_token.id()).await?;
 
@@ -1076,7 +1183,7 @@ async fn test_withdraw_treasury() -> anyhow::Result<()> {
     assert_eq!(contract_balance_after.0, 0);
 
     let owner_balance = view::ft_balance_of(&test_token, owner.id()).await?;
-    assert_eq!(owner_balance.0, 900_000);
+    assert_eq!(owner_balance.0, 1_800_000);
 
     Ok(())
 }

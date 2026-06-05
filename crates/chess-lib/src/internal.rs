@@ -155,7 +155,9 @@ impl Chess {
         if let Some((token_id, amount)) = game.get_wager().clone() {
             match outcome {
                 GameOutcome::Victory(color) => {
-                    let wager_amount = 2 * amount.0 - self.deduct_fees(&token_id, amount.0);
+                    let total_pool = 2 * amount.0;
+                    let fees = self.deduct_fees(&token_id, total_pool);
+                    let wager_amount = total_pool - fees;
                     let _ = ext_ft_core::ext(token_id)
                         .with_attached_deposit(ONE_YOCTO)
                         .with_unused_gas_weight(1)

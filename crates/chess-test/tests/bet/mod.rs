@@ -1238,3 +1238,49 @@ async fn test_max_open_bets_per_bettor() -> anyhow::Result<()> {
 
     Ok(())
 }
+
+#[tokio::test]
+async fn test_player_cannot_bet_on_own_game() -> anyhow::Result<()> {
+    let (worker, _, contract) = initialize_contracts(None).await?;
+    let test_token = initialize_token(&worker, "SHITZU", "SHITZU", None, 24).await?;
+    let bet_amount = 10_000_000;
+
+    let player_a = worker.dev_create_account().await?;
+    let player_b = worker.dev_create_account().await?;
+
+    tokio::try_join!(
+        call::storage_deposit(&contract, &player_a, None, None),
+        call::storage_deposit(&contract, &player_b, None, None),
+    )?;
+    tokio::try_join!(
+        call::storage_deposit(
+            &test_token,
+            &player_a,
+            None,
+            Some(NearToken::from_millinear(100)),
+        ),
+        call::storage_deposit(
+            &test_token,
+            &player_b,
+            None,
+            Some(NearToken::from_millinear(100)),
+        ),
+    )?;
+    tokio::try_join!(
+        call::mint_tokens(&test_token, player_a.id(), bet_amount),
+        call::mint_tokens(&test_token, player_b.id(), bet_amount)
+    )?;
+
+    let whitelist = vec![test_token.id().clone()];
+    call::set_wager_whitelist(&contract, contract.as_account(), &whitelist).await?;
+
+    let res =
+        bet!(&player_a, test_token.id(), contract.id(), bet_amount, player_a => player_b).await;
+    assert!(res.is_err());
+
+    let res =
+        bet!(&player_b, test_token.id(), contract.id(), bet_amount, player_a => player_b).await;
+    assert!(res.is_err());
+
+    Ok(())
+}

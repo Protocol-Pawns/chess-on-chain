@@ -130,6 +130,9 @@ impl Chess {
         players: (AccountId, AccountId),
         winner: AccountId,
     ) -> Result<(), ContractError> {
+        if sender_id == players.0 || sender_id == players.1 {
+            return Err(ContractError::PlayerCannotBetOnSelf);
+        }
         if winner != players.0 && winner != players.1 {
             return Err(ContractError::InvalidBetWinner);
         }
