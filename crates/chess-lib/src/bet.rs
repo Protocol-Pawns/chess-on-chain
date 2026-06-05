@@ -1,8 +1,9 @@
-use crate::{Account, Chess, ChessEvent, ContractError, StorageKey};
+use crate::{Account, Chess, ChessEvent, ContractError, StorageKey, MAX_OPEN_BETS};
 use near_sdk::{
     borsh::{self, BorshDeserialize, BorshSerialize},
     env,
     json_types::U128,
+    require,
     serde::{Deserialize, Serialize},
     store::UnorderedMap,
     AccountId, NearSchema,
@@ -68,7 +69,10 @@ impl From<&Bets> for BetInfo {
 }
 
 impl Bets {
-    pub fn filter_valid(&mut self, accounts: &mut UnorderedMap<AccountId, Account>) {
+    pub fn filter_valid(
+        &mut self,
+        accounts: &mut UnorderedMap<AccountId, Account>,
+    ) -> HashSet<AccountId> {
         let mut to_remove = vec![];
         'outer: for (token_id, bets) in self.bets.iter() {
             let mut set = HashSet::new();
@@ -80,13 +84,16 @@ impl Bets {
             }
             to_remove.push(token_id.clone());
         }
+        let mut refunded_bettors = HashSet::new();
         for token_id in to_remove {
             let bets = self.bets.remove(&token_id).unwrap();
             for (account_id, bet) in bets {
                 let account = accounts.get_mut(&account_id).unwrap();
                 account.add_token(&token_id, bet.amount);
+                refunded_bettors.insert(account_id);
             }
         }
+        refunded_bettors
     }
 }
 
@@ -114,8 +121,6 @@ impl From<Bet> for BetView {
 }
 
 // TODO `cancel_bet`
-// TODO BOS notifications
-// TODO message instead of poke?
 impl Chess {
     pub fn internal_bet(
         &mut self,
@@ -125,6 +130,13 @@ impl Chess {
         players: (AccountId, AccountId),
         winner: AccountId,
     ) -> Result<(), ContractError> {
+        if winner != players.0 && winner != players.1 {
+            return Err(ContractError::InvalidBetWinner);
+        }
+        require!(amount > 0, "Bet amount must be positive");
+        if !self.accounts.contains_key(&sender_id) {
+            return Err(ContractError::AccountNotRegistered(sender_id));
+        }
         let bet_id = BetId::new(players.clone())?;
         if !self.bets.contains_key(&bet_id) {
             let id = bet_id.get_storage_key();
@@ -141,13 +153,31 @@ impl Chess {
             return Err(ContractError::BetLocked);
         }
 
-        if let Some(bets) = bets.bets.get_mut(&token_id) {
+        let bettor_already_has_bet = bets.bets.iter().any(|(_, bet_list)| {
+            bet_list
+                .binary_search_by_key(&sender_id, |(account_id, _)| account_id.clone())
+                .is_ok()
+        });
+        if !bettor_already_has_bet {
+            let active = self
+                .bettor_active_bets
+                .get(&sender_id)
+                .copied()
+                .unwrap_or(0);
+            if active >= MAX_OPEN_BETS {
+                return Err(ContractError::MaxBetsReached);
+            }
+            self.bettor_active_bets
+                .insert(sender_id.clone(), active + 1);
+        }
+
+        if let Some(token_bets) = bets.bets.get_mut(&token_id) {
             if let Ok(index) =
-                bets.binary_search_by_key(&sender_id, |(account_id, _)| account_id.clone())
+                token_bets.binary_search_by_key(&sender_id, |(account_id, _)| account_id.clone())
             {
-                bets.get_mut(index).unwrap().1.amount += amount;
+                token_bets.get_mut(index).unwrap().1.amount += amount;
             } else {
-                bets.push((
+                token_bets.push((
                     sender_id.clone(),
                     Bet {
                         amount,

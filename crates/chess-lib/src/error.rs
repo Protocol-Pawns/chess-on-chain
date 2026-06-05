@@ -56,4 +56,8 @@ pub enum ContractError {
     InvalidBetPlayers,
     #[error("Betting is locked for this player pair as long as game is ongoing")]
     BetLocked,
+    #[error("Invalid bet. Winner must be one of the two players")]
+    InvalidBetWinner,
+    #[error("Maximum amount of open bets reached")]
+    MaxBetsReached,
 }

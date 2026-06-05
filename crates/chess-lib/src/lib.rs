@@ -44,6 +44,7 @@ use std::collections::HashMap;
 
 pub const MAX_OPEN_GAMES: u32 = 5;
 pub const MAX_OPEN_CHALLENGES: u32 = 25;
+pub const MAX_OPEN_BETS: u32 = 10;
 
 #[cfg(not(feature = "integration-test"))]
 pub const MIN_BLOCK_DIFF_CANCEL: u64 = 60 * 60 * 24 * 3; // ~3 days
@@ -81,6 +82,7 @@ pub enum StorageKey {
     AccountQuestCooldowns,
     AccountAchievements,
     Bets,
+    BettorActiveBets,
     AccountTokens,
 }
 
@@ -96,6 +98,7 @@ pub struct Chess {
     pub fees: Lazy<Fees>,
     pub token_whitelist: Lazy<Vec<AccountId>>,
     pub bets: UnorderedMap<BetId, Bets>,
+    pub bettor_active_bets: UnorderedMap<AccountId, u32>,
     pub is_running: bool,
     pub points_total_supply: u128,
 }
@@ -170,6 +173,7 @@ impl Chess {
             ),
             token_whitelist: Lazy::new(StorageKey::TokenWhitelist, Vec::new()),
             bets: UnorderedMap::new(StorageKey::Bets),
+            bettor_active_bets: UnorderedMap::new(StorageKey::BettorActiveBets),
             is_running: true,
             points_total_supply: 0,
         })
@@ -201,6 +205,7 @@ impl Chess {
             fees: chess.fees,
             token_whitelist: chess.token_whitelist,
             bets: chess.bets,
+            bettor_active_bets: UnorderedMap::new(StorageKey::BettorActiveBets),
             is_running: chess.is_running,
             points_total_supply: chess.points_total_supply,
         }
@@ -264,6 +269,8 @@ impl Chess {
 
     #[private]
     pub fn set_fees(&mut self, treasury: u16, royalties: Vec<(AccountId, u16)>) {
+        let total: u16 = treasury + royalties.iter().map(|(_, f)| *f).sum::<u16>();
+        require!(total <= 10_000, "Total fees cannot exceed 100%");
         self.fees.set(Fees {
             treasury,
             royalties,

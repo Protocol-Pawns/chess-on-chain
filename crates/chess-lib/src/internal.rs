@@ -8,7 +8,7 @@ use maplit::hashmap;
 use near_contract_standards::fungible_token::core::ext_ft_core;
 use near_sdk::{AccountId, NearToken};
 use primitive_types::U128;
-use std::{cmp, collections::HashMap, ops::Div};
+use std::{cmp, collections::{HashMap, HashSet}, ops::Div};
 
 impl Chess {
     pub(crate) fn internal_challenge(
@@ -72,7 +72,12 @@ impl Chess {
         let players = (challenger_id.clone(), challenged_id.clone());
         let bet_id = BetId::new(players)?;
         let has_bets = if let Some(bets) = self.bets.get_mut(&bet_id) {
-            bets.filter_valid(&mut self.accounts);
+            let refunded = bets.filter_valid(&mut self.accounts);
+            for account_id in refunded {
+                if let Some(active) = self.bettor_active_bets.get_mut(&account_id) {
+                    *active = active.saturating_sub(1);
+                }
+            }
             bets.is_locked = true;
             !bets.bets.is_empty()
         } else {
@@ -214,6 +219,16 @@ impl Chess {
             );
             let bet_id = BetId::new(players.clone()).unwrap();
             let all_bets = self.bets.remove(&bet_id).unwrap();
+            let resolved_bettors: HashSet<_> = all_bets
+                .bets
+                .iter()
+                .flat_map(|(_, bet_list)| bet_list.iter().map(|(id, _)| id.clone()))
+                .collect();
+            for account_id in &resolved_bettors {
+                if let Some(active) = self.bettor_active_bets.get_mut(account_id) {
+                    *active = active.saturating_sub(1);
+                }
+            }
             let mut payouts: Vec<BetPayoutEvent> = vec![];
             match outcome {
                 GameOutcome::Victory(color) => {
