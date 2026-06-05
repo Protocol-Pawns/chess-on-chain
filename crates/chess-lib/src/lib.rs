@@ -32,11 +32,10 @@ use near_sdk::{
     env,
     json_types::U128,
     near_bindgen, require,
-    serde::{Deserialize, Serialize},
     store::{Lazy, UnorderedMap},
-    AccountId, BorshStorageKey, Gas, GasWeight, NearSchema, NearToken, PanicOnDefault,
-    PromiseOrValue,
+    AccountId, BorshStorageKey, Gas, GasWeight, NearToken, PanicOnDefault, PromiseOrValue,
 };
+use std::collections::HashSet;
 
 pub const MAX_OPEN_GAMES: u32 = 5;
 pub const MAX_OPEN_CHALLENGES: u32 = 25;
@@ -46,13 +45,6 @@ pub const MAX_OPEN_BETS: u32 = 10;
 pub const MIN_BLOCK_DIFF_CANCEL: u64 = 60 * 60 * 24 * 3; // ~3 days
 #[cfg(feature = "integration-test")]
 pub const MIN_BLOCK_DIFF_CANCEL: u64 = 100;
-
-#[cfg(not(feature = "integration-test"))]
-pub const MIN_BLOCK_DIFF_CLEANUP: u64 = 60 * 60 * 24 * 14; // ~14 days
-#[cfg(feature = "integration-test")]
-pub const MIN_BLOCK_DIFF_CLEANUP: u64 = 100;
-
-pub const MAX_GAMES_CLEANUP: usize = 50;
 
 pub const NO_DEPOSIT: NearToken = NearToken::from_yoctonear(0);
 pub const ONE_YOCTO: NearToken = NearToken::from_yoctonear(1);
@@ -217,38 +209,6 @@ impl Chess {
     pub fn resume(&mut self) {
         self.assert_owner();
         self.is_running = true;
-    }
-
-    pub fn cleanup(&mut self) {
-        self.assert_owner();
-        let mut game_ids = Vec::with_capacity((self.games.len() / 2) as usize);
-        for (game_id, game) in self.games.iter() {
-            if env::block_height() - game.get_last_block_height() < MIN_BLOCK_DIFF_CLEANUP {
-                continue;
-            }
-            if game.get_wager().is_some() {
-                continue;
-            }
-            game_ids.push(game_id.clone());
-            if game_ids.len() > MAX_GAMES_CLEANUP {
-                break;
-            }
-        }
-        for game_id in &game_ids {
-            let game = self.games.remove(game_id).unwrap();
-            if let Some(account) = game.get_white().as_account_mut(self) {
-                account.remove_game_id(game_id);
-            }
-            if let Some(account) = game.get_black().as_account_mut(self) {
-                account.remove_game_id(game_id);
-            }
-
-            let event = ChessEvent::CancelGame {
-                game_id: game_id.clone(),
-                cancelled_by: env::current_account_id(),
-            };
-            event.emit();
-        }
     }
 
     pub fn set_fees(&mut self, treasury: u16) {
@@ -540,6 +500,34 @@ impl Chess {
             account.remove_game_id(&game_id);
         }
 
+        if game.has_bets() {
+            let players = (
+                game.get_white().get_account_id().unwrap(),
+                game.get_black().get_account_id().unwrap(),
+            );
+            let bet_id = BetId::new(players.clone()).unwrap();
+            if let Some(all_bets) = self.bets.remove(&bet_id) {
+                let resolved_bettors: HashSet<_> = all_bets
+                    .bets
+                    .iter()
+                    .flat_map(|(_, bet_list)| bet_list.iter().map(|(id, _)| id.clone()))
+                    .collect();
+                for account_id in &resolved_bettors {
+                    if let Some(active) = self.bettor_active_bets.get_mut(account_id) {
+                        *active = active.saturating_sub(1);
+                    }
+                }
+                for (token_id, bets) in all_bets.bets.iter() {
+                    for (account_id, bet) in bets {
+                        self.accounts
+                            .get_mut(account_id)
+                            .unwrap()
+                            .add_token(token_id, bet.amount);
+                    }
+                }
+            }
+        }
+
         let event = ChessEvent::CancelGame {
             game_id,
             cancelled_by: account_id,
@@ -570,6 +558,70 @@ impl Chess {
         } else {
             PromiseOrValue::Value(())
         })
+    }
+
+    #[handle_result]
+    pub fn cancel_bet(
+        &mut self,
+        players: (AccountId, AccountId),
+        token_id: AccountId,
+    ) -> Result<(), ContractError> {
+        require!(self.is_running, "Contract is paused");
+        let sender_id = env::signer_account_id();
+        let bet_id = BetId::new(players.clone())?;
+
+        let (should_remove, bet_amount) = {
+            let bets = self
+                .bets
+                .get_mut(&bet_id)
+                .ok_or(ContractError::BetNotExists)?;
+            if bets.is_locked {
+                return Err(ContractError::BetLocked);
+            }
+
+            let token_bets = bets
+                .bets
+                .get_mut(&token_id)
+                .ok_or(ContractError::BetNotFound)?;
+            let index = token_bets
+                .binary_search_by_key(&sender_id, |(id, _)| id.clone())
+                .map_err(|_| ContractError::BetNotFound)?;
+            let (_, removed_bet) = token_bets.remove(index);
+
+            self.accounts
+                .get_mut(&sender_id)
+                .unwrap()
+                .add_token(&token_id, removed_bet.amount);
+
+            if token_bets.is_empty() {
+                bets.bets.remove(&token_id);
+            }
+            (bets.bets.is_empty(), removed_bet.amount)
+        };
+        if should_remove {
+            self.bets.remove(&bet_id);
+        }
+
+        let still_has_bet = self.bets.iter().any(|(_, b)| {
+            b.bets
+                .iter()
+                .any(|(_, list)| list.iter().any(|(id, _)| id == &sender_id))
+        });
+        if !still_has_bet {
+            if let Some(active) = self.bettor_active_bets.get_mut(&sender_id) {
+                *active = active.saturating_sub(1);
+            }
+        }
+
+        let event = ChessEvent::CancelBet {
+            bettor: sender_id,
+            players,
+            token_id,
+            amount: bet_amount.into(),
+        };
+        event.emit();
+
+        Ok(())
     }
 
     #[handle_result]

@@ -323,6 +323,14 @@ BEGIN
     ON CONFLICT (id) DO UPDATE SET
       amount = EXCLUDED.amount;
 
+  ELSIF NEW.event_type = 'cancel_bet' THEN
+    DELETE FROM bets
+    WHERE bettor = v_event_data->>'bettor'
+      AND player_0 = v_event_data->'players'->>0
+      AND player_1 = v_event_data->'players'->>1
+      AND token_id = v_event_data->>'token_id'
+      AND status = 'pending';
+
   ELSIF NEW.event_type = 'lock_bets' THEN
     v_game_id := v_event_data->>'game_id';
     UPDATE bets SET

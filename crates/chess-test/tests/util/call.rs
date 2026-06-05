@@ -121,7 +121,7 @@ pub async fn set_fees(
         Some("set_fees"),
         sender
             .call(contract.id(), "set_fees")
-            .args_json((&serde_json::json!({ "treasury": treasury })))
+            .args_json(serde_json::json!({ "treasury": treasury }))
             .max_gas()
             .transact()
             .await?,
@@ -351,16 +351,6 @@ pub async fn resign(
     Ok((res.json()?, events))
 }
 
-pub async fn cleanup(
-    contract: &Contract,
-) -> anyhow::Result<(ExecutionResult<Value>, Vec<ContractEvent>)> {
-    let (res, events) = log_tx_result(
-        Some("cleanup"),
-        contract.call("cleanup").max_gas().transact().await?,
-    )?;
-    Ok((res, events))
-}
-
 pub async fn cancel(
     contract: &Contract,
     sender: &Account,
@@ -371,6 +361,24 @@ pub async fn cancel(
         sender
             .call(contract.id(), "cancel")
             .args_json((game_id,))
+            .max_gas()
+            .transact()
+            .await?,
+    )?;
+    Ok((res, events))
+}
+
+pub async fn cancel_bet(
+    contract: &Contract,
+    sender: &Account,
+    players: (AccountId, AccountId),
+    token_id: &AccountId,
+) -> anyhow::Result<(ExecutionResult<Value>, Vec<ContractEvent>)> {
+    let (res, events) = log_tx_result(
+        Some("cancel_bet"),
+        sender
+            .call(contract.id(), "cancel_bet")
+            .args_json((&players, &token_id))
             .max_gas()
             .transact()
             .await?,

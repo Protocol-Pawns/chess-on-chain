@@ -62,4 +62,6 @@ pub enum ContractError {
     MaxBetsReached,
     #[error("Players cannot bet on their own game")]
     PlayerCannotBetOnSelf,
+    #[error("No bet found for this bettor on the given player pair and token")]
+    BetNotFound,
 }

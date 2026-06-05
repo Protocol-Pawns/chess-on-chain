@@ -120,7 +120,6 @@ impl From<Bet> for BetView {
     }
 }
 
-// TODO `cancel_bet`
 impl Chess {
     pub fn internal_bet(
         &mut self,

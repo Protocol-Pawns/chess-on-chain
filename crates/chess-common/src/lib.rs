@@ -51,7 +51,7 @@ pub struct ChessEvent {
     pub event_kind: ChessEventKind,
 }
 
-pub const KNOWN_EVENT_KINDS: [&str; 10] = [
+pub const KNOWN_EVENT_KINDS: [&str; 11] = [
     "challenge",
     "accept_challenge",
     "reject_challenge",
@@ -60,6 +60,7 @@ pub const KNOWN_EVENT_KINDS: [&str; 10] = [
     "resign_game",
     "cancel_game",
     "place_bet",
+    "cancel_bet",
     "lock_bets",
     "resolve_bets",
 ];
@@ -76,6 +77,7 @@ pub enum ChessEventKind {
     ResignGame(ResignGame),
     CancelGame(CancelGame),
     PlaceBet(PlaceBet),
+    CancelBet(CancelBet),
     LockBets(LockBets),
     ResolveBets(ResolveBets),
 }
@@ -136,6 +138,14 @@ pub struct PlaceBet {
     pub token_id: AccountId,
     pub amount: String,
     pub winner: AccountId,
+}
+
+#[derive(Clone, Serialize, Deserialize, Debug)]
+pub struct CancelBet {
+    pub bettor: AccountId,
+    pub players: (AccountId, AccountId),
+    pub token_id: AccountId,
+    pub amount: String,
 }
 
 #[derive(Clone, Serialize, Deserialize, Debug)]
@@ -269,6 +279,9 @@ impl Display for ChessEvent {
             ChessEventKind::PlaceBet(_) => {
                 formatter.write_fmt(format_args!("{}: place_bet", "event".bright_cyan()))?;
             }
+            ChessEventKind::CancelBet(_) => {
+                formatter.write_fmt(format_args!("{}: cancel_bet", "event".bright_cyan()))?;
+            }
             ChessEventKind::LockBets(_) => {
                 formatter.write_fmt(format_args!("{}: lock_bets", "event".bright_cyan()))?;
             }
@@ -305,6 +318,9 @@ impl Display for ChessEvent {
                 formatter.write_fmt(format_args!("\n{}: {:?}", "data".bright_cyan(), data))?;
             }
             ChessEventKind::PlaceBet(data) => {
+                formatter.write_fmt(format_args!("\n{}: {:?}", "data".bright_cyan(), data))?;
+            }
+            ChessEventKind::CancelBet(data) => {
                 formatter.write_fmt(format_args!("\n{}: {:?}", "data".bright_cyan(), data))?;
             }
             ChessEventKind::LockBets(data) => {

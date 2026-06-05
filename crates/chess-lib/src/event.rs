@@ -49,6 +49,13 @@ pub enum ChessEvent {
         winner: AccountId,
     },
     #[event_version("1.0.0")]
+    CancelBet {
+        bettor: AccountId,
+        players: (AccountId, AccountId),
+        token_id: AccountId,
+        amount: U128,
+    },
+    #[event_version("1.0.0")]
     LockBets {
         players: (AccountId, AccountId),
         game_id: GameId,

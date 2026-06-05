@@ -47,6 +47,7 @@ transforms:
           'resign_game',
           'cancel_game',
           'place_bet',
+          'cancel_bet',
           'lock_bets',
           'resolve_bets'
         ];

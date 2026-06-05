@@ -208,10 +208,7 @@ mod tests {
             .set_en_passant(Some(Position::pgn("d6").unwrap()))
             .set_turn(Color::White)
             .build();
-        let bad_move = Move::Piece(
-            Position::pgn("e5").unwrap(),
-            Position::pgn("f6").unwrap(),
-        );
+        let bad_move = Move::Piece(Position::pgn("e5").unwrap(), Position::pgn("f6").unwrap());
         assert!(!board.is_legal_move(bad_move, Color::White));
     }
 
@@ -226,10 +223,7 @@ mod tests {
             .set_en_passant(Some(Position::pgn("d6").unwrap()))
             .set_turn(Color::White)
             .build();
-        let good_move = Move::Piece(
-            Position::pgn("e5").unwrap(),
-            Position::pgn("d6").unwrap(),
-        );
+        let good_move = Move::Piece(Position::pgn("e5").unwrap(), Position::pgn("d6").unwrap());
         assert!(board.is_legal_move(good_move, Color::White));
     }
 }
