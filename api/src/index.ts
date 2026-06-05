@@ -8,9 +8,13 @@ import {
   getAccount,
   getAccountStats,
   getActiveGame,
+  getBetLeaderboard,
+  getBets,
+  getBetStats,
   getChallenges,
   getDb,
   getGame,
+  getGameBets,
   getGameMoves,
   getGames,
   getGlobalStats,
@@ -27,7 +31,11 @@ import {
   getAccountRoute,
   getAccountStatsRoute,
   getActiveGameRoute,
+  getBetsRoute,
+  getBetLeaderboardRoute,
+  getBetStatsRoute,
   getChallengesRoute,
+  getGameBetsRoute,
   getGameMovesRoute,
   getGameRoute,
   getGamesRoute,
@@ -191,6 +199,35 @@ app.openapi(unsubscribePushRoute, async c => {
   const db = c.get('DB');
   const ok = await removePushSubscription(db, accountId, endpoint);
   return c.json({ ok }, 200);
+});
+
+app.openapi(getBetsRoute, async c => {
+  const accountId = c.req.param('account_id');
+  const { status, cursor, limit } = c.req.valid('query');
+  const db = c.get('DB');
+  const result = await getBets(db, accountId, status ?? null, cursor ?? null, Number(limit) || 25);
+  return c.json(result, 200);
+});
+
+app.openapi(getGameBetsRoute, async c => {
+  const gameId = decodeURIComponent(c.req.param('game_id'));
+  const db = c.get('DB');
+  const bets = await getGameBets(db, gameId);
+  return c.json(bets, 200);
+});
+
+app.openapi(getBetStatsRoute, async c => {
+  const accountId = c.req.param('account_id');
+  const db = c.get('DB');
+  const stats = await getBetStats(db, accountId);
+  return c.json(stats, 200);
+});
+
+app.openapi(getBetLeaderboardRoute, async c => {
+  const { cursor, limit } = c.req.valid('query');
+  const db = c.get('DB');
+  const result = await getBetLeaderboard(db, cursor ?? null, Number(limit) || 25);
+  return c.json(result, 200);
 });
 
 app.notFound(() => {

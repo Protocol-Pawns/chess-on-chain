@@ -82,6 +82,38 @@ export interface Challenge {
   resolved_at: string | null;
 }
 
+export interface Bet {
+  id: string;
+  bettor: string;
+  player_0: string;
+  player_1: string;
+  game_id: string | null;
+  token_id: string;
+  amount: string;
+  winner: string;
+  status: 'pending' | 'locked' | 'resolved';
+  payout: string | null;
+  created_at: string;
+  locked_at: string | null;
+  resolved_at: string | null;
+}
+
+export interface BetStats {
+  account_id: string;
+  total_wagered: string;
+  total_won: string;
+  total_bets: number;
+  won_bets: number;
+}
+
+export interface BetLeaderboardEntry {
+  account_id: string;
+  total_wagered: string;
+  total_won: string;
+  total_bets: number;
+  won_bets: number;
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${API_URL}${path}`, init);
   if (!res.ok) throw new Error(`API error: ${res.status} ${res.statusText}`);
@@ -131,5 +163,22 @@ export const api = {
       method: 'DELETE',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ endpoint })
-    })
+    }),
+  bets: (
+    accountId: string,
+    status?: 'pending' | 'locked' | 'resolved',
+    cursor?: string,
+    limit?: number
+  ) =>
+    request<PaginatedResult<Bet>>(
+      `/account/${accountId}/bets${status ? `?status=${status}` : ''}${cursor ? `${status ? '&' : '?'}cursor=${cursor}` : ''}${limit ? `${status || cursor ? '&' : '?'}limit=${limit}` : ''}`
+    ),
+  gameBets: (gameId: string) =>
+    request<Bet[]>(`/game/${encodeURIComponent(gameId)}/bets`),
+  betStats: (accountId: string) =>
+    request<BetStats>(`/account/${accountId}/bet-stats`),
+  betLeaderboard: (cursor?: string, limit?: number) =>
+    request<PaginatedResult<BetLeaderboardEntry>>(
+      `/leaderboard/bets${cursor ? `?cursor=${cursor}` : ''}${limit ? `${cursor ? '&' : '?'}limit=${limit}` : ''}`
+    )
 };

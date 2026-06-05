@@ -51,7 +51,7 @@ pub struct ChessEvent {
     pub event_kind: ChessEventKind,
 }
 
-pub const KNOWN_EVENT_KINDS: [&str; 7] = [
+pub const KNOWN_EVENT_KINDS: [&str; 10] = [
     "challenge",
     "accept_challenge",
     "reject_challenge",
@@ -59,6 +59,9 @@ pub const KNOWN_EVENT_KINDS: [&str; 7] = [
     "play_move",
     "resign_game",
     "cancel_game",
+    "place_bet",
+    "lock_bets",
+    "resolve_bets",
 ];
 
 #[derive(Clone, Serialize, Deserialize, Debug)]
@@ -72,6 +75,9 @@ pub enum ChessEventKind {
     PlayMove(PlayMove),
     ResignGame(ResignGame),
     CancelGame(CancelGame),
+    PlaceBet(PlaceBet),
+    LockBets(LockBets),
+    ResolveBets(ResolveBets),
 }
 
 #[derive(Clone, Serialize, Deserialize, Debug)]
@@ -121,6 +127,36 @@ pub struct ResignGame {
 pub struct CancelGame {
     pub game_id: GameId,
     pub cancelled_by: String,
+}
+
+#[derive(Clone, Serialize, Deserialize, Debug)]
+pub struct PlaceBet {
+    pub bettor: AccountId,
+    pub players: (AccountId, AccountId),
+    pub token_id: AccountId,
+    pub amount: String,
+    pub winner: AccountId,
+}
+
+#[derive(Clone, Serialize, Deserialize, Debug)]
+pub struct LockBets {
+    pub players: (AccountId, AccountId),
+    pub game_id: GameId,
+}
+
+#[derive(Clone, Serialize, Deserialize, Debug)]
+pub struct ResolveBets {
+    pub players: (AccountId, AccountId),
+    pub game_id: GameId,
+    pub outcome: GameOutcome,
+    pub payouts: Vec<BetPayout>,
+}
+
+#[derive(Clone, Serialize, Deserialize, Debug)]
+pub struct BetPayout {
+    pub bettor: AccountId,
+    pub token_id: AccountId,
+    pub amount: String,
 }
 
 impl Display for ContractEvent {
@@ -230,6 +266,15 @@ impl Display for ChessEvent {
             ChessEventKind::CancelGame(_) => {
                 formatter.write_fmt(format_args!("{}: cancel_game", "event".bright_cyan()))?;
             }
+            ChessEventKind::PlaceBet(_) => {
+                formatter.write_fmt(format_args!("{}: place_bet", "event".bright_cyan()))?;
+            }
+            ChessEventKind::LockBets(_) => {
+                formatter.write_fmt(format_args!("{}: lock_bets", "event".bright_cyan()))?;
+            }
+            ChessEventKind::ResolveBets(_) => {
+                formatter.write_fmt(format_args!("{}: resolve_bets", "event".bright_cyan()))?;
+            }
         }
         formatter.write_fmt(format_args!("\n{}: chess-game", "standard".bright_cyan(),))?;
         formatter.write_fmt(format_args!(
@@ -257,6 +302,15 @@ impl Display for ChessEvent {
                 formatter.write_fmt(format_args!("\n{}: {:?}", "data".bright_cyan(), data))?;
             }
             ChessEventKind::CancelGame(data) => {
+                formatter.write_fmt(format_args!("\n{}: {:?}", "data".bright_cyan(), data))?;
+            }
+            ChessEventKind::PlaceBet(data) => {
+                formatter.write_fmt(format_args!("\n{}: {:?}", "data".bright_cyan(), data))?;
+            }
+            ChessEventKind::LockBets(data) => {
+                formatter.write_fmt(format_args!("\n{}: {:?}", "data".bright_cyan(), data))?;
+            }
+            ChessEventKind::ResolveBets(data) => {
                 formatter.write_fmt(format_args!("\n{}: {:?}", "data".bright_cyan(), data))?;
             }
         }

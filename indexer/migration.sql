@@ -76,6 +76,28 @@ CREATE TABLE IF NOT EXISTS account_finished_games (
 
 CREATE INDEX IF NOT EXISTS idx_account_games ON account_finished_games (account_id);
 
+CREATE TABLE IF NOT EXISTS bets (
+  id TEXT PRIMARY KEY,
+  bettor TEXT NOT NULL,
+  player_0 TEXT NOT NULL,
+  player_1 TEXT NOT NULL,
+  game_id TEXT,
+  token_id TEXT NOT NULL,
+  amount TEXT NOT NULL,
+  winner TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'pending',
+  payout TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  locked_at TIMESTAMPTZ,
+  resolved_at TIMESTAMPTZ
+);
+
+CREATE INDEX IF NOT EXISTS idx_bets_bettor ON bets (bettor);
+CREATE INDEX IF NOT EXISTS idx_bets_game ON bets (game_id);
+CREATE INDEX IF NOT EXISTS idx_bets_status ON bets (status);
+CREATE INDEX IF NOT EXISTS idx_bets_players ON bets (player_0, player_1);
+CREATE INDEX IF NOT EXISTS idx_bets_token ON bets (token_id);
+
 CREATE TABLE IF NOT EXISTS push_subscriptions (
   endpoint TEXT PRIMARY KEY,
   account_id TEXT NOT NULL,
@@ -286,6 +308,52 @@ BEGIN
       status = 'rejected',
       resolved_at = to_timestamp(NEW.trigger_block_timestamp / 1000.0)
     WHERE id = v_challenge_id;
+
+  ELSIF NEW.event_type = 'place_bet' THEN
+    INSERT INTO bets (id, bettor, player_0, player_1, token_id, amount, winner)
+    VALUES (
+      v_event_data->>'bettor' || '_' || v_event_data->'players'->>0 || '_' || v_event_data->'players'->>1 || '_' || v_event_data->>'token_id',
+      v_event_data->>'bettor',
+      v_event_data->'players'->>0,
+      v_event_data->'players'->>1,
+      v_event_data->>'token_id',
+      v_event_data->>'amount',
+      v_event_data->>'winner'
+    )
+    ON CONFLICT (id) DO UPDATE SET
+      amount = EXCLUDED.amount;
+
+  ELSIF NEW.event_type = 'lock_bets' THEN
+    v_game_id := v_event_data->>'game_id';
+    UPDATE bets SET
+      status = 'locked',
+      game_id = v_game_id,
+      locked_at = to_timestamp(NEW.trigger_block_timestamp / 1000.0)
+    WHERE player_0 = v_event_data->'players'->>0
+      AND player_1 = v_event_data->'players'->>1
+      AND status = 'pending';
+
+  ELSIF NEW.event_type = 'resolve_bets' THEN
+    v_game_id := v_event_data->>'game_id';
+    UPDATE bets SET
+      status = 'resolved',
+      resolved_at = to_timestamp(NEW.trigger_block_timestamp / 1000.0)
+    WHERE game_id = v_game_id
+      AND status = 'locked';
+
+    DECLARE
+      p_item RECORD;
+    BEGIN
+      FOR p_item IN SELECT * FROM jsonb_array_elements(v_event_data->'payouts') AS p(obj)
+      LOOP
+        UPDATE bets SET
+          payout = p_item.obj->>'amount'
+        WHERE game_id = v_game_id
+          AND bettor = p_item.obj->>'bettor'
+          AND token_id = p_item.obj->>'token_id'
+          AND status = 'resolved';
+      END LOOP;
+    END;
 
   END IF;
 

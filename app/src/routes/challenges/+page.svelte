@@ -4,10 +4,14 @@
   import { accountStore, isLoggedIn } from '$lib/near/account';
   import { contract } from '$lib/near/connector';
   import { showTxToast } from '$lib/toast';
+  import WagerInput from '$lib/components/WagerInput.svelte';
 
   let challenges = $state<Challenge[]>([]);
   let loading = $state(true);
   let challengeTarget = $state('');
+  let wagerEnabled = $state(false);
+  let wagerToken = $state('');
+  let wagerAmount = $state('');
 
   async function load() {
     if (!$accountStore) return;
@@ -24,12 +28,26 @@
     if (!$accountStore || !challengeTarget.trim()) return;
     const target = challengeTarget.trim();
     challengeTarget = '';
-    showTxToast(contract.challenge(target));
+    if (wagerEnabled && wagerToken && wagerAmount) {
+      showTxToast(contract.challengeWithWager(wagerToken, target, wagerAmount));
+    } else {
+      showTxToast(contract.challenge(target));
+    }
     setTimeout(load, 4000);
   }
 
-  function acceptChallenge(id: string) {
-    showTxToast(contract.acceptChallenge(id));
+  function acceptChallenge(challenge: Challenge) {
+    if (challenge.wager_token && challenge.wager_amount) {
+      showTxToast(
+        contract.acceptChallengeWithWager(
+          challenge.wager_token,
+          challenge.id,
+          challenge.wager_amount
+        )
+      );
+    } else {
+      showTxToast(contract.acceptChallenge(challenge.id));
+    }
     setTimeout(load, 4000);
   }
 
@@ -65,8 +83,8 @@
   </div>
 {:else}
   <div class="space-y-6">
-    <section class="card">
-      <h2 class="text-base font-semibold mb-2">Challenge a Player</h2>
+    <section class="card space-y-3">
+      <h2 class="text-base font-semibold">Challenge a Player</h2>
       <div class="flex gap-2">
         <input
           type="text"
@@ -77,11 +95,12 @@
         <button
           class="btn-primary text-sm"
           onclick={sendChallenge}
-          disabled={!challengeTarget.trim()}
+          disabled={!challengeTarget.trim() || (wagerEnabled && (!wagerAmount || !wagerToken))}
         >
           Challenge
         </button>
       </div>
+      <WagerInput bind:enabled={wagerEnabled} bind:tokenId={wagerToken} bind:amount={wagerAmount} />
     </section>
 
     <section>
@@ -101,13 +120,18 @@
                 </div>
                 <div class="text-xs text-white/50">
                   {challenge.status}
+                  {#if challenge.wager_token && challenge.wager_amount}
+                    <span class="text-yellow-400 ml-1">
+                      Wager: {challenge.wager_amount}
+                    </span>
+                  {/if}
                 </div>
               </div>
               <div class="flex gap-2">
                 {#if challenge.status === 'pending' && challenge.challenged === $accountStore}
                   <button
                     class="btn-primary text-xs"
-                    onclick={() => acceptChallenge(challenge.id)}>Accept</button
+                    onclick={() => acceptChallenge(challenge)}>Accept</button
                   >
                   <button
                     class="btn-secondary text-xs"

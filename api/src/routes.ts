@@ -4,6 +4,9 @@ import { z } from 'zod';
 import {
   AccountSchema,
   AccountStatsSchema,
+  BetLeaderboardEntrySchema,
+  BetSchema,
+  BetStatsSchema,
   ChallengeSchema,
   EloLeaderboardPageSchema,
   GameIdSchema,
@@ -12,6 +15,7 @@ import {
   GameSchema,
   GlobalStatsSchema,
   InfoSchema,
+  PaginatedBetsSchema,
   PaginatedGamesSchema,
   PaginatedLeaderboardSchema,
   PushSubscriptionSchema,
@@ -267,6 +271,77 @@ export const unsubscribePushRoute = createRoute({
         'application/json': { schema: z.object({ ok: z.boolean() }) }
       },
       description: 'Push subscription removed'
+    }
+  }
+});
+
+export const getBetsRoute = createRoute({
+  method: 'get',
+  path: '/account/{account_id}/bets',
+  request: {
+    params: z.object({ account_id: z.string() }),
+    query: z.object({
+      status: z.enum(['pending', 'locked', 'resolved']).optional(),
+      cursor: z.string().optional(),
+      limit: z.string().optional()
+    })
+  },
+  responses: {
+    200: {
+      content: { 'application/json': { schema: PaginatedBetsSchema } },
+      description: 'Returns paginated bets placed by an account'
+    }
+  }
+});
+
+export const getGameBetsRoute = createRoute({
+  method: 'get',
+  path: '/game/{game_id}/bets',
+  request: {
+    params: z.object({ game_id: z.string() })
+  },
+  responses: {
+    200: {
+      content: { 'application/json': { schema: BetSchema.array() } },
+      description: 'Returns all bets for a specific game'
+    }
+  }
+});
+
+export const getBetStatsRoute = createRoute({
+  method: 'get',
+  path: '/account/{account_id}/bet-stats',
+  request: {
+    params: z.object({ account_id: z.string() })
+  },
+  responses: {
+    200: {
+      content: { 'application/json': { schema: BetStatsSchema } },
+      description: 'Returns aggregate betting statistics for an account'
+    }
+  }
+});
+
+export const getBetLeaderboardRoute = createRoute({
+  method: 'get',
+  path: '/leaderboard/bets',
+  request: {
+    query: z.object({
+      cursor: z.string().optional(),
+      limit: z.string().optional()
+    })
+  },
+  responses: {
+    200: {
+      content: {
+        'application/json': {
+          schema: z.object({
+            items: BetLeaderboardEntrySchema.array(),
+            next_cursor: z.string().nullable()
+          })
+        }
+      },
+      description: 'Returns top bettors ranked by total winnings'
     }
   }
 });

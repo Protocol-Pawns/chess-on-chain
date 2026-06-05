@@ -1,4 +1,4 @@
-use crate::{Account, Chess, ContractError, StorageKey};
+use crate::{Account, Chess, ChessEvent, ContractError, StorageKey};
 use near_sdk::{
     borsh::{self, BorshDeserialize, BorshSerialize},
     env,
@@ -125,7 +125,7 @@ impl Chess {
         players: (AccountId, AccountId),
         winner: AccountId,
     ) -> Result<(), ContractError> {
-        let bet_id = BetId::new(players)?;
+        let bet_id = BetId::new(players.clone())?;
         if !self.bets.contains_key(&bet_id) {
             let id = bet_id.get_storage_key();
             let storage_key: Vec<u8> =
@@ -147,12 +147,36 @@ impl Chess {
             {
                 bets.get_mut(index).unwrap().1.amount += amount;
             } else {
-                bets.push((sender_id, Bet { amount, winner }));
+                bets.push((
+                    sender_id.clone(),
+                    Bet {
+                        amount,
+                        winner: winner.clone(),
+                    },
+                ));
             }
         } else {
-            bets.bets
-                .insert(token_id, vec![(sender_id, Bet { amount, winner })]);
+            bets.bets.insert(
+                token_id.clone(),
+                vec![(
+                    sender_id.clone(),
+                    Bet {
+                        amount,
+                        winner: winner.clone(),
+                    },
+                )],
+            );
         }
+
+        let event = ChessEvent::PlaceBet {
+            bettor: sender_id,
+            players,
+            token_id,
+            amount: amount.into(),
+            winner,
+        };
+        event.emit();
+
         Ok(())
     }
 }

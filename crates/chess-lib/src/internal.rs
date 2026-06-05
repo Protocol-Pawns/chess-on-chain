@@ -1,7 +1,7 @@
 use crate::{
-    calculate_elo, create_challenge_id, Account, Achievement, BetId, Challenge, ChallengeId, Chess,
-    ChessEvent, ChessNotification, ContractError, Difficulty, EloConfig, EloOutcome, Game, GameId,
-    GameOutcome, Player, Wager, ONE_YOCTO,
+    calculate_elo, create_challenge_id, Account, Achievement, BetId, BetPayoutEvent, Challenge,
+    ChallengeId, Chess, ChessEvent, ChessNotification, ContractError, Difficulty, EloConfig,
+    EloOutcome, Game, GameId, GameOutcome, Player, Wager, ONE_YOCTO,
 };
 use chess_engine::Color;
 use maplit::hashmap;
@@ -96,6 +96,14 @@ impl Chess {
             .get_mut(challenger_id)
             .ok_or_else(|| ContractError::AccountNotRegistered(challenger_id.clone()))?;
         challenger.accept_challenge(&challenge_id, game_id.clone(), true)?;
+
+        if has_bets {
+            let event = ChessEvent::LockBets {
+                players: (challenger_id.clone(), challenged_id.clone()),
+                game_id: game_id.clone(),
+            };
+            event.emit();
+        }
 
         let event = ChessEvent::AcceptChallenge {
             challenge_id,
@@ -204,8 +212,9 @@ impl Chess {
                 game.get_white().get_account_id().unwrap(),
                 game.get_black().get_account_id().unwrap(),
             );
-            let bet_id = BetId::new(players).unwrap();
+            let bet_id = BetId::new(players.clone()).unwrap();
             let all_bets = self.bets.remove(&bet_id).unwrap();
+            let mut payouts: Vec<BetPayoutEvent> = vec![];
             match outcome {
                 GameOutcome::Victory(color) => {
                     let winner_id = match color {
@@ -240,10 +249,16 @@ impl Chess {
                                 win_amount = cmp::min(win_amount, bet.amount);
                                 total_win_amount += win_amount;
 
+                                let payout = win_amount + bet.amount;
                                 self.accounts
                                     .get_mut(account_id)
                                     .unwrap()
-                                    .add_token(token_id, win_amount + bet.amount);
+                                    .add_token(token_id, payout);
+                                payouts.push(BetPayoutEvent {
+                                    bettor: account_id.clone(),
+                                    token_id: token_id.clone(),
+                                    amount: payout.into(),
+                                });
                             }
                         }
 
@@ -261,6 +276,11 @@ impl Chess {
                                         .get_mut(account_id)
                                         .unwrap()
                                         .add_token(token_id, refund_amount);
+                                    payouts.push(BetPayoutEvent {
+                                        bettor: account_id.clone(),
+                                        token_id: token_id.clone(),
+                                        amount: refund_amount.into(),
+                                    });
                                 }
                             }
                         }
@@ -273,10 +293,23 @@ impl Chess {
                                 .get_mut(account_id)
                                 .unwrap()
                                 .add_token(token_id, bet.amount);
+                            payouts.push(BetPayoutEvent {
+                                bettor: account_id.clone(),
+                                token_id: token_id.clone(),
+                                amount: bet.amount.into(),
+                            });
                         }
                     }
                 }
             }
+
+            let event = ChessEvent::ResolveBets {
+                players,
+                game_id: game_id.clone(),
+                outcome: outcome.clone(),
+                payouts,
+            };
+            event.emit();
         }
 
         if let Player::Human(account_id) = game.get_white() {
@@ -347,11 +380,7 @@ impl Chess {
             .ok_or_else(|| ContractError::AccountNotRegistered(account_id.clone()))
     }
 
-    pub(crate) fn internal_register_account(
-        &mut self,
-        account_id: AccountId,
-        amount: NearToken,
-    ) {
+    pub(crate) fn internal_register_account(&mut self, account_id: AccountId, amount: NearToken) {
         let account = Account::new(account_id.clone(), amount);
         self.accounts.insert(account_id, account);
     }

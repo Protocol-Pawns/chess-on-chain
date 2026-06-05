@@ -45,7 +45,10 @@ transforms:
           'create_game',
           'play_move',
           'resign_game',
-          'cancel_game'
+          'cancel_game',
+          'place_bet',
+          'lock_bets',
+          'resolve_bets'
         ];
         const results = [];
 

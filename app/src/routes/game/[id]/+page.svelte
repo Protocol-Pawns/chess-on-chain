@@ -8,6 +8,7 @@
   import { showTxToast } from '$lib/toast';
   import Board from '$lib/components/Board.svelte';
   import MoveHistory from '$lib/components/MoveHistory.svelte';
+  import BetPanel from '$lib/components/BetPanel.svelte';
 
   let game = $state<Game | null>(null);
   let moves = $state<GameMove[]>([]);
@@ -212,5 +213,13 @@
     </div>
 
     <MoveHistory {moves} />
+
+    {#if game.white.type === 'Human' && game.black?.type === 'Human'}
+      <BetPanel
+        playerWhite={game.white.value}
+        playerBlack={game.black.value}
+        disabled={game.status !== 'in_progress'}
+      />
+    {/if}
   </div>
 {/if}

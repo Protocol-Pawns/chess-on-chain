@@ -189,6 +189,54 @@ export const VapidPublicKeySchema = z.object({
   publicKey: z.string()
 });
 
+export const BetStatusSchema = z.enum([
+  'pending',
+  'locked',
+  'resolved'
+]);
+export type BetStatus = z.infer<typeof BetStatusSchema>;
+
+export const BetSchema = z.object({
+  id: z.string(),
+  bettor: z.string(),
+  player_0: z.string(),
+  player_1: z.string(),
+  game_id: z.string().nullable(),
+  token_id: z.string(),
+  amount: z.string(),
+  winner: z.string(),
+  status: BetStatusSchema,
+  payout: z.string().nullable(),
+  created_at: z.string(),
+  locked_at: z.string().nullable(),
+  resolved_at: z.string().nullable()
+});
+export type Bet = z.infer<typeof BetSchema>;
+
+export const PaginatedBetsSchema = z.object({
+  items: BetSchema.array(),
+  next_cursor: z.string().nullable()
+});
+export type PaginatedBets = z.infer<typeof PaginatedBetsSchema>;
+
+export const BetStatsSchema = z.object({
+  account_id: z.string(),
+  total_wagered: z.string(),
+  total_won: z.string(),
+  total_bets: z.number(),
+  won_bets: z.number()
+});
+export type BetStats = z.infer<typeof BetStatsSchema>;
+
+export const BetLeaderboardEntrySchema = z.object({
+  account_id: z.string(),
+  total_wagered: z.string(),
+  total_won: z.string(),
+  total_bets: z.number(),
+  won_bets: z.number()
+});
+export type BetLeaderboardEntry = z.infer<typeof BetLeaderboardEntrySchema>;
+
 export const EloLeaderboardEntrySchema = z.object({
   rank: z.number(),
   account_id: z.string(),

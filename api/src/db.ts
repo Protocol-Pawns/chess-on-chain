@@ -3,6 +3,9 @@ import postgres from 'postgres';
 import type {
   Account,
   AccountStats,
+  Bet,
+  BetLeaderboardEntry,
+  BetStats,
   Challenge,
   Color,
   Game,
@@ -470,6 +473,174 @@ export async function getUnnotifiedEvents(db: Db): Promise<UnnotifiedEvent[]> {
 export async function markEventsNotified(db: Db, ids: string[]): Promise<void> {
   if (ids.length === 0) return;
   await db`UPDATE chess_events SET notified = true WHERE id = ANY(${ids})`;
+}
+
+interface BetRow {
+  id: string;
+  bettor: string;
+  player_0: string;
+  player_1: string;
+  game_id: string | null;
+  token_id: string;
+  amount: string;
+  winner: string;
+  status: string;
+  payout: string | null;
+  created_at: string;
+  locked_at: string | null;
+  resolved_at: string | null;
+}
+
+function rowToBet(row: BetRow): Bet {
+  return {
+    id: row.id,
+    bettor: row.bettor,
+    player_0: row.player_0,
+    player_1: row.player_1,
+    game_id: row.game_id,
+    token_id: row.token_id,
+    amount: row.amount,
+    winner: row.winner,
+    status: row.status as Bet['status'],
+    payout: row.payout,
+    created_at: row.created_at,
+    locked_at: row.locked_at,
+    resolved_at: row.resolved_at
+  };
+}
+
+export async function getBets(
+  db: Db,
+  accountId: string,
+  status: string | null,
+  cursor: string | null,
+  limit: number
+) {
+  const actualLimit = clampLimit(limit);
+  let rows;
+  if (cursor && status) {
+    rows = await db`
+      SELECT * FROM bets
+      WHERE bettor = ${accountId} AND status = ${status} AND created_at < ${cursor}
+      ORDER BY created_at DESC
+      LIMIT ${actualLimit + 1}
+    `;
+  } else if (cursor) {
+    rows = await db`
+      SELECT * FROM bets
+      WHERE bettor = ${accountId} AND created_at < ${cursor}
+      ORDER BY created_at DESC
+      LIMIT ${actualLimit + 1}
+    `;
+  } else if (status) {
+    rows = await db`
+      SELECT * FROM bets
+      WHERE bettor = ${accountId} AND status = ${status}
+      ORDER BY created_at DESC
+      LIMIT ${actualLimit + 1}
+    `;
+  } else {
+    rows = await db`
+      SELECT * FROM bets
+      WHERE bettor = ${accountId}
+      ORDER BY created_at DESC
+      LIMIT ${actualLimit + 1}
+    `;
+  }
+
+  const hasMore = rows.length > actualLimit;
+  const items = (hasMore ? rows.slice(0, -1) : rows).map((r: unknown) =>
+    rowToBet(r as BetRow)
+  );
+  const lastItem = items[items.length - 1] as { created_at?: string } | undefined;
+  const nextCursor = hasMore && lastItem ? lastItem.created_at ?? null : null;
+
+  return { items, next_cursor: nextCursor };
+}
+
+export async function getGameBets(db: Db, gameId: string): Promise<Bet[]> {
+  const rows = await db`
+    SELECT * FROM bets
+    WHERE game_id = ${gameId}
+    ORDER BY created_at ASC
+  `;
+  return rows.map((r: unknown) => rowToBet(r as BetRow));
+}
+
+export async function getBetStats(
+  db: Db,
+  accountId: string
+): Promise<BetStats> {
+  const rows = await db`
+    SELECT
+      COALESCE(SUM(amount::numeric), 0) AS total_wagered,
+      COALESCE(SUM(payout::numeric), 0) AS total_won,
+      COUNT(*) AS total_bets,
+      COUNT(*) FILTER (WHERE payout IS NOT NULL AND payout::numeric > 0) AS won_bets
+    FROM bets
+    WHERE bettor = ${accountId}
+  `;
+  const r = rows[0] as unknown as Record<string, string>;
+  return {
+    account_id: accountId,
+    total_wagered: r.total_wagered,
+    total_won: r.total_won,
+    total_bets: Number(r.total_bets),
+    won_bets: Number(r.won_bets)
+  };
+}
+
+export async function getBetLeaderboard(
+  db: Db,
+  cursor: string | null,
+  limit: number
+) {
+  const actualLimit = clampLimit(limit);
+  let rows;
+  if (cursor) {
+    rows = await db`
+      SELECT
+        bettor AS account_id,
+        SUM(amount::numeric) AS total_wagered,
+        COALESCE(SUM(payout::numeric), 0) AS total_won,
+        COUNT(*) AS total_bets,
+        COUNT(*) FILTER (WHERE payout IS NOT NULL AND payout::numeric > 0) AS won_bets
+      FROM bets
+      WHERE bettor < ${cursor}
+      GROUP BY bettor
+      ORDER BY total_won DESC, total_wagered ASC
+      LIMIT ${actualLimit + 1}
+    `;
+  } else {
+    rows = await db`
+      SELECT
+        bettor AS account_id,
+        SUM(amount::numeric) AS total_wagered,
+        COALESCE(SUM(payout::numeric), 0) AS total_won,
+        COUNT(*) AS total_bets,
+        COUNT(*) FILTER (WHERE payout IS NOT NULL AND payout::numeric > 0) AS won_bets
+      FROM bets
+      GROUP BY bettor
+      ORDER BY total_won DESC, total_wagered ASC
+      LIMIT ${actualLimit + 1}
+    `;
+  }
+
+  const hasMore = rows.length > actualLimit;
+  const items = (hasMore ? rows.slice(0, -1) : rows).map((r: unknown) => {
+    const row = r as Record<string, string>;
+    return {
+      account_id: row.account_id,
+      total_wagered: row.total_wagered,
+      total_won: row.total_won,
+      total_bets: Number(row.total_bets),
+      won_bets: Number(row.won_bets)
+    } satisfies BetLeaderboardEntry;
+  });
+  const lastItem = items[items.length - 1] as { account_id: string } | undefined;
+  const nextCursor = hasMore && lastItem ? lastItem.account_id : null;
+
+  return { items, next_cursor: nextCursor };
 }
 
 export async function deleteExpiredSubscriptions(
