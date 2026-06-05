@@ -2,7 +2,8 @@
   "private": true,
   "workspaces": [
     "api",
-    "app"
+    "app",
+    "indexer/processor"
   ],
   "engines": {
     "node": ">= 18"
@@ -12,6 +13,7 @@
   "scripts": {
     "api": "yarn workspace api",
     "app": "yarn workspace app",
+    "processor": "yarn workspace processor",
     "lint": "eslint --max-warnings=0 && prettier --check .",
     "format": "prettier --write ."
   },
