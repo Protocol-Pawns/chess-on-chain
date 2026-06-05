@@ -16,11 +16,13 @@ use serde_json::json;
 pub async fn migrate(
     contract: &Contract,
     sender: &Account,
+    owner_id: &AccountId,
 ) -> anyhow::Result<ExecutionResult<Value>> {
     let (res, _): (ExecutionResult<Value>, Vec<ContractEvent>) = log_tx_result(
         Some("migrate"),
         sender
             .call(contract.id(), "migrate")
+            .args_json((owner_id,))
             .max_gas()
             .transact()
             .await?,
@@ -393,6 +395,40 @@ pub async fn bet(
             FtReceiverMsg::Bet(msg),
         )
         .await?,
+    )?;
+    Ok((res, events))
+}
+
+pub async fn withdraw_treasury(
+    contract: &Contract,
+    sender: &Account,
+    token_id: &AccountId,
+) -> anyhow::Result<(ExecutionResult<Value>, Vec<ContractEvent>)> {
+    let (res, events) = log_tx_result(
+        Some("withdraw_treasury"),
+        sender
+            .call(contract.id(), "withdraw_treasury")
+            .args_json((token_id,))
+            .max_gas()
+            .transact()
+            .await?,
+    )?;
+    Ok((res, events))
+}
+
+pub async fn transfer_ownership(
+    contract: &Contract,
+    sender: &Account,
+    new_owner_id: &AccountId,
+) -> anyhow::Result<(ExecutionResult<Value>, Vec<ContractEvent>)> {
+    let (res, events) = log_tx_result(
+        Some("transfer_ownership"),
+        sender
+            .call(contract.id(), "transfer_ownership")
+            .args_json((new_owner_id,))
+            .max_gas()
+            .transact()
+            .await?,
     )?;
     Ok((res, events))
 }

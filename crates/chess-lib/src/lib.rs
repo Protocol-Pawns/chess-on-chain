@@ -90,6 +90,7 @@ pub enum StorageKey {
 #[derive(BorshDeserialize, BorshSerialize, PanicOnDefault)]
 #[borsh(crate = "near_sdk::borsh")]
 pub struct Chess {
+    pub owner_id: AccountId,
     pub social_db: AccountId,
     pub accounts: UnorderedMap<AccountId, Account>,
     pub games: UnorderedMap<GameId, Game>,
@@ -154,11 +155,12 @@ pub type MoveStr = String;
 impl Chess {
     #[init]
     #[handle_result]
-    pub fn new(social_db: AccountId) -> Result<Self, ContractError> {
+    pub fn new(social_db: AccountId, owner_id: AccountId) -> Result<Self, ContractError> {
         if env::state_exists() {
             return Err(ContractError::AlreadyInitilized);
         }
         Ok(Self {
+            owner_id,
             social_db,
             accounts: UnorderedMap::new(StorageKey::VAccounts),
             games: UnorderedMap::new(StorageKey::Games),
@@ -181,7 +183,7 @@ impl Chess {
 
     #[private]
     #[init(ignore_state)]
-    pub fn migrate() -> Self {
+    pub fn migrate(owner_id: AccountId) -> Self {
         let mut chess: OldChess = env::state_read().unwrap();
 
         let account_ids: Vec<AccountId> = chess.accounts.keys().cloned().collect();
@@ -197,6 +199,7 @@ impl Chess {
         }
 
         Self {
+            owner_id,
             social_db: chess.social_db,
             accounts,
             games: chess.games,
@@ -211,8 +214,16 @@ impl Chess {
         }
     }
 
-    #[private]
+    fn assert_owner(&self) {
+        let signer = env::signer_account_id();
+        require!(
+            signer == self.owner_id || signer == env::current_account_id(),
+            "Only the owner can call this method"
+        );
+    }
+
     pub fn pause(&mut self) {
+        self.assert_owner();
         self.is_running = false;
     }
 
@@ -230,13 +241,13 @@ impl Chess {
         Ok(())
     }
 
-    #[private]
     pub fn resume(&mut self) {
+        self.assert_owner();
         self.is_running = true;
     }
 
-    #[private]
     pub fn cleanup(&mut self) {
+        self.assert_owner();
         let mut game_ids = Vec::with_capacity((self.games.len() / 2) as usize);
         for (game_id, game) in self.games.iter() {
             if env::block_height() - game.get_last_block_height() < MIN_BLOCK_DIFF_CLEANUP {
@@ -267,8 +278,8 @@ impl Chess {
         }
     }
 
-    #[private]
     pub fn set_fees(&mut self, treasury: u16, royalties: Vec<(AccountId, u16)>) {
+        self.assert_owner();
         let total: u16 = treasury + royalties.iter().map(|(_, f)| *f).sum::<u16>();
         require!(total <= 10_000, "Total fees cannot exceed 100%");
         self.fees.set(Fees {
@@ -277,9 +288,28 @@ impl Chess {
         });
     }
 
-    #[private]
     pub fn set_wager_whitelist(&mut self, whitelist: Vec<AccountId>) {
+        self.assert_owner();
         self.token_whitelist.set(whitelist);
+    }
+
+    pub fn withdraw_treasury(&mut self, token_id: AccountId) {
+        self.assert_owner();
+        let amount = self
+            .treasury
+            .remove(&token_id)
+            .unwrap_or(0);
+        if amount > 0 {
+            let _ = ext_ft_core::ext(token_id)
+                .with_attached_deposit(ONE_YOCTO)
+                .with_unused_gas_weight(1)
+                .ft_transfer(self.owner_id.clone(), amount.into(), Some("treasury withdrawal".to_string()));
+        }
+    }
+
+    pub fn transfer_ownership(&mut self, new_owner_id: AccountId) {
+        self.assert_owner();
+        self.owner_id = new_owner_id;
     }
 
     #[payable]

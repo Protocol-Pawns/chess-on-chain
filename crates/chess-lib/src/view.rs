@@ -205,4 +205,8 @@ impl Chess {
     pub fn get_token_whitelist(&self) -> Vec<AccountId> {
         self.token_whitelist.get().clone()
     }
+
+    pub fn get_owner(&self) -> AccountId {
+        self.owner_id.clone()
+    }
 }

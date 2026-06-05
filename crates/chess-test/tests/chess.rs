@@ -107,7 +107,7 @@ async fn test_migrate() -> anyhow::Result<()> {
         .deploy(&fs::read("../../res/chess_testing.wasm").await?)
         .await?
         .into_result()?;
-    call::migrate(&contract, contract.as_account()).await?;
+    call::migrate(&contract, contract.as_account(), contract.id()).await?;
 
     let game_ids = view::get_game_ids(&contract, player_a.id()).await?;
     assert_eq!(game_ids, vec![game_id.clone()]);
@@ -1136,7 +1136,7 @@ async fn test_mainnet_migration() -> anyhow::Result<()> {
         .await?
         .into_result()?;
 
-    call::migrate(&contract, contract.as_account()).await?;
+    call::migrate(&contract, contract.as_account(), contract.id()).await?;
 
     let account = view::get_account(&contract, &"marior.near".parse()?).await?;
     assert!(account.elo.is_some());

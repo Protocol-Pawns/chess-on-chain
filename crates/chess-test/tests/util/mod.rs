@@ -81,7 +81,7 @@ pub async fn initialize_contracts(
 
     contract
         .call("new")
-        .args_json((social_contract.id(),))
+        .args_json((social_contract.id(), owner.id()))
         .max_gas()
         .transact()
         .await?

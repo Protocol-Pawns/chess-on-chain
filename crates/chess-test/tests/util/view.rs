@@ -141,6 +141,16 @@ pub async fn get_token_whitelist(contract: &Contract) -> anyhow::Result<Vec<Acco
     Ok(res.json()?)
 }
 
+pub async fn get_owner(contract: &Contract) -> anyhow::Result<AccountId> {
+    let res = log_view_result(contract.call("get_owner").max_gas().view().await?)?;
+    Ok(res.json()?)
+}
+
+pub async fn get_treasury_tokens(contract: &Contract) -> anyhow::Result<Vec<(AccountId, U128)>> {
+    let res = log_view_result(contract.call("get_treasury_tokens").max_gas().view().await?)?;
+    Ok(res.json()?)
+}
+
 pub async fn get_social(
     contract: &Contract,
     keys: Vec<String>,
