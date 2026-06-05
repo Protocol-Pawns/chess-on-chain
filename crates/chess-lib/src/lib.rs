@@ -566,15 +566,8 @@ impl Chess {
             self.bets.remove(&bet_id);
         }
 
-        let still_has_bet = self.bets.iter().any(|(_, b)| {
-            b.bets
-                .iter()
-                .any(|(_, list)| list.iter().any(|(id, _)| id == &sender_id))
-        });
-        if !still_has_bet {
-            if let Some(active) = self.bettor_active_bets.get_mut(&sender_id) {
-                *active = active.saturating_sub(1);
-            }
+        if let Some(active) = self.bettor_active_bets.get_mut(&sender_id) {
+            *active = active.saturating_sub(1);
         }
 
         let event = ChessEvent::CancelBet {
