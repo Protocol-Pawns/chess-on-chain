@@ -178,16 +178,14 @@ impl Chess {
                             game.get_white().get_account_id().unwrap(),
                             amount,
                             Some("wager refund".to_string()),
-                        )
-                        .then(
-                            ext_ft_core::ext(token_id)
-                                .with_attached_deposit(ONE_YOCTO)
-                                .with_unused_gas_weight(1)
-                                .ft_transfer(
-                                    game.get_black().get_account_id().unwrap(),
-                                    amount,
-                                    Some("wager refund".to_string()),
-                                ),
+                        );
+                    let _ = ext_ft_core::ext(token_id)
+                        .with_attached_deposit(ONE_YOCTO)
+                        .with_unused_gas_weight(1)
+                        .ft_transfer(
+                            game.get_black().get_account_id().unwrap(),
+                            amount,
+                            Some("wager refund".to_string()),
                         );
                 }
             }
