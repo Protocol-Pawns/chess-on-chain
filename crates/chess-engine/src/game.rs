@@ -196,4 +196,40 @@ mod tests {
             Some(Piece::Rook(Color::White, Position::pgn("c8").unwrap()))
         )
     }
+
+    #[test]
+    fn test_en_passant_cannot_capture_wrong_square() {
+        use crate::{BoardBuilder, Move};
+        let board = BoardBuilder::default()
+            .piece(Piece::King(Color::White, Position::pgn("e1").unwrap()))
+            .piece(Piece::King(Color::Black, Position::pgn("e8").unwrap()))
+            .piece(Piece::Pawn(Color::White, Position::pgn("e5").unwrap()))
+            .piece(Piece::Pawn(Color::Black, Position::pgn("d5").unwrap()))
+            .set_en_passant(Some(Position::pgn("d6").unwrap()))
+            .set_turn(Color::White)
+            .build();
+        let bad_move = Move::Piece(
+            Position::pgn("e5").unwrap(),
+            Position::pgn("f6").unwrap(),
+        );
+        assert!(!board.is_legal_move(bad_move, Color::White));
+    }
+
+    #[test]
+    fn test_en_passant_legal_capture() {
+        use crate::{BoardBuilder, Move};
+        let board = BoardBuilder::default()
+            .piece(Piece::King(Color::White, Position::pgn("e1").unwrap()))
+            .piece(Piece::King(Color::Black, Position::pgn("e8").unwrap()))
+            .piece(Piece::Pawn(Color::White, Position::pgn("e5").unwrap()))
+            .piece(Piece::Pawn(Color::Black, Position::pgn("d5").unwrap()))
+            .set_en_passant(Some(Position::pgn("d6").unwrap()))
+            .set_turn(Color::White)
+            .build();
+        let good_move = Move::Piece(
+            Position::pgn("e5").unwrap(),
+            Position::pgn("d6").unwrap(),
+        );
+        assert!(board.is_legal_move(good_move, Color::White));
+    }
 }

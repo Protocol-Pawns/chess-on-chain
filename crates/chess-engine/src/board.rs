@@ -930,9 +930,9 @@ impl Board {
                 Some(Piece::Pawn(c, pos)) => {
                     let piece = Piece::Pawn(c, pos);
                     ((if let Some(en_passant) = self.en_passant {
-                        (en_passant == from.pawn_up(player_color).next_left()
-                            || en_passant == from.pawn_up(player_color).next_right()
-                                && en_passant == to)
+                        ((en_passant == from.pawn_up(player_color).next_left()
+                            || en_passant == from.pawn_up(player_color).next_right())
+                            && en_passant == to)
                             && c == player_color
                     } else {
                         false
