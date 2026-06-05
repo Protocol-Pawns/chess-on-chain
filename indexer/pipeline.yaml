@@ -1,4 +1,4 @@
-name: chess-on-chain-events-v2
+name: chess-on-chain-events-v3
 resource_size: s
 description: Indexes chess game events from the Protocol Pawns NEAR smart contract
 
@@ -7,7 +7,7 @@ sources:
     type: dataset
     dataset_name: near.execution_outcomes
     version: 1.1.0
-    start_at: latest
+    start_at: earliest
 
 transforms:
   chess_contract_outcomes:
@@ -23,7 +23,7 @@ transforms:
         logs
       FROM near_eo
       WHERE executor_id = 'app.chess-game.near'
-        AND status = 'SUCCESS'
+        AND status NOT LIKE '{"Failure%'
 
   parsed_events:
     type: script
