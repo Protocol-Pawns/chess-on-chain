@@ -157,7 +157,7 @@ impl Position {
             _ => return Err(format!("invalid column character `{}`", col)),
         };
 
-        if 1 <= row || row <= 8 {
+        if (1..=8).contains(&row) {
             Ok(Self::new(row - 1, c))
         } else {
             Err(format!("invalid row number `{}`", row))
