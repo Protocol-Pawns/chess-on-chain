@@ -1,7 +1,7 @@
 use crate::{bet, util::*};
 use chess_engine::Color;
 use chess_lib::{
-    create_challenge_id, BetInfo, BetMsg, BetView, ChessEvent, Fees, GameId, GameOutcome,
+    create_challenge_id, BetInfo, BetMsg, BetView, ChessEvent, GameId, GameOutcome,
 };
 use maplit::hashmap;
 use near_sdk::json_types::U128;
@@ -1142,26 +1142,11 @@ async fn test_bet_unregistered_bettor_fails() -> anyhow::Result<()> {
 async fn test_set_fees_exceed_100_percent_fails() -> anyhow::Result<()> {
     let (_, _, contract) = initialize_contracts(None).await?;
 
-    let res = call::set_fees(
-        &contract,
-        contract.as_account(),
-        &Fees {
-            treasury: 5000,
-            royalties: vec![
-                ("account1.near".parse()?, 3000),
-                ("account2.near".parse()?, 3000),
-            ],
-        },
-    )
-    .await;
-    assert!(res.is_err(), "Setting fees totaling >100% should fail");
+    let res = call::set_fees(&contract, contract.as_account(), 10_001).await;
+    assert!(res.is_err(), "Setting fees exceeding 100% should fail");
 
     let current_fees = view::get_fees(&contract).await?;
-    assert_eq!(current_fees.treasury, 0, "Fees should not have changed");
-    assert!(
-        current_fees.royalties.is_empty(),
-        "Royalties should not have changed"
-    );
+    assert_eq!(current_fees, 0, "Fees should not have changed");
 
     Ok(())
 }

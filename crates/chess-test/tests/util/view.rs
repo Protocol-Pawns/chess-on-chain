@@ -1,6 +1,6 @@
 use super::log_view_result;
 use chess_lib::{
-    AccountInfo, Achievement, BetInfo, Challenge, ChallengeId, Fees, GameId, GameInfo, Quest,
+    AccountInfo, Achievement, BetInfo, Challenge, ChallengeId, GameId, GameInfo, Quest,
 };
 use near_sdk::json_types::U128;
 use near_workspaces::{AccountId, Contract};
@@ -123,7 +123,7 @@ pub async fn get_challenge(
     Ok(res.json()?)
 }
 
-pub async fn get_fees(contract: &Contract) -> anyhow::Result<Fees> {
+pub async fn get_fees(contract: &Contract) -> anyhow::Result<u16> {
     let res = log_view_result(contract.call("get_fees").max_gas().view().await?)?;
     Ok(res.json()?)
 }

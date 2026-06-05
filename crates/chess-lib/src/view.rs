@@ -1,6 +1,6 @@
 use crate::{
     AccountInfo, Achievement, AchievementInfo, BetId, BetInfo, Challenge, ChallengeId, Chess,
-    ChessExt, ContractError, EloRating, Fees, GameId, GameInfo, Quest, QuestInfo,
+    ChessExt, ContractError, EloRating, GameId, GameInfo, Quest, QuestInfo,
 };
 use near_sdk::{json_types::U128, near_bindgen, AccountId};
 use std::collections::VecDeque;
@@ -198,8 +198,8 @@ impl Chess {
             .collect()
     }
 
-    pub fn get_fees(&self) -> Fees {
-        self.fees.get().clone()
+    pub fn get_fees(&self) -> u16 {
+        *self.fees.get()
     }
 
     pub fn get_token_whitelist(&self) -> Vec<AccountId> {

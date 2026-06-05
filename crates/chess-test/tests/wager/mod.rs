@@ -4,7 +4,7 @@ use chess_common::{
 };
 use chess_engine::Color;
 use chess_lib::{
-    create_challenge_id, AcceptChallengeMsg, Challenge, ChallengeMsg, ChessEvent, Fees, GameId,
+    create_challenge_id, AcceptChallengeMsg, Challenge, ChallengeMsg, ChessEvent, GameId,
     GameOutcome, Player,
 };
 use near_workspaces::types::NearToken;
@@ -742,8 +742,6 @@ async fn test_finish_game_payout_fees() -> anyhow::Result<()> {
 
     let player_a = worker.dev_create_account().await?;
     let player_b = worker.dev_create_account().await?;
-    let royalty_account_a = worker.dev_create_account().await?;
-    let royalty_account_b = worker.dev_create_account().await?;
 
     tokio::try_join!(
         call::storage_deposit(&contract, &player_a, None, None),
@@ -766,16 +764,9 @@ async fn test_finish_game_payout_fees() -> anyhow::Result<()> {
         call::mint_tokens(&test_token, player_b.id(), wager_amount)
     )?;
 
-    let fees = Fees {
-        treasury: 900,
-        royalties: vec![
-            (royalty_account_a.id().clone(), 70),
-            (royalty_account_b.id().clone(), 30),
-        ],
-    };
-    call::set_fees(&contract, contract.as_account(), &fees).await?;
+    call::set_fees(&contract, contract.as_account(), 1000).await?;
     let actual_fees = view::get_fees(&contract).await?;
-    assert_eq!(fees, actual_fees);
+    assert_eq!(1000, actual_fees);
 
     let whitelist = vec![test_token.id().clone()];
     call::set_wager_whitelist(&contract, contract.as_account(), &whitelist).await?;
@@ -788,7 +779,7 @@ async fn test_finish_game_payout_fees() -> anyhow::Result<()> {
         contract.as_account(),
         test_token.id(),
         amount.as_yoctonear().into(),
-        NearToken::from_yoctonear(amount.as_yoctonear() * 3),
+        amount,
     )
     .await?;
 
@@ -854,11 +845,7 @@ async fn test_finish_game_payout_fees() -> anyhow::Result<()> {
     let balance = view::ft_balance_of(&test_token, player_b.id()).await?;
     assert_eq!(balance.0, 0);
     let balance = view::ft_balance_of(&test_token, contract.id()).await?;
-    assert_eq!(balance.0, 1_800_000);
-    let balance = view::ft_balance_of(&test_token, royalty_account_a.id()).await?;
-    assert_eq!(balance.0, 140_000);
-    let balance = view::ft_balance_of(&test_token, royalty_account_b.id()).await?;
-    assert_eq!(balance.0, 60_000);
+    assert_eq!(balance.0, 2_000_000);
 
     Ok(())
 }
@@ -981,7 +968,6 @@ async fn test_fee_deducted_from_total_pool() -> anyhow::Result<()> {
 
     let player_a = worker.dev_create_account().await?;
     let player_b = worker.dev_create_account().await?;
-    let royalty_account = worker.dev_create_account().await?;
 
     tokio::try_join!(
         call::storage_deposit(&contract, &player_a, None, None),
@@ -998,23 +984,13 @@ async fn test_fee_deducted_from_total_pool() -> anyhow::Result<()> {
             None,
             Some(NearToken::from_millinear(100)),
         ),
-        call::storage_deposit(
-            &test_token,
-            &royalty_account,
-            None,
-            Some(NearToken::from_millinear(100)),
-        ),
     )?;
     tokio::try_join!(
         call::mint_tokens(&test_token, player_a.id(), wager_amount),
         call::mint_tokens(&test_token, player_b.id(), wager_amount)
     )?;
 
-    let fees = Fees {
-        treasury: 500,
-        royalties: vec![(royalty_account.id().clone(), 500)],
-    };
-    call::set_fees(&contract, &owner, &fees).await?;
+    call::set_fees(&contract, &owner, 1000).await?;
 
     let whitelist = vec![test_token.id().clone()];
     call::set_wager_whitelist(&contract, &owner, &whitelist).await?;
@@ -1060,21 +1036,17 @@ async fn test_fee_deducted_from_total_pool() -> anyhow::Result<()> {
     assert_eq!(outcome.unwrap(), GameOutcome::Victory(Color::White));
 
     let treasury_balance = view::ft_balance_of(&test_token, contract.id()).await?;
-    let royalty_balance = view::ft_balance_of(&test_token, royalty_account.id()).await?;
     let winner_balance = view::ft_balance_of(&test_token, player_a.id()).await?;
     let loser_balance = view::ft_balance_of(&test_token, player_b.id()).await?;
 
-    let total_fees = treasury_balance.0 + royalty_balance.0;
     assert_eq!(
-        total_fees,
+        treasury_balance.0,
         total_pool / 10,
         "total fees should be 10% of the total pool (20M), not 10% of one wager (10M)"
     );
 
-    assert_eq!(winner_balance.0, total_pool - total_fees);
+    assert_eq!(winner_balance.0, total_pool - treasury_balance.0);
     assert_eq!(loser_balance.0, 0);
-    assert_eq!(treasury_balance.0, 1_000_000);
-    assert_eq!(royalty_balance.0, 1_000_000);
 
     Ok(())
 }
@@ -1115,11 +1087,7 @@ async fn test_withdraw_treasury() -> anyhow::Result<()> {
         call::mint_tokens(&test_token, player_b.id(), wager_amount)
     )?;
 
-    let fees = Fees {
-        treasury: 900,
-        royalties: vec![],
-    };
-    call::set_fees(&contract, &owner, &fees).await?;
+    call::set_fees(&contract, &owner, 900).await?;
 
     let whitelist = vec![test_token.id().clone()];
     call::set_wager_whitelist(&contract, &owner, &whitelist).await?;

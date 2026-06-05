@@ -89,7 +89,7 @@ pub struct Chess {
     pub games: UnorderedMap<GameId, Game>,
     pub challenges: UnorderedMap<ChallengeId, Challenge>,
     pub treasury: UnorderedMap<AccountId, u128>,
-    pub fees: Lazy<Fees>,
+    pub fees: Lazy<u16>,
     pub token_whitelist: Lazy<Vec<AccountId>>,
     pub bets: UnorderedMap<BetId, Bets>,
     pub bettor_active_bets: UnorderedMap<AccountId, u32>,
@@ -99,7 +99,7 @@ pub struct Chess {
 
 impl near_sdk::state::ContractState for Chess {}
 
-#[derive(BorshDeserialize, BorshSerialize, PanicOnDefault)]
+#[derive(BorshDeserialize)]
 #[borsh(crate = "near_sdk::borsh")]
 pub struct OldChess {
     pub social_db: AccountId,
@@ -108,28 +108,16 @@ pub struct OldChess {
     pub games: UnorderedMap<GameId, Game>,
     pub challenges: UnorderedMap<ChallengeId, Challenge>,
     pub treasury: UnorderedMap<AccountId, u128>,
-    pub fees: Lazy<Fees>,
+    pub fees: Lazy<OldFees>,
     pub token_whitelist: Lazy<Vec<AccountId>>,
     pub bets: UnorderedMap<BetId, Bets>,
     pub is_running: bool,
     pub points_total_supply: u128,
 }
 
-#[derive(
-    Clone,
-    Debug,
-    PartialEq,
-    Eq,
-    BorshDeserialize,
-    BorshSerialize,
-    PanicOnDefault,
-    Deserialize,
-    Serialize,
-    NearSchema,
-)]
-#[serde(crate = "near_sdk::serde")]
+#[derive(BorshDeserialize, BorshSerialize)]
 #[borsh(crate = "near_sdk::borsh")]
-pub struct Fees {
+pub struct OldFees {
     pub treasury: u16,
     pub royalties: Vec<(AccountId, u16)>,
 }
@@ -158,13 +146,7 @@ impl Chess {
             games: UnorderedMap::new(StorageKey::Games),
             challenges: UnorderedMap::new(StorageKey::Challenges),
             treasury: UnorderedMap::new(StorageKey::Treasury),
-            fees: Lazy::new(
-                StorageKey::Fees,
-                Fees {
-                    treasury: 0,
-                    royalties: Vec::new(),
-                },
-            ),
+            fees: Lazy::new(StorageKey::Fees, 0),
             token_whitelist: Lazy::new(StorageKey::TokenWhitelist, Vec::new()),
             bets: UnorderedMap::new(StorageKey::Bets),
             bettor_active_bets: UnorderedMap::new(StorageKey::BettorActiveBets),
@@ -196,7 +178,7 @@ impl Chess {
             games: chess.games,
             challenges: chess.challenges,
             treasury: chess.treasury,
-            fees: chess.fees,
+            fees: Lazy::new(StorageKey::Fees, chess.fees.get().treasury),
             token_whitelist: chess.token_whitelist,
             bets: chess.bets,
             bettor_active_bets: UnorderedMap::new(StorageKey::BettorActiveBets),
@@ -269,14 +251,10 @@ impl Chess {
         }
     }
 
-    pub fn set_fees(&mut self, treasury: u16, royalties: Vec<(AccountId, u16)>) {
+    pub fn set_fees(&mut self, treasury: u16) {
         self.assert_owner();
-        let total: u16 = treasury + royalties.iter().map(|(_, f)| *f).sum::<u16>();
-        require!(total <= 10_000, "Total fees cannot exceed 100%");
-        self.fees.set(Fees {
-            treasury,
-            royalties,
-        });
+        require!(treasury <= 10_000, "Treasury fee cannot exceed 100%");
+        self.fees.set(treasury);
     }
 
     pub fn set_wager_whitelist(&mut self, whitelist: Vec<AccountId>) {
@@ -311,10 +289,8 @@ impl Chess {
         token_id: AccountId,
         amount: U128,
     ) -> Result<(), ContractError> {
-        let fees = self.fees.get();
-
         let actual_deposit = env::attached_deposit().as_yoctonear();
-        let expected_deposit = (1 + fees.royalties.len() as u128) * amount.0;
+        let expected_deposit = amount.0;
         if expected_deposit < actual_deposit {
             return Err(ContractError::NotEnoughDeposit(
                 actual_deposit,
@@ -337,21 +313,6 @@ impl Chess {
             Gas::from_tgas(0),
             GasWeight::default(),
         );
-        for (account_id, _) in &fees.royalties {
-            env::promise_batch_action_function_call_weight(
-                promise_index,
-                "storage_deposit",
-                serde_json::json!({
-                    "account_id": account_id,
-                    "registration_only": true
-                })
-                .to_string()
-                .as_bytes(),
-                amount,
-                Gas::from_tgas(0),
-                GasWeight::default(),
-            );
-        }
         env::promise_return(promise_index);
 
         Ok(())

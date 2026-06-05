@@ -1,7 +1,7 @@
 use super::log_tx_result;
 use chess_common::ContractEvent;
 use chess_lib::{
-    create_challenge_id, AcceptChallengeMsg, BetMsg, ChallengeId, ChallengeMsg, Difficulty, Fees,
+    create_challenge_id, AcceptChallengeMsg, BetMsg, ChallengeId, ChallengeMsg, Difficulty,
     FtReceiverMsg, GameId, GameOutcome, MoveStr,
 };
 use near_sdk::json_types::U128;
@@ -115,13 +115,13 @@ pub async fn resume(
 pub async fn set_fees(
     contract: &Contract,
     sender: &Account,
-    fees: &Fees,
+    treasury: u16,
 ) -> anyhow::Result<(ExecutionResult<Value>, Vec<ContractEvent>)> {
     let (res, events): (ExecutionResult<Value>, Vec<ContractEvent>) = log_tx_result(
         Some("set_fees"),
         sender
             .call(contract.id(), "set_fees")
-            .args_json(fees)
+            .args_json((&serde_json::json!({ "treasury": treasury })))
             .max_gas()
             .transact()
             .await?,

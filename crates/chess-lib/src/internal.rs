@@ -363,9 +363,9 @@ impl Chess {
     }
 
     fn deduct_fees(&mut self, token_id: &AccountId, amount: u128) -> u128 {
-        let fees = self.fees.get();
+        let treasury_bps = *self.fees.get();
         let treasury_amount = U128::from(amount)
-            .full_mul(fees.treasury.into())
+            .full_mul(treasury_bps.into())
             .div(10_000)
             .as_u128();
         if let Some(treasury) = self.treasury.get_mut(token_id) {
@@ -373,23 +373,6 @@ impl Chess {
         } else {
             self.treasury.insert(token_id.clone(), treasury_amount);
         }
-
-        let mut total_royalty = 0;
-        fees.royalties
-            .iter()
-            .for_each(|(royalty_account, royalty_fee)| {
-                let royalty_amount = U128::from(amount)
-                    .full_mul((*royalty_fee).into())
-                    .div(10_000)
-                    .as_u128();
-                total_royalty += royalty_amount;
-
-                let _ = ext_ft_core::ext(token_id.clone())
-                    .with_attached_deposit(ONE_YOCTO)
-                    .with_unused_gas_weight(1)
-                    .ft_transfer(royalty_account.clone(), royalty_amount.into(), None);
-            });
-
-        treasury_amount + total_royalty
+        treasury_amount
     }
 }

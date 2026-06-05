@@ -10,7 +10,7 @@
       "compiler": "rustc 1.86.0",
       "builder": "cargo-near cargo-near-build 0.11.3"
     },
-    "wasm_hash": "DgG3gi71rNocpuz3Nx9Urmq4ghfChq9q4GBy1JXdnFoA"
+    "wasm_hash": "21X2XjaQBXuTNvMCUuYCxDDPsnRJyU16kbwe93US6mbh"
   },
   "body": {
     "functions": [
@@ -608,7 +608,9 @@
         "result": {
           "serialization_type": "json",
           "type_schema": {
-            "$ref": "#/definitions/Fees"
+            "type": "integer",
+            "format": "uint16",
+            "minimum": 0.0
           }
         }
       },
@@ -1015,28 +1017,6 @@
                 "format": "uint16",
                 "minimum": 0.0
               }
-            },
-            {
-              "name": "royalties",
-              "type_schema": {
-                "type": "array",
-                "items": {
-                  "type": "array",
-                  "items": [
-                    {
-                      "description": "NEAR Account Identifier.\n\nThis is a unique, syntactically valid, human-readable account identifier on the NEAR network.\n\n[See the crate-level docs for information about validation.](index.html#account-id-rules)\n\nAlso see [Error kind precedence](AccountId#error-kind-precedence).\n\n## Examples\n\n``` use near_account_id::AccountId;\n\nlet alice: AccountId = \"alice.near\".parse().unwrap();\n\nassert!(\"ƒelicia.near\".parse::<AccountId>().is_err()); // (ƒ is not f) ```",
-                      "type": "string"
-                    },
-                    {
-                      "type": "integer",
-                      "format": "uint16",
-                      "minimum": 0.0
-                    }
-                  ],
-                  "maxItems": 2,
-                  "minItems": 2
-                }
-              }
             }
           ]
         }
@@ -1436,39 +1416,6 @@
             "Medium",
             "Hard"
           ]
-        },
-        "Fees": {
-          "type": "object",
-          "required": [
-            "royalties",
-            "treasury"
-          ],
-          "properties": {
-            "royalties": {
-              "type": "array",
-              "items": {
-                "type": "array",
-                "items": [
-                  {
-                    "description": "NEAR Account Identifier.\n\nThis is a unique, syntactically valid, human-readable account identifier on the NEAR network.\n\n[See the crate-level docs for information about validation.](index.html#account-id-rules)\n\nAlso see [Error kind precedence](AccountId#error-kind-precedence).\n\n## Examples\n\n``` use near_account_id::AccountId;\n\nlet alice: AccountId = \"alice.near\".parse().unwrap();\n\nassert!(\"ƒelicia.near\".parse::<AccountId>().is_err()); // (ƒ is not f) ```",
-                    "type": "string"
-                  },
-                  {
-                    "type": "integer",
-                    "format": "uint16",
-                    "minimum": 0.0
-                  }
-                ],
-                "maxItems": 2,
-                "minItems": 2
-              }
-            },
-            "treasury": {
-              "type": "integer",
-              "format": "uint16",
-              "minimum": 0.0
-            }
-          }
         },
         "FungibleTokenMetadata": {
           "type": "object",
