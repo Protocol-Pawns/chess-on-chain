@@ -773,13 +773,11 @@ async fn test_finish_game_payout_fees() -> anyhow::Result<()> {
     let actual_whitelist = view::get_token_whitelist(&contract).await?;
     assert_eq!(whitelist, actual_whitelist);
 
-    let amount = NearToken::from_millinear(50);
-    call::register_token(
-        &contract,
+    call::storage_deposit(
+        &test_token,
         contract.as_account(),
-        test_token.id(),
-        amount.as_yoctonear().into(),
-        amount,
+        None,
+        Some(NearToken::from_millinear(50)),
     )
     .await?;
 
@@ -1092,13 +1090,11 @@ async fn test_withdraw_treasury() -> anyhow::Result<()> {
     let whitelist = vec![test_token.id().clone()];
     call::set_wager_whitelist(&contract, &owner, &whitelist).await?;
 
-    let amount = NearToken::from_millinear(50);
-    call::register_token(
-        &contract,
+    call::storage_deposit(
+        &test_token,
         &owner,
-        test_token.id(),
-        amount.as_yoctonear().into(),
-        NearToken::from_yoctonear(amount.as_yoctonear()),
+        Some(contract.id()),
+        Some(NearToken::from_millinear(50)),
     )
     .await?;
 

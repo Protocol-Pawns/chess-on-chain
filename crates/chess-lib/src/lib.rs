@@ -33,7 +33,7 @@ use near_sdk::{
     json_types::U128,
     near_bindgen, require,
     store::{Lazy, UnorderedMap},
-    AccountId, BorshStorageKey, Gas, GasWeight, NearToken, PanicOnDefault, PromiseOrValue,
+    AccountId, BorshStorageKey, Gas, GasWeight, NearToken, PanicOnDefault, Promise, PromiseOrValue,
 };
 use std::collections::HashSet;
 
@@ -240,42 +240,6 @@ impl Chess {
     pub fn transfer_ownership(&mut self, new_owner_id: AccountId) {
         self.assert_owner();
         self.owner_id = new_owner_id;
-    }
-
-    #[payable]
-    #[handle_result]
-    pub fn register_token(
-        &mut self,
-        token_id: AccountId,
-        amount: U128,
-    ) -> Result<(), ContractError> {
-        let actual_deposit = env::attached_deposit().as_yoctonear();
-        let expected_deposit = amount.0;
-        if expected_deposit < actual_deposit {
-            return Err(ContractError::NotEnoughDeposit(
-                actual_deposit,
-                expected_deposit,
-            ));
-        }
-
-        let amount = NearToken::from_yoctonear(amount.0);
-        let promise_index = env::promise_batch_create(&token_id);
-        env::promise_batch_action_function_call_weight(
-            promise_index,
-            "storage_deposit",
-            serde_json::json!({
-                "account_id": env::current_account_id(),
-                "registration_only": true
-            })
-            .to_string()
-            .as_bytes(),
-            amount,
-            Gas::from_tgas(0),
-            GasWeight::default(),
-        );
-        env::promise_return(promise_index);
-
-        Ok(())
     }
 
     /// Create a new game against an AI player.

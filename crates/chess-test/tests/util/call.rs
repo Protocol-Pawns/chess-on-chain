@@ -146,26 +146,6 @@ pub async fn set_wager_whitelist(
     Ok((res, events))
 }
 
-pub async fn register_token(
-    contract: &Contract,
-    sender: &Account,
-    token_id: &AccountId,
-    amount: U128,
-    deposit: NearToken,
-) -> anyhow::Result<(ExecutionResult<Value>, Vec<ContractEvent>)> {
-    let (res, events): (ExecutionResult<Value>, Vec<ContractEvent>) = log_tx_result(
-        Some("register_token"),
-        sender
-            .call(contract.id(), "register_token")
-            .args_json((token_id, amount))
-            .deposit(deposit)
-            .max_gas()
-            .transact()
-            .await?,
-    )?;
-    Ok((res, events))
-}
-
 pub async fn storage_deposit(
     contract: &Contract,
     sender: &Account,
