@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { page } from '$app/state';
-  import { api, type Game, type GameMove } from '$lib/api/client';
+  import { api, type Game, type GameMove, type Bet } from '$lib/api/client';
   import { contract } from '$lib/near/connector';
   import { accountStore } from '$lib/near/account';
   import { colorFromFEN } from '$lib/chess/board';
@@ -15,6 +15,7 @@
   let loading = $state(true);
   let error = $state<string | null>(null);
   let submitting = $state(false);
+  let gameBets = $state<Bet[]>([]);
   let pollInterval: ReturnType<typeof setInterval>;
 
   const gameId = decodeURIComponent(page.params.id ?? '');
@@ -67,6 +68,7 @@
       ]);
       game = g;
       moves = m;
+      gameBets = await api.gameBets(gameId).catch(() => []);
     } catch (e) {
       error = 'Failed to load game';
       console.error(e);
@@ -220,6 +222,29 @@
         playerBlack={game.black.value}
         disabled={game.status !== 'in_progress'}
       />
+    {/if}
+
+    {#if gameBets.length > 0}
+      <div class="card space-y-2">
+        <h3 class="text-sm font-semibold">Game Bets ({gameBets.length})</h3>
+        <div class="space-y-1.5">
+          {#each gameBets as bet}
+            <div class="flex items-center justify-between text-xs">
+              <div class="truncate mr-2">
+                <span class="text-white/70">{bet.bettor.length > 20 ? bet.bettor.slice(0, 10) + '...' + bet.bettor.slice(-6) : bet.bettor}</span>
+                <span class="text-white/40 ml-1">bet {bet.amount} on</span>
+                <span class="text-primary ml-1">{bet.winner.length > 20 ? bet.winner.slice(0, 10) + '...' + bet.winner.slice(-6) : bet.winner}</span>
+              </div>
+              <div class="shrink-0 flex items-center gap-2">
+                <span class="px-1.5 py-0.5 rounded {bet.status === 'pending' ? 'bg-yellow-400/20 text-yellow-400' : bet.status === 'locked' ? 'bg-blue-400/20 text-blue-400' : 'bg-green-400/20 text-green-400'}">{bet.status}</span>
+                {#if bet.payout}
+                  <span class="text-green-400">+{bet.payout}</span>
+                {/if}
+              </div>
+            </div>
+          {/each}
+        </div>
+      </div>
     {/if}
   </div>
 {/if}

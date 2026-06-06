@@ -183,6 +183,10 @@ export const contract = {
     return viewFunction('get_token_whitelist', {});
   },
 
+  getTokens(accountId: string): Promise<Array<[string, string]>> {
+    return viewFunction('get_tokens', { account_id: accountId });
+  },
+
   getBetInfo(players: [string, string]): Promise<{
     is_locked: boolean;
     bets: Record<string, Array<[string, { amount: string; winner: string }]>>;
@@ -190,22 +194,14 @@ export const contract = {
     return viewFunction('bet_info', { players });
   },
 
-  challengeWithWager(
-    tokenId: string,
-    challenged: string,
-    amount: string
-  ) {
-    return sendTokenTransaction(
-      tokenId,
-      'ft_transfer_call',
-      {
-        receiver_id: CONTRACT_ID,
-        amount,
-        msg: JSON.stringify({
-          Challenge: { challenged_id: challenged }
-        })
-      }
-    );
+  challengeWithWager(tokenId: string, challenged: string, amount: string) {
+    return sendTokenTransaction(tokenId, 'ft_transfer_call', {
+      receiver_id: CONTRACT_ID,
+      amount,
+      msg: JSON.stringify({
+        Challenge: { challenged_id: challenged }
+      })
+    });
   },
 
   acceptChallengeWithWager(
@@ -213,17 +209,13 @@ export const contract = {
     challengeId: string,
     amount: string
   ) {
-    return sendTokenTransaction(
-      tokenId,
-      'ft_transfer_call',
-      {
-        receiver_id: CONTRACT_ID,
-        amount,
-        msg: JSON.stringify({
-          AcceptChallenge: { challenge_id: challengeId }
-        })
-      }
-    );
+    return sendTokenTransaction(tokenId, 'ft_transfer_call', {
+      receiver_id: CONTRACT_ID,
+      amount,
+      msg: JSON.stringify({
+        AcceptChallenge: { challenge_id: challengeId }
+      })
+    });
   },
 
   placeBet(
@@ -232,17 +224,13 @@ export const contract = {
     winner: string,
     amount: string
   ) {
-    return sendTokenTransaction(
-      tokenId,
-      'ft_transfer_call',
-      {
-        receiver_id: CONTRACT_ID,
-        amount,
-        msg: JSON.stringify({
-          Bet: { players, winner }
-        })
-      }
-    );
+    return sendTokenTransaction(tokenId, 'ft_transfer_call', {
+      receiver_id: CONTRACT_ID,
+      amount,
+      msg: JSON.stringify({
+        Bet: { players, winner }
+      })
+    });
   },
 
   withdrawToken(tokenId: string) {

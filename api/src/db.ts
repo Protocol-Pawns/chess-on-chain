@@ -12,7 +12,6 @@ import type {
   GameMove,
   GameOutcome,
   GlobalStats,
-  LeaderboardEntry,
   Player
 } from './events';
 
@@ -317,84 +316,6 @@ export async function getChallenges(
     ORDER BY created_at DESC
   `;
   return rows.map((r: unknown) => rowToChallenge(r as ChallengeRow));
-}
-
-export async function getLeaderboard(
-  db: Db,
-  cursor: string | null,
-  limit: number
-) {
-  const actualLimit = clampLimit(limit, 100, 25);
-  let rows;
-  if (cursor) {
-    rows = await db`
-      SELECT
-        afg.account_id,
-        COUNT(*) FILTER (
-          WHERE g.outcome->>'result' = 'Victory'
-            AND ((g.white_value = afg.account_id AND g.outcome->>'color' = 'White')
-              OR (g.black_value = afg.account_id AND g.outcome->>'color' = 'Black'))
-        ) AS wins,
-        COUNT(*) FILTER (
-          WHERE g.outcome->>'result' = 'Victory'
-            AND ((g.white_value = afg.account_id AND g.outcome->>'color' = 'Black')
-              OR (g.black_value = afg.account_id AND g.outcome->>'color' = 'White'))
-        ) AS losses,
-        COUNT(*) FILTER (WHERE g.outcome->>'result' = 'Stalemate') AS draws,
-        COUNT(*) AS total_games
-      FROM account_finished_games afg
-      JOIN games g ON g.game_id = afg.game_id
-      WHERE g.status = 'finished' AND g.outcome IS NOT NULL
-        AND afg.account_id < ${cursor}
-      GROUP BY afg.account_id
-      ORDER BY wins DESC, total_games ASC
-      LIMIT ${actualLimit + 1}
-    `;
-  } else {
-    rows = await db`
-      SELECT
-        afg.account_id,
-        COUNT(*) FILTER (
-          WHERE g.outcome->>'result' = 'Victory'
-            AND ((g.white_value = afg.account_id AND g.outcome->>'color' = 'White')
-              OR (g.black_value = afg.account_id AND g.outcome->>'color' = 'Black'))
-        ) AS wins,
-        COUNT(*) FILTER (
-          WHERE g.outcome->>'result' = 'Victory'
-            AND ((g.white_value = afg.account_id AND g.outcome->>'color' = 'Black')
-              OR (g.black_value = afg.account_id AND g.outcome->>'color' = 'White'))
-        ) AS losses,
-        COUNT(*) FILTER (WHERE g.outcome->>'result' = 'Stalemate') AS draws,
-        COUNT(*) AS total_games
-      FROM account_finished_games afg
-      JOIN games g ON g.game_id = afg.game_id
-      WHERE g.status = 'finished' AND g.outcome IS NOT NULL
-      GROUP BY afg.account_id
-      ORDER BY wins DESC, total_games ASC
-      LIMIT ${actualLimit + 1}
-    `;
-  }
-
-  const hasMore = rows.length > actualLimit;
-  const items = (hasMore ? rows.slice(0, -1) : rows).map((r: unknown) => {
-    const row = r as Record<string, string>;
-    const wins = Number(row.wins);
-    const total = Number(row.total_games);
-    return {
-      account_id: row.account_id,
-      wins,
-      losses: Number(row.losses),
-      draws: Number(row.draws),
-      total_games: total,
-      win_rate: total > 0 ? Math.round((wins / total) * 1000) / 1000 : 0
-    } satisfies LeaderboardEntry;
-  });
-  const lastItem = items[items.length - 1] as
-    | { account_id: string }
-    | undefined;
-  const nextCursor = hasMore && lastItem ? lastItem.account_id : null;
-
-  return { items, next_cursor: nextCursor };
 }
 
 export interface PushSubscriptionRow {

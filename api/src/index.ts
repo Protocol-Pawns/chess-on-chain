@@ -19,7 +19,6 @@ import {
   getGames,
   getGlobalStats,
   getInfo,
-  getLeaderboard,
   queryGames,
   removePushSubscription
 } from './db';
@@ -42,7 +41,6 @@ import {
   getGlobalStatsRoute,
   getInfoRoute,
   getLeaderboardEloRoute,
-  getLeaderboardRoute,
   getVapidPublicKeyRoute,
   queryGamesRoute,
   subscribePushRoute,
@@ -171,13 +169,6 @@ app.openapi(getLeaderboardEloRoute, async c => {
     Number(page) || 1,
     Number(per_page) || 25
   );
-  return c.json(result, 200);
-});
-
-app.openapi(getLeaderboardRoute, async c => {
-  const { cursor, limit } = c.req.valid('query');
-  const db = c.get('DB');
-  const result = await getLeaderboard(db, cursor ?? null, Number(limit) || 25);
   return c.json(result, 200);
 });
 

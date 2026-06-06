@@ -1,9 +1,11 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { page } from '$app/state';
-  import { api, type AccountStats, type GameOverview } from '$lib/api/client';
+  import { api, type AccountStats, type GameOverview, type BetStats } from '$lib/api/client';
   import { fmtOneDecimal } from '$lib/format';
   import { contract } from '$lib/near/connector';
+  import { accountStore } from '$lib/near/account';
+  import { showTxToast } from '$lib/toast';
   import GameCard from '$lib/components/GameCard.svelte';
 
   const accountId = page.params.id ?? '';
@@ -16,6 +18,9 @@
   let achievements: Array<[number, string]> = $state([]);
   let questCooldowns: Array<[number, string]> = $state([]);
   let loading = $state(true);
+  let betStats = $state<BetStats | null>(null);
+  let tokenBalances = $state<Array<[string, string]>>([]);
+  let withdrawing = $state<string | null>(null);
 
   const ACHIEVEMENT_LABELS: Record<string, string> = {
     FirstWinHuman: 'First Win vs Human',
@@ -44,13 +49,37 @@
     return `${whole}.${frac.toString().padStart(6, '0').slice(0, 2)}`;
   }
 
+  function shortToken(id: string): string {
+    if (id.length <= 24) return id;
+    return id.slice(0, 12) + '...' + id.slice(-8);
+  }
+
+  function handleWithdraw(tokenId: string) {
+    withdrawing = tokenId;
+    showTxToast(
+      contract.withdrawToken(tokenId).finally(() => {
+        withdrawing = null;
+        setTimeout(loadTokens, 4000);
+      })
+    );
+  }
+
+  async function loadTokens() {
+    try {
+      tokenBalances = await contract.getTokens(accountId);
+    } catch {
+      tokenBalances = [];
+    }
+  }
+
   onMount(async () => {
     try {
-      const [s, accountData, ach, qc] = await Promise.all([
+      const [s, accountData, ach, qc, bs] = await Promise.all([
         api.accountStats(accountId),
         contract.getAccount(accountId).catch(() => null),
         contract.getAchievements(accountId).catch(() => []),
-        contract.getQuestCooldowns(accountId).catch(() => [])
+        contract.getQuestCooldowns(accountId).catch(() => []),
+        api.betStats(accountId).catch(() => null)
       ]);
       stats = s;
       if (accountData) {
@@ -59,19 +88,16 @@
       }
       achievements = ach;
       questCooldowns = qc;
+      betStats = bs;
 
-      const [account, ag] = await Promise.all([
+      const [account, ag, tb] = await Promise.all([
         api.account(accountId),
-        api.activeGame(accountId).catch(() => null)
+        api.activeGame(accountId).catch(() => null),
+        loadTokens()
       ]);
       if (ag) activeGame = ag as unknown as GameOverview;
       if (account.finishedGameIds.length > 0) {
-        const res = await fetch('https://api.protocol-pawns.com/query', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ gameIds: account.finishedGameIds })
-        });
-        if (res.ok) games = await res.json();
+        games = await api.query(account.finishedGameIds);
       }
     } catch (e) {
       console.error('Failed to load profile:', e);
@@ -156,6 +182,53 @@
         </div>
       {/if}
     </section>
+
+    {#if betStats && betStats.total_bets > 0}
+      <section class="card">
+        <h3 class="text-base font-semibold mb-2">Betting Stats</h3>
+        <div class="grid grid-cols-4 gap-3">
+          <div class="text-center">
+            <div class="text-lg font-bold text-primary">{betStats.total_bets}</div>
+            <div class="text-xs text-white/50">Total</div>
+          </div>
+          <div class="text-center">
+            <div class="text-lg font-bold text-primary-warn">{betStats.total_wagered}</div>
+            <div class="text-xs text-white/50">Wagered</div>
+          </div>
+          <div class="text-center">
+            <div class="text-lg font-bold text-primary-green">{betStats.won_bets}</div>
+            <div class="text-xs text-white/50">Won</div>
+          </div>
+          <div class="text-center">
+            <div class="text-lg font-bold text-primary-green">{betStats.total_won}</div>
+            <div class="text-xs text-white/50">Earned</div>
+          </div>
+        </div>
+      </section>
+    {/if}
+
+    {#if tokenBalances.length > 0}
+      <section class="card space-y-2">
+        <h3 class="text-base font-semibold mb-1">Token Balances</h3>
+        {#each tokenBalances as [tokenId, balance]}
+          <div class="flex items-center justify-between text-sm">
+            <span class="text-white/70 truncate mr-2">{shortToken(tokenId)}</span>
+            <div class="flex items-center gap-2 shrink-0">
+              <span class="text-white/90">{balance}</span>
+              {#if $accountStore === accountId}
+                <button
+                  class="btn-secondary text-xs py-0.5 px-2"
+                  disabled={withdrawing === tokenId}
+                  onclick={() => handleWithdraw(tokenId)}
+                >
+                  {withdrawing === tokenId ? '...' : 'Withdraw'}
+                </button>
+              {/if}
+            </div>
+          </div>
+        {/each}
+      </section>
+    {/if}
 
     {#if activeGame}
       <section>

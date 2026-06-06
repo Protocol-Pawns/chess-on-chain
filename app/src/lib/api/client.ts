@@ -39,15 +39,6 @@ export interface AccountStats {
   total_games: number;
 }
 
-export interface LeaderboardEntry {
-  account_id: string;
-  wins: number;
-  losses: number;
-  draws: number;
-  total_games: number;
-  win_rate: number;
-}
-
 export interface EloLeaderboardEntry {
   rank: number;
   account_id: string;
@@ -140,10 +131,12 @@ export const api = {
     request<AccountStats>(`/account/${accountId}/stats`),
   challenges: (accountId: string) =>
     request<Challenge[]>(`/account/${accountId}/challenges`),
-  leaderboard: (cursor?: string, limit?: number) =>
-    request<PaginatedResult<LeaderboardEntry>>(
-      `/leaderboard${cursor ? `?cursor=${cursor}` : ''}${limit ? `${cursor ? '&' : '?'}limit=${limit}` : ''}`
-    ),
+  query: (gameIds: [number, string, string | null][]) =>
+    request<GameOverview[]>('/query', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ gameIds })
+    }),
   leaderboardElo: (page = 1, perPage = 25) =>
     request<EloLeaderboardPage>(
       `/leaderboard/elo?page=${page}&per_page=${perPage}`

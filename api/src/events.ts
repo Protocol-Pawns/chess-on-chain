@@ -142,22 +142,6 @@ export const AccountStatsSchema = z.object({
 });
 export type AccountStats = z.infer<typeof AccountStatsSchema>;
 
-export const LeaderboardEntrySchema = z.object({
-  account_id: z.string(),
-  wins: z.number(),
-  losses: z.number(),
-  draws: z.number(),
-  total_games: z.number(),
-  win_rate: z.number()
-});
-export type LeaderboardEntry = z.infer<typeof LeaderboardEntrySchema>;
-
-export const PaginatedLeaderboardSchema = z.object({
-  items: LeaderboardEntrySchema.array(),
-  next_cursor: z.string().nullable()
-});
-export type PaginatedLeaderboard = z.infer<typeof PaginatedLeaderboardSchema>;
-
 export const GlobalStatsSchema = z.object({
   total_games: z.number(),
   active_games: z.number(),

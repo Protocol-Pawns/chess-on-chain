@@ -17,7 +17,6 @@ import {
   InfoSchema,
   PaginatedBetsSchema,
   PaginatedGamesSchema,
-  PaginatedLeaderboardSchema,
   PushSubscriptionSchema,
   VapidPublicKeySchema
 } from './events';
@@ -176,25 +175,6 @@ export const getChallengesRoute = createRoute({
     200: {
       content: { 'application/json': { schema: ChallengeSchema.array() } },
       description: 'Returns challenges for an account'
-    }
-  }
-});
-
-export const getLeaderboardRoute = createRoute({
-  method: 'get',
-  path: '/leaderboard',
-  request: {
-    query: z.object({
-      cursor: z.string().optional(),
-      limit: z.string().optional()
-    })
-  },
-  responses: {
-    200: {
-      content: {
-        'application/json': { schema: PaginatedLeaderboardSchema }
-      },
-      description: 'Returns top players ranked by wins'
     }
   }
 });
