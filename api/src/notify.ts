@@ -202,7 +202,7 @@ export async function processNotifications(
   vapidPublicKeyB64: string,
   vapidSubject: string
 ): Promise<number> {
-  const events = (await db`
+  const rawEvents = (await db`
     SELECT id, event_type, event_data FROM chess_events
     WHERE processed = true AND notified = false
     ORDER BY trigger_block_timestamp ASC
@@ -210,8 +210,16 @@ export async function processNotifications(
   `) as Array<{
     id: string;
     event_type: string;
-    event_data: Record<string, unknown>;
+    event_data: string | Record<string, unknown>;
   }>;
+
+  const events = rawEvents.map(e => ({
+    ...e,
+    event_data:
+      typeof e.event_data === 'string'
+        ? (JSON.parse(e.event_data) as Record<string, unknown>)
+        : e.event_data
+  }));
 
   if (events.length === 0) return 0;
 
