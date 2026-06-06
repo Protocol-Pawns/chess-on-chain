@@ -47,6 +47,7 @@ pub const NO_DEPOSIT: NearToken = NearToken::from_yoctonear(0);
 pub const ONE_YOCTO: NearToken = NearToken::from_yoctonear(1);
 pub const FT_TRANSFER_GAS: Gas = Gas::from_tgas(15);
 pub const WITHDRAW_CALLBACK_GAS: Gas = Gas::from_tgas(5);
+pub const CANCEL_WAGER_CALLBACK_GAS: Gas = Gas::from_tgas(10);
 
 #[derive(BorshStorageKey, BorshSerialize)]
 #[borsh(crate = "near_sdk::borsh")]
@@ -566,29 +567,52 @@ impl Chess {
         event.emit();
 
         Ok(if let Some((token_id, amount)) = game.get_wager().clone() {
+            let white_id = game.get_white().get_account_id().unwrap();
+            let black_id = game.get_black().get_account_id().unwrap();
+
             PromiseOrValue::Promise(
                 ext_ft_core::ext(token_id.clone())
                     .with_attached_deposit(ONE_YOCTO)
                     .with_static_gas(FT_TRANSFER_GAS)
-                    .ft_transfer(
-                        game.get_white().get_account_id().unwrap(),
-                        amount,
-                        Some("wager refund".to_string()),
-                    )
-                    .then(
-                        ext_ft_core::ext(token_id)
+                    .ft_transfer(white_id.clone(), amount, Some("wager refund".to_string()))
+                    .and(
+                        ext_ft_core::ext(token_id.clone())
                             .with_attached_deposit(ONE_YOCTO)
                             .with_static_gas(FT_TRANSFER_GAS)
                             .ft_transfer(
-                                game.get_black().get_account_id().unwrap(),
+                                black_id.clone(),
                                 amount,
                                 Some("wager refund".to_string()),
                             ),
+                    )
+                    .then(
+                        Self::ext(env::current_account_id())
+                            .with_static_gas(CANCEL_WAGER_CALLBACK_GAS)
+                            .cancel_wager_refund_callback(token_id, white_id, black_id, amount.0),
                     ),
             )
         } else {
             PromiseOrValue::Value(())
         })
+    }
+
+    #[private]
+    #[allow(deprecated)]
+    pub fn cancel_wager_refund_callback(
+        &mut self,
+        token_id: AccountId,
+        white_id: AccountId,
+        black_id: AccountId,
+        amount: u128,
+    ) {
+        for i in 0..2 {
+            if !matches!(env::promise_result(i), PromiseResult::Successful(_)) {
+                let account_id = if i == 0 { &white_id } else { &black_id };
+                if let Some(account) = self.accounts.get_mut(account_id) {
+                    account.add_token(&token_id, amount);
+                }
+            }
+        }
     }
 
     #[handle_result]
