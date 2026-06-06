@@ -7,7 +7,7 @@ use crate::ChallengeId;
 #[borsh(crate = "near_sdk::borsh")]
 pub enum ContractError {
     #[error("Contract already initialized")]
-    AlreadyInitilized,
+    AlreadyInitialized,
     #[error("Account {} not registered", _0)]
     AccountNotRegistered(AccountId),
     #[error("Account is playing and cannot be unregistered")]

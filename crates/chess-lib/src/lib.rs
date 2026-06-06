@@ -1,5 +1,3 @@
-#![allow(dead_code, deprecated, clippy::enum_variant_names)]
-
 mod account;
 mod bet;
 mod challenge;
@@ -26,11 +24,12 @@ pub use storage::*;
 
 use chess_engine::{Color, Move};
 use near_contract_standards::fungible_token::core::ext_ft_core;
+#[allow(deprecated)]
 use near_sdk::{
     assert_one_yocto,
-    borsh::{BorshDeserialize, BorshSerialize},
+    borsh::{self, BorshDeserialize, BorshSerialize},
     env, near_bindgen, require,
-    store::{Lazy, UnorderedMap},
+    store::{IterableMap, Lazy, UnorderedMap},
     AccountId, BorshStorageKey, Gas, NearToken, PanicOnDefault, PromiseOrValue, PromiseResult,
 };
 use std::collections::HashSet;
@@ -68,6 +67,11 @@ pub enum StorageKey {
     Bets,
     BettorActiveBets,
     AccountTokens,
+    V9AccountOrderIds,
+    V9AccountChallenger,
+    V9AccountChallenged,
+    V9AccountTokens,
+    V9BetsInner,
 }
 
 #[near_bindgen]
@@ -75,14 +79,14 @@ pub enum StorageKey {
 #[borsh(crate = "near_sdk::borsh")]
 pub struct Chess {
     pub owner_id: AccountId,
-    pub accounts: UnorderedMap<AccountId, Account>,
-    pub games: UnorderedMap<GameId, Game>,
-    pub challenges: UnorderedMap<ChallengeId, Challenge>,
-    pub treasury: UnorderedMap<AccountId, u128>,
+    pub accounts: IterableMap<AccountId, Account>,
+    pub games: IterableMap<GameId, Game>,
+    pub challenges: IterableMap<ChallengeId, Challenge>,
+    pub treasury: IterableMap<AccountId, u128>,
     pub fees: Lazy<u16>,
     pub token_whitelist: Lazy<Vec<AccountId>>,
-    pub bets: UnorderedMap<BetId, Bets>,
-    pub bettor_active_bets: UnorderedMap<AccountId, u32>,
+    pub bets: IterableMap<BetId, Bets>,
+    pub bettor_active_bets: IterableMap<AccountId, u32>,
     pub is_running: bool,
     pub points_total_supply: u128,
 }
@@ -91,6 +95,7 @@ impl near_sdk::state::ContractState for Chess {}
 
 #[derive(BorshDeserialize)]
 #[borsh(crate = "near_sdk::borsh")]
+#[allow(deprecated)]
 pub struct OldChess {
     pub social_db: AccountId,
     pub nada_bot_id: AccountId,
@@ -100,7 +105,7 @@ pub struct OldChess {
     pub treasury: UnorderedMap<AccountId, u128>,
     pub fees: Lazy<OldFees>,
     pub token_whitelist: Lazy<Vec<AccountId>>,
-    pub bets: UnorderedMap<BetId, Bets>,
+    pub bets: UnorderedMap<BetId, OldBets>,
     pub is_running: bool,
     pub points_total_supply: u128,
 }
@@ -128,18 +133,18 @@ impl Chess {
     #[handle_result]
     pub fn new(owner_id: AccountId) -> Result<Self, ContractError> {
         if env::state_exists() {
-            return Err(ContractError::AlreadyInitilized);
+            return Err(ContractError::AlreadyInitialized);
         }
         Ok(Self {
             owner_id,
-            accounts: UnorderedMap::new(StorageKey::VAccounts),
-            games: UnorderedMap::new(StorageKey::Games),
-            challenges: UnorderedMap::new(StorageKey::Challenges),
-            treasury: UnorderedMap::new(StorageKey::Treasury),
+            accounts: IterableMap::new(StorageKey::VAccounts),
+            games: IterableMap::new(StorageKey::Games),
+            challenges: IterableMap::new(StorageKey::Challenges),
+            treasury: IterableMap::new(StorageKey::Treasury),
             fees: Lazy::new(StorageKey::Fees, 0),
             token_whitelist: Lazy::new(StorageKey::TokenWhitelist, Vec::new()),
-            bets: UnorderedMap::new(StorageKey::Bets),
-            bettor_active_bets: UnorderedMap::new(StorageKey::BettorActiveBets),
+            bets: IterableMap::new(StorageKey::Bets),
+            bettor_active_bets: IterableMap::new(StorageKey::BettorActiveBets),
             is_running: true,
             points_total_supply: 0,
         })
@@ -148,32 +153,70 @@ impl Chess {
     #[private]
     #[init(ignore_state)]
     pub fn migrate(owner_id: AccountId) -> Self {
-        let mut chess: OldChess = env::state_read().unwrap();
+        let mut old: OldChess = env::state_read().unwrap();
 
-        let account_ids: Vec<AccountId> = chess.accounts.keys().cloned().collect();
+        let account_ids: Vec<AccountId> = old.accounts.keys().cloned().collect();
         let mut account_data = Vec::with_capacity(account_ids.len());
         for account_id in &account_ids {
-            let account = chess.accounts.remove(account_id).unwrap();
+            let account = old.accounts.remove(account_id).unwrap();
             account_data.push((account_id.clone(), account.migrate()));
         }
-        chess.accounts.flush();
-        let mut accounts = UnorderedMap::new(StorageKey::VAccounts);
+        old.accounts.flush();
+        let mut accounts = IterableMap::new(StorageKey::VAccounts);
         for (id, account) in account_data {
             accounts.insert(id, account);
         }
 
+        let game_ids: Vec<GameId> = old.games.keys().cloned().collect();
+        let mut games = IterableMap::new(StorageKey::Games);
+        for id in &game_ids {
+            let game = old.games.remove(id).unwrap();
+            games.insert(id.clone(), game);
+        }
+        old.games.flush();
+
+        let challenge_ids: Vec<ChallengeId> = old.challenges.keys().cloned().collect();
+        let mut challenges = IterableMap::new(StorageKey::Challenges);
+        for id in &challenge_ids {
+            let challenge = old.challenges.remove(id).unwrap();
+            challenges.insert(id.clone(), challenge);
+        }
+        old.challenges.flush();
+
+        let treasury_ids: Vec<AccountId> = old.treasury.keys().cloned().collect();
+        let mut treasury = IterableMap::new(StorageKey::Treasury);
+        for id in &treasury_ids {
+            let amount = old.treasury.remove(id).unwrap();
+            treasury.insert(id.clone(), amount);
+        }
+        old.treasury.flush();
+
+        let bet_ids: Vec<BetId> = old.bets.keys().cloned().collect();
+        let mut bets = IterableMap::new(StorageKey::Bets);
+        for id in &bet_ids {
+            let old_bet = old.bets.remove(id).unwrap();
+            let storage_key: Vec<u8> = [
+                borsh::to_vec(&StorageKey::V9BetsInner).unwrap().as_slice(),
+                &id.get_storage_key(),
+            ]
+            .concat();
+            let bet = Bets::migrate_from(old_bet, storage_key);
+            bets.insert(id.clone(), bet);
+        }
+        old.bets.flush();
+
         Self {
             owner_id,
             accounts,
-            games: chess.games,
-            challenges: chess.challenges,
-            treasury: chess.treasury,
-            fees: Lazy::new(StorageKey::Fees, chess.fees.get().treasury),
-            token_whitelist: chess.token_whitelist,
-            bets: chess.bets,
-            bettor_active_bets: UnorderedMap::new(StorageKey::BettorActiveBets),
-            is_running: chess.is_running,
-            points_total_supply: chess.points_total_supply,
+            games,
+            challenges,
+            treasury,
+            fees: Lazy::new(StorageKey::Fees, old.fees.get().treasury),
+            token_whitelist: old.token_whitelist,
+            bets,
+            bettor_active_bets: IterableMap::new(StorageKey::BettorActiveBets),
+            is_running: old.is_running,
+            points_total_supply: old.points_total_supply,
         }
     }
 
@@ -248,6 +291,7 @@ impl Chess {
     }
 
     #[private]
+    #[allow(deprecated)]
     pub fn withdraw_treasury_callback(&mut self, token_id: AccountId, amount: u128) {
         if !matches!(env::promise_result(0), PromiseResult::Successful(_)) {
             if let Some(treasury) = self.treasury.get_mut(&token_id) {

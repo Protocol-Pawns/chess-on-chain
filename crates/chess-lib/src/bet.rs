@@ -1,3 +1,4 @@
+#[allow(deprecated)]
 use crate::{Account, Chess, ChessEvent, ContractError, StorageKey, MAX_OPEN_BETS};
 use near_sdk::{
     borsh::{self, BorshDeserialize, BorshSerialize},
@@ -5,7 +6,7 @@ use near_sdk::{
     json_types::U128,
     require,
     serde::{Deserialize, Serialize},
-    store::UnorderedMap,
+    store::IterableMap,
     AccountId, NearSchema,
 };
 use std::{
@@ -35,10 +36,36 @@ impl BetId {
 
 #[derive(BorshDeserialize, BorshSerialize)]
 #[borsh(crate = "near_sdk::borsh")]
+#[allow(deprecated)]
+pub struct OldBets {
+    pub is_locked: bool,
+    pub bets: near_sdk::store::UnorderedMap<AccountId, Vec<(AccountId, Bet)>>,
+}
+
+#[derive(BorshDeserialize, BorshSerialize)]
+#[borsh(crate = "near_sdk::borsh")]
 pub struct Bets {
     pub is_locked: bool,
-    /// token_id -> vec<(account_id, bet)>
-    pub bets: UnorderedMap<AccountId, Vec<(AccountId, Bet)>>,
+    pub bets: IterableMap<AccountId, Vec<(AccountId, Bet)>>,
+}
+
+impl Bets {
+    #[allow(deprecated)]
+    pub fn migrate_from(old: OldBets, storage_key: Vec<u8>) -> Self {
+        let entries: Vec<(AccountId, Vec<(AccountId, Bet)>)> = old
+            .bets
+            .iter()
+            .map(|(k, v)| (k.clone(), v.clone()))
+            .collect();
+        let mut bets = IterableMap::new(storage_key);
+        for (k, v) in entries {
+            bets.insert(k, v);
+        }
+        Self {
+            is_locked: old.is_locked,
+            bets,
+        }
+    }
 }
 
 #[derive(Debug, Deserialize, Serialize, NearSchema)]
@@ -71,7 +98,7 @@ impl From<&Bets> for BetInfo {
 impl Bets {
     pub fn filter_valid(
         &mut self,
-        accounts: &mut UnorderedMap<AccountId, Account>,
+        accounts: &mut IterableMap<AccountId, Account>,
     ) -> HashSet<AccountId> {
         let mut to_remove = vec![];
         'outer: for (token_id, bets) in self.bets.iter() {
@@ -142,11 +169,14 @@ impl Chess {
         let bet_id = BetId::new(players.clone())?;
         if !self.bets.contains_key(&bet_id) {
             let id = bet_id.get_storage_key();
-            let storage_key: Vec<u8> =
-                [borsh::to_vec(&StorageKey::Bets).unwrap().as_slice(), &id].concat();
+            let storage_key: Vec<u8> = [
+                borsh::to_vec(&StorageKey::V9BetsInner).unwrap().as_slice(),
+                &id,
+            ]
+            .concat();
             let bet = Bets {
                 is_locked: false,
-                bets: UnorderedMap::new(storage_key),
+                bets: IterableMap::new(storage_key),
             };
             self.bets.insert(bet_id.clone(), bet);
         }

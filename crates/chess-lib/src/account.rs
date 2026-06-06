@@ -1,3 +1,4 @@
+#![allow(deprecated)]
 use crate::{
     Achievement, ChallengeId, ContractError, EloRating, GameId, Quest, StorageKey,
     MAX_OPEN_CHALLENGES, MAX_OPEN_GAMES,
@@ -8,7 +9,7 @@ use near_sdk::{
     env,
     json_types::U128,
     serde::{Deserialize, Serialize},
-    store::{Lazy, UnorderedMap, UnorderedSet},
+    store::{IterableMap, IterableSet, Lazy, UnorderedMap, UnorderedSet},
     AccountId, NearSchema, NearToken,
 };
 use std::collections::VecDeque;
@@ -55,16 +56,17 @@ pub struct AccountV9 {
     is_agent: bool,
     points: u128,
     elo: Option<EloRating>,
-    game_ids: UnorderedSet<GameId>,
-    challenger: UnorderedSet<ChallengeId>,
-    challenged: UnorderedSet<ChallengeId>,
+    game_ids: IterableSet<GameId>,
+    challenger: IterableSet<ChallengeId>,
+    challenged: IterableSet<ChallengeId>,
     quest_cooldowns: Lazy<VecDeque<(u64, Quest)>>,
     achievements: Lazy<Vec<(u64, Achievement)>>,
-    tokens: UnorderedMap<AccountId, u128>,
+    tokens: IterableMap<AccountId, u128>,
 }
 
 #[derive(BorshDeserialize, BorshSerialize)]
 #[borsh(crate = "near_sdk::borsh")]
+#[allow(deprecated)]
 pub struct AccountV8 {
     near_amount: NearToken,
     account_id: AccountId,
@@ -106,7 +108,7 @@ impl Account {
         let game_id_key: Vec<u8> = [
             borsh::to_vec(&StorageKey::VAccounts).unwrap().as_slice(),
             &id,
-            borsh::to_vec(&StorageKey::AccountOrderIds)
+            borsh::to_vec(&StorageKey::V9AccountOrderIds)
                 .unwrap()
                 .as_slice(),
         ]
@@ -114,7 +116,7 @@ impl Account {
         let challenger_key: Vec<u8> = [
             borsh::to_vec(&StorageKey::VAccounts).unwrap().as_slice(),
             &id,
-            borsh::to_vec(&StorageKey::AccountChallenger)
+            borsh::to_vec(&StorageKey::V9AccountChallenger)
                 .unwrap()
                 .as_slice(),
         ]
@@ -122,7 +124,7 @@ impl Account {
         let challenged_key: Vec<u8> = [
             borsh::to_vec(&StorageKey::VAccounts).unwrap().as_slice(),
             &id,
-            borsh::to_vec(&StorageKey::AccountChallenged)
+            borsh::to_vec(&StorageKey::V9AccountChallenged)
                 .unwrap()
                 .as_slice(),
         ]
@@ -146,7 +148,7 @@ impl Account {
         let tokens_key: Vec<u8> = [
             borsh::to_vec(&StorageKey::VAccounts).unwrap().as_slice(),
             &id,
-            borsh::to_vec(&StorageKey::AccountTokens)
+            borsh::to_vec(&StorageKey::V9AccountTokens)
                 .unwrap()
                 .as_slice(),
         ]
@@ -157,15 +159,16 @@ impl Account {
             is_agent: false,
             points: 0,
             elo: Some(1_000.),
-            game_ids: UnorderedSet::new(game_id_key),
-            challenger: UnorderedSet::new(challenger_key),
-            challenged: UnorderedSet::new(challenged_key),
+            game_ids: IterableSet::new(game_id_key),
+            challenger: IterableSet::new(challenger_key),
+            challenged: IterableSet::new(challenged_key),
             quest_cooldowns: Lazy::new(quest_cooldown_key, VecDeque::new()),
             achievements: Lazy::new(achievement_key, Vec::new()),
-            tokens: UnorderedMap::new(tokens_key),
+            tokens: IterableMap::new(tokens_key),
         })
     }
 
+    #[allow(deprecated)]
     pub fn migrate(self) -> Self {
         let Account::V8(AccountV8 {
             near_amount,
@@ -173,28 +176,93 @@ impl Account {
             is_human: _,
             points,
             elo,
-            game_ids,
-            challenger,
-            challenged,
+            mut game_ids,
+            mut challenger,
+            mut challenged,
             quest_cooldowns,
             achievements,
-            tokens,
+            mut tokens,
         }) = self
         else {
             panic!("migration required");
         };
+
+        let id = env::sha256_array(account_id.as_bytes());
+
+        let game_id_key: Vec<u8> = [
+            borsh::to_vec(&StorageKey::VAccounts).unwrap().as_slice(),
+            &id,
+            borsh::to_vec(&StorageKey::V9AccountOrderIds)
+                .unwrap()
+                .as_slice(),
+        ]
+        .concat();
+        let challenger_key: Vec<u8> = [
+            borsh::to_vec(&StorageKey::VAccounts).unwrap().as_slice(),
+            &id,
+            borsh::to_vec(&StorageKey::V9AccountChallenger)
+                .unwrap()
+                .as_slice(),
+        ]
+        .concat();
+        let challenged_key: Vec<u8> = [
+            borsh::to_vec(&StorageKey::VAccounts).unwrap().as_slice(),
+            &id,
+            borsh::to_vec(&StorageKey::V9AccountChallenged)
+                .unwrap()
+                .as_slice(),
+        ]
+        .concat();
+        let tokens_key: Vec<u8> = [
+            borsh::to_vec(&StorageKey::VAccounts).unwrap().as_slice(),
+            &id,
+            borsh::to_vec(&StorageKey::V9AccountTokens)
+                .unwrap()
+                .as_slice(),
+        ]
+        .concat();
+
+        let game_ids_list: Vec<GameId> = game_ids.iter().cloned().collect();
+        game_ids.flush();
+        let mut new_game_ids = IterableSet::new(game_id_key);
+        for gid in game_ids_list {
+            new_game_ids.insert(gid);
+        }
+
+        let challenger_list: Vec<ChallengeId> = challenger.iter().cloned().collect();
+        challenger.flush();
+        let mut new_challenger = IterableSet::new(challenger_key);
+        for cid in challenger_list {
+            new_challenger.insert(cid);
+        }
+
+        let challenged_list: Vec<ChallengeId> = challenged.iter().cloned().collect();
+        challenged.flush();
+        let mut new_challenged = IterableSet::new(challenged_key);
+        for cid in challenged_list {
+            new_challenged.insert(cid);
+        }
+
+        let tokens_list: Vec<(AccountId, u128)> =
+            tokens.iter().map(|(k, v)| (k.clone(), *v)).collect();
+        tokens.flush();
+        let mut new_tokens = IterableMap::new(tokens_key);
+        for (k, v) in tokens_list {
+            new_tokens.insert(k, v);
+        }
+
         Account::V9(AccountV9 {
             near_amount,
             account_id,
             is_agent: false,
             points,
             elo,
-            game_ids,
-            challenger,
-            challenged,
+            game_ids: new_game_ids,
+            challenger: new_challenger,
+            challenged: new_challenged,
             quest_cooldowns,
             achievements,
-            tokens,
+            tokens: new_tokens,
         })
     }
 
