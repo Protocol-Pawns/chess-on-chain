@@ -1,11 +1,11 @@
 use crate::{
     calculate_elo, create_challenge_id, Account, Achievement, BetId, BetPayoutEvent, Challenge,
     ChallengeId, Chess, ChessEvent, ContractError, Difficulty, EloConfig, EloOutcome, Game, GameId,
-    GameOutcome, Player, Wager, FT_TRANSFER_GAS, ONE_YOCTO,
+    GameOutcome, Player, Wager, FT_TRANSFER_GAS, ONE_YOCTO, WAGER_PAYOUT_CALLBACK_GAS,
 };
 use chess_engine::Color;
 use near_contract_standards::fungible_token::core::ext_ft_core;
-use near_sdk::{AccountId, NearToken};
+use near_sdk::{env, AccountId, NearToken};
 use primitive_types::U128;
 use std::{cmp, collections::HashSet, ops::Div};
 
@@ -158,35 +158,48 @@ impl Chess {
                     let total_pool = 2 * amount.0;
                     let fees = self.deduct_fees(&token_id, total_pool);
                     let wager_amount = total_pool - fees;
-                    let _ = ext_ft_core::ext(token_id)
+                    let winner_id = match color {
+                        Color::White => game.get_white().get_account_id().unwrap().clone(),
+                        Color::Black => game.get_black().get_account_id().unwrap().clone(),
+                    };
+                    ext_ft_core::ext(token_id.clone())
                         .with_attached_deposit(ONE_YOCTO)
                         .with_static_gas(FT_TRANSFER_GAS)
                         .ft_transfer(
-                            match color {
-                                Color::White => game.get_white().get_account_id().unwrap(),
-                                Color::Black => game.get_black().get_account_id().unwrap(),
-                            },
+                            winner_id.clone(),
                             wager_amount.into(),
                             Some("wager win".to_string()),
-                        );
+                        )
+                        .then(
+                            Chess::ext(env::current_account_id())
+                                .with_static_gas(WAGER_PAYOUT_CALLBACK_GAS)
+                                .wager_victory_callback(token_id, winner_id, wager_amount),
+                        )
+                        .detach();
                 }
                 GameOutcome::Stalemate => {
-                    let _ = ext_ft_core::ext(token_id.clone())
+                    let white_id = game.get_white().get_account_id().unwrap().clone();
+                    let black_id = game.get_black().get_account_id().unwrap().clone();
+                    ext_ft_core::ext(token_id.clone())
                         .with_attached_deposit(ONE_YOCTO)
                         .with_static_gas(FT_TRANSFER_GAS)
-                        .ft_transfer(
-                            game.get_white().get_account_id().unwrap(),
-                            amount,
-                            Some("wager refund".to_string()),
-                        );
-                    let _ = ext_ft_core::ext(token_id)
-                        .with_attached_deposit(ONE_YOCTO)
-                        .with_static_gas(FT_TRANSFER_GAS)
-                        .ft_transfer(
-                            game.get_black().get_account_id().unwrap(),
-                            amount,
-                            Some("wager refund".to_string()),
-                        );
+                        .ft_transfer(white_id.clone(), amount, Some("wager refund".to_string()))
+                        .and(
+                            ext_ft_core::ext(token_id.clone())
+                                .with_attached_deposit(ONE_YOCTO)
+                                .with_static_gas(FT_TRANSFER_GAS)
+                                .ft_transfer(
+                                    black_id.clone(),
+                                    amount,
+                                    Some("wager refund".to_string()),
+                                ),
+                        )
+                        .then(
+                            Chess::ext(env::current_account_id())
+                                .with_static_gas(WAGER_PAYOUT_CALLBACK_GAS)
+                                .wager_stalemate_callback(token_id, white_id, black_id, amount.0),
+                        )
+                        .detach();
                 }
             }
         }

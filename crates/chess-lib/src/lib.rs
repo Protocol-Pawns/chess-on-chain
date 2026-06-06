@@ -54,6 +54,7 @@ pub const FT_TRANSFER_GAS: Gas = Gas::from_tgas(15);
 pub const WITHDRAW_CALLBACK_GAS: Gas = Gas::from_tgas(5);
 pub const CANCEL_WAGER_CALLBACK_GAS: Gas = Gas::from_tgas(10);
 pub const REJECT_WAGER_CALLBACK_GAS: Gas = Gas::from_tgas(10);
+pub const WAGER_PAYOUT_CALLBACK_GAS: Gas = Gas::from_tgas(10);
 
 #[derive(BorshStorageKey, BorshSerialize)]
 #[borsh(crate = "near_sdk::borsh")]
@@ -629,6 +630,40 @@ impl Chess {
     #[private]
     #[allow(deprecated)]
     pub fn cancel_wager_refund_callback(
+        &mut self,
+        token_id: AccountId,
+        white_id: AccountId,
+        black_id: AccountId,
+        amount: u128,
+    ) {
+        for i in 0..2 {
+            if !matches!(env::promise_result(i), PromiseResult::Successful(_)) {
+                let account_id = if i == 0 { &white_id } else { &black_id };
+                if let Some(account) = self.accounts.get_mut(account_id) {
+                    account.add_token(&token_id, amount);
+                }
+            }
+        }
+    }
+
+    #[private]
+    #[allow(deprecated)]
+    pub fn wager_victory_callback(
+        &mut self,
+        token_id: AccountId,
+        winner_id: AccountId,
+        amount: u128,
+    ) {
+        if !matches!(env::promise_result(0), PromiseResult::Successful(_)) {
+            if let Some(account) = self.accounts.get_mut(&winner_id) {
+                account.add_token(&token_id, amount);
+            }
+        }
+    }
+
+    #[private]
+    #[allow(deprecated)]
+    pub fn wager_stalemate_callback(
         &mut self,
         token_id: AccountId,
         white_id: AccountId,

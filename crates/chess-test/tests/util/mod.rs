@@ -3,7 +3,7 @@ pub mod macros;
 pub mod view;
 
 use chess_common::{ContractEvent, KNOWN_EVENT_KINDS};
-use chess_lib::ChessEvent;
+use chess_lib::{ChessEvent, GameId, GameOutcome};
 use near_contract_standards::fungible_token::events::FtMint;
 use near_workspaces::{
     network::Sandbox,
@@ -203,4 +203,56 @@ where
         &expected
     );
     Ok(())
+}
+
+const STALEMATE_MOVES: [&str; 18] = [
+    "e2e3", "a7a5", "d1h5", "a8a6", "h5a5", "h7h5", "a5c7", "a6h6", "h2h4", "f7f6", "c7d7",
+    "e8f7", "d7b7", "d8d3", "b7b8", "d3h7", "b8c8", "f7g6",
+];
+const STALEMATE_LAST_MOVE: &str = "c8e6";
+
+pub async fn play_stalemate_moves_except_last(
+    contract: &Contract,
+    white: &Account,
+    black: &Account,
+    game_id: &GameId,
+) -> anyhow::Result<()> {
+    for (i, mv) in STALEMATE_MOVES.iter().enumerate() {
+        let player = if i % 2 == 0 { white } else { black };
+        call::play_move(contract, player, game_id, mv.to_string()).await?;
+    }
+    Ok(())
+}
+
+pub async fn play_stalemate_game(
+    contract: &Contract,
+    white: &Account,
+    black: &Account,
+    game_id: &GameId,
+) -> anyhow::Result<GameOutcome> {
+    play_stalemate_moves_except_last(contract, white, black, game_id).await?;
+    let ((outcome, _), _, _) =
+        call::play_move(contract, white, game_id, STALEMATE_LAST_MOVE.to_string()).await?;
+    let outcome = outcome.unwrap();
+    assert_eq!(outcome, GameOutcome::Stalemate);
+    Ok(outcome)
+}
+
+pub fn get_game_id(events: &[ContractEvent]) -> GameId {
+    use chess_common::{AcceptChallenge, ChessEvent as ChessEventCommon, ChessEventKind};
+    events
+        .iter()
+        .find_map(|event| {
+            if let ContractEvent::ChessGame(ChessEventCommon {
+                event_kind: ChessEventKind::AcceptChallenge(AcceptChallenge { game_id, .. }),
+                ..
+            }) = event
+            {
+                Some(game_id)
+            } else {
+                None
+            }
+        })
+        .unwrap()
+        .clone()
 }

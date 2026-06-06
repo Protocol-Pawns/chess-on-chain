@@ -1,7 +1,5 @@
 use crate::util::*;
-use chess_common::{
-    AcceptChallenge, ChessEvent as ChessEventCommon, ChessEventKind, ContractEvent,
-};
+use chess_common::{ContractEvent};
 use chess_engine::Color;
 use chess_lib::{
     create_challenge_id, AcceptChallengeMsg, Challenge, ChallengeMsg, ChessEvent, GameId,
@@ -1093,55 +1091,6 @@ async fn test_resign_payout_wager() -> anyhow::Result<()> {
     Ok(())
 }
 
-fn get_game_id(events: &[ContractEvent]) -> GameId {
-    events
-        .iter()
-        .find_map(|event| {
-            if let ContractEvent::ChessGame(ChessEventCommon {
-                event_kind: ChessEventKind::AcceptChallenge(AcceptChallenge { game_id, .. }),
-                ..
-            }) = event
-            {
-                Some(game_id)
-            } else {
-                None
-            }
-        })
-        .unwrap()
-        .clone()
-}
-
-async fn play_stalemate_game(
-    contract: &Contract,
-    white: &Account,
-    black: &Account,
-    game_id: &GameId,
-) -> anyhow::Result<GameOutcome> {
-    call::play_move(contract, white, game_id, "e2e3".to_string()).await?;
-    call::play_move(contract, black, game_id, "a7a5".to_string()).await?;
-    call::play_move(contract, white, game_id, "d1h5".to_string()).await?;
-    call::play_move(contract, black, game_id, "a8a6".to_string()).await?;
-    call::play_move(contract, white, game_id, "h5a5".to_string()).await?;
-    call::play_move(contract, black, game_id, "h7h5".to_string()).await?;
-    call::play_move(contract, white, game_id, "a5c7".to_string()).await?;
-    call::play_move(contract, black, game_id, "a6h6".to_string()).await?;
-    call::play_move(contract, white, game_id, "h2h4".to_string()).await?;
-    call::play_move(contract, black, game_id, "f7f6".to_string()).await?;
-    call::play_move(contract, white, game_id, "c7d7".to_string()).await?;
-    call::play_move(contract, black, game_id, "e8f7".to_string()).await?;
-    call::play_move(contract, white, game_id, "d7b7".to_string()).await?;
-    call::play_move(contract, black, game_id, "d8d3".to_string()).await?;
-    call::play_move(contract, white, game_id, "b7b8".to_string()).await?;
-    call::play_move(contract, black, game_id, "d3h7".to_string()).await?;
-    call::play_move(contract, white, game_id, "b8c8".to_string()).await?;
-    call::play_move(contract, black, game_id, "f7g6".to_string()).await?;
-    let ((outcome, _), _, _) =
-        call::play_move(contract, white, game_id, "c8e6".to_string()).await?;
-    let outcome = outcome.unwrap();
-    assert_eq!(outcome, GameOutcome::Stalemate);
-    Ok(outcome)
-}
-
 #[tokio::test]
 async fn test_stalemate_refund_wager() -> anyhow::Result<()> {
     let (worker, _, contract) = initialize_contracts(None).await?;
@@ -1648,6 +1597,200 @@ async fn test_transfer_ownership() -> anyhow::Result<()> {
 
     let res = call::pause(&contract, &owner).await;
     assert!(res.is_err());
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn test_victory_payout_wager_ft_transfer_failure() -> anyhow::Result<()> {
+    let (worker, _, contract) = initialize_contracts(None).await?;
+    let test_token = initialize_token(&worker, "wrapped Near", "wNEAR", None, 24).await?;
+    let wager_amount = 10_000_000_000_000_000_000_000_000;
+
+    let player_a = worker.dev_create_account().await?;
+    let player_b = worker.dev_create_account().await?;
+
+    tokio::try_join!(
+        call::storage_deposit(&contract, &player_a, None, None),
+        call::storage_deposit(&contract, &player_b, None, None),
+        call::storage_deposit(
+            &test_token,
+            contract.as_account(),
+            None,
+            Some(NearToken::from_millinear(100)),
+        ),
+        call::storage_deposit(
+            &test_token,
+            &player_a,
+            None,
+            Some(NearToken::from_millinear(100)),
+        ),
+        call::storage_deposit(
+            &test_token,
+            &player_b,
+            None,
+            Some(NearToken::from_millinear(100)),
+        )
+    )?;
+    tokio::try_join!(
+        call::mint_tokens(&test_token, player_a.id(), wager_amount),
+        call::mint_tokens(&test_token, player_b.id(), wager_amount)
+    )?;
+
+    let whitelist = vec![test_token.id().clone()];
+    call::set_token_whitelist(&contract, contract.as_account(), &whitelist).await?;
+
+    call::challenge_with_wager(
+        &player_a,
+        test_token.id(),
+        contract.id(),
+        wager_amount.into(),
+        ChallengeMsg {
+            challenged_id: player_b.id().clone(),
+        },
+    )
+    .await?;
+    let challenge_id = create_challenge_id(player_a.id(), player_b.id());
+
+    let (_res, events) = call::accept_challenge_with_wager(
+        &player_b,
+        test_token.id(),
+        contract.id(),
+        wager_amount.into(),
+        AcceptChallengeMsg { challenge_id },
+    )
+    .await?;
+    let game_id = get_game_id(&events);
+
+    call::play_move(&contract, &player_a, &game_id, "e2e4".to_string()).await?;
+    call::play_move(&contract, &player_b, &game_id, "a7a6".to_string()).await?;
+    call::play_move(&contract, &player_a, &game_id, "d1f3".to_string()).await?;
+    call::play_move(&contract, &player_b, &game_id, "a6a5".to_string()).await?;
+    call::play_move(&contract, &player_a, &game_id, "f1c4".to_string()).await?;
+    call::play_move(&contract, &player_b, &game_id, "a5a4".to_string()).await?;
+
+    player_a
+        .call(test_token.id(), "storage_unregister")
+        .args_json((Some(true),))
+        .max_gas()
+        .deposit(NearToken::from_yoctonear(1))
+        .transact()
+        .await?
+        .into_result()?;
+
+    let play_res = player_a
+        .call(contract.id(), "play_move")
+        .args_json((&game_id, "f3f7"))
+        .max_gas()
+        .transact()
+        .await?;
+    assert!(!play_res.receipt_failures().is_empty());
+
+    let balance_a = view::ft_balance_of(&test_token, player_a.id()).await?;
+    assert_eq!(balance_a.0, 0);
+
+    let internal_balance_a =
+        view::get_token_amount(&contract, player_a.id(), test_token.id()).await?;
+    assert_eq!(internal_balance_a.0, 2 * wager_amount);
+
+    let contract_balance = view::ft_balance_of(&test_token, contract.id()).await?;
+    assert_eq!(contract_balance.0, 2 * wager_amount);
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn test_stalemate_refund_wager_ft_transfer_failure() -> anyhow::Result<()> {
+    let (worker, _, contract) = initialize_contracts(None).await?;
+    let test_token = initialize_token(&worker, "wrapped Near", "wNEAR", None, 24).await?;
+    let wager_amount = 10_000_000_000_000_000_000_000_000;
+
+    let player_a = worker.dev_create_account().await?;
+    let player_b = worker.dev_create_account().await?;
+
+    tokio::try_join!(
+        call::storage_deposit(&contract, &player_a, None, None),
+        call::storage_deposit(&contract, &player_b, None, None),
+        call::storage_deposit(
+            &test_token,
+            contract.as_account(),
+            None,
+            Some(NearToken::from_millinear(100)),
+        ),
+        call::storage_deposit(
+            &test_token,
+            &player_a,
+            None,
+            Some(NearToken::from_millinear(100)),
+        ),
+        call::storage_deposit(
+            &test_token,
+            &player_b,
+            None,
+            Some(NearToken::from_millinear(100)),
+        )
+    )?;
+    tokio::try_join!(
+        call::mint_tokens(&test_token, player_a.id(), wager_amount),
+        call::mint_tokens(&test_token, player_b.id(), wager_amount)
+    )?;
+
+    let whitelist = vec![test_token.id().clone()];
+    call::set_token_whitelist(&contract, contract.as_account(), &whitelist).await?;
+
+    call::challenge_with_wager(
+        &player_a,
+        test_token.id(),
+        contract.id(),
+        wager_amount.into(),
+        ChallengeMsg {
+            challenged_id: player_b.id().clone(),
+        },
+    )
+    .await?;
+    let challenge_id = create_challenge_id(player_a.id(), player_b.id());
+
+    let (_res, events) = call::accept_challenge_with_wager(
+        &player_b,
+        test_token.id(),
+        contract.id(),
+        wager_amount.into(),
+        AcceptChallengeMsg { challenge_id },
+    )
+    .await?;
+    let game_id = get_game_id(&events);
+
+    play_stalemate_moves_except_last(&contract, &player_a, &player_b, &game_id).await?;
+
+    player_b
+        .call(test_token.id(), "storage_unregister")
+        .args_json((Some(true),))
+        .max_gas()
+        .deposit(NearToken::from_yoctonear(1))
+        .transact()
+        .await?
+        .into_result()?;
+
+    let play_res = player_a
+        .call(contract.id(), "play_move")
+        .args_json((&game_id, "c8e6"))
+        .max_gas()
+        .transact()
+        .await?;
+    assert!(!play_res.receipt_failures().is_empty());
+
+    let balance_a = view::ft_balance_of(&test_token, player_a.id()).await?;
+    assert_eq!(balance_a.0, wager_amount);
+
+    let balance_b = view::ft_balance_of(&test_token, player_b.id()).await?;
+    assert_eq!(balance_b.0, 0);
+
+    let internal_balance_b =
+        view::get_token_amount(&contract, player_b.id(), test_token.id()).await?;
+    assert_eq!(internal_balance_b.0, wager_amount);
+
+    let contract_balance = view::ft_balance_of(&test_token, contract.id()).await?;
+    assert_eq!(contract_balance.0, wager_amount);
 
     Ok(())
 }

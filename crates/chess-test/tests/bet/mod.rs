@@ -1467,37 +1467,6 @@ async fn test_max_bets_per_game() -> anyhow::Result<()> {
     Ok(())
 }
 
-async fn play_stalemate_game(
-    contract: &Contract,
-    white: &Account,
-    black: &Account,
-    game_id: &GameId,
-) -> anyhow::Result<GameOutcome> {
-    call::play_move(contract, white, game_id, "e2e3".to_string()).await?;
-    call::play_move(contract, black, game_id, "a7a5".to_string()).await?;
-    call::play_move(contract, white, game_id, "d1h5".to_string()).await?;
-    call::play_move(contract, black, game_id, "a8a6".to_string()).await?;
-    call::play_move(contract, white, game_id, "h5a5".to_string()).await?;
-    call::play_move(contract, black, game_id, "h7h5".to_string()).await?;
-    call::play_move(contract, white, game_id, "a5c7".to_string()).await?;
-    call::play_move(contract, black, game_id, "a6h6".to_string()).await?;
-    call::play_move(contract, white, game_id, "h2h4".to_string()).await?;
-    call::play_move(contract, black, game_id, "f7f6".to_string()).await?;
-    call::play_move(contract, white, game_id, "c7d7".to_string()).await?;
-    call::play_move(contract, black, game_id, "e8f7".to_string()).await?;
-    call::play_move(contract, white, game_id, "d7b7".to_string()).await?;
-    call::play_move(contract, black, game_id, "d8d3".to_string()).await?;
-    call::play_move(contract, white, game_id, "b7b8".to_string()).await?;
-    call::play_move(contract, black, game_id, "d3h7".to_string()).await?;
-    call::play_move(contract, white, game_id, "b8c8".to_string()).await?;
-    call::play_move(contract, black, game_id, "f7g6".to_string()).await?;
-    let ((outcome, _), _, _) =
-        call::play_move(contract, white, game_id, "c8e6".to_string()).await?;
-    let outcome = outcome.unwrap();
-    assert_eq!(outcome, GameOutcome::Stalemate);
-    Ok(outcome)
-}
-
 #[tokio::test]
 async fn test_stalemate_bet_refund() -> anyhow::Result<()> {
     let (worker, _, contract) = initialize_contracts(None).await?;
