@@ -29,11 +29,9 @@ use near_contract_standards::fungible_token::core::ext_ft_core;
 use near_sdk::{
     assert_one_yocto,
     borsh::{BorshDeserialize, BorshSerialize},
-    env,
-    json_types::U128,
-    near_bindgen, require,
+    env, near_bindgen, require,
     store::{Lazy, UnorderedMap},
-    AccountId, BorshStorageKey, Gas, GasWeight, NearToken, PanicOnDefault, Promise, PromiseOrValue,
+    AccountId, BorshStorageKey, Gas, NearToken, PanicOnDefault, PromiseOrValue, PromiseResult,
 };
 use std::collections::HashSet;
 
@@ -222,18 +220,41 @@ impl Chess {
         self.token_whitelist.set(whitelist);
     }
 
-    pub fn withdraw_treasury(&mut self, token_id: AccountId) {
+    #[handle_result]
+    pub fn withdraw_treasury(
+        &mut self,
+        token_id: AccountId,
+    ) -> Result<PromiseOrValue<()>, ContractError> {
         self.assert_owner();
         let amount = self.treasury.remove(&token_id).unwrap_or(0);
-        if amount > 0 {
-            let _ = ext_ft_core::ext(token_id)
+        if amount == 0 {
+            return Ok(PromiseOrValue::Value(()));
+        }
+        Ok(PromiseOrValue::Promise(
+            ext_ft_core::ext(token_id.clone())
                 .with_attached_deposit(ONE_YOCTO)
-                .with_unused_gas_weight(1)
+                .with_static_gas(Gas::from_tgas(15))
                 .ft_transfer(
                     self.owner_id.clone(),
                     amount.into(),
                     Some("treasury withdrawal".to_string()),
-                );
+                )
+                .then(
+                    Self::ext(env::current_account_id())
+                        .with_unused_gas_weight(1)
+                        .withdraw_treasury_callback(token_id, amount),
+                ),
+        ))
+    }
+
+    #[private]
+    pub fn withdraw_treasury_callback(&mut self, token_id: AccountId, amount: u128) {
+        if !matches!(env::promise_result(0), PromiseResult::Successful(_)) {
+            if let Some(treasury) = self.treasury.get_mut(&token_id) {
+                *treasury += amount;
+            } else {
+                self.treasury.insert(token_id, amount);
+            }
         }
     }
 
