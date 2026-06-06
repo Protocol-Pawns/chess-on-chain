@@ -1,7 +1,7 @@
 use crate::{
     calculate_elo, create_challenge_id, Account, Achievement, BetId, BetPayoutEvent, Challenge,
     ChallengeId, Chess, ChessEvent, ContractError, Difficulty, EloConfig, EloOutcome, Game, GameId,
-    GameOutcome, Player, Wager, ONE_YOCTO,
+    GameOutcome, Player, Wager, FT_TRANSFER_GAS, ONE_YOCTO,
 };
 use chess_engine::Color;
 use near_contract_standards::fungible_token::core::ext_ft_core;
@@ -160,7 +160,7 @@ impl Chess {
                     let wager_amount = total_pool - fees;
                     let _ = ext_ft_core::ext(token_id)
                         .with_attached_deposit(ONE_YOCTO)
-                        .with_unused_gas_weight(1)
+                        .with_static_gas(FT_TRANSFER_GAS)
                         .ft_transfer(
                             match color {
                                 Color::White => game.get_white().get_account_id().unwrap(),
@@ -173,7 +173,7 @@ impl Chess {
                 GameOutcome::Stalemate => {
                     let _ = ext_ft_core::ext(token_id.clone())
                         .with_attached_deposit(ONE_YOCTO)
-                        .with_unused_gas_weight(1)
+                        .with_static_gas(FT_TRANSFER_GAS)
                         .ft_transfer(
                             game.get_white().get_account_id().unwrap(),
                             amount,
@@ -181,7 +181,7 @@ impl Chess {
                         );
                     let _ = ext_ft_core::ext(token_id)
                         .with_attached_deposit(ONE_YOCTO)
-                        .with_unused_gas_weight(1)
+                        .with_static_gas(FT_TRANSFER_GAS)
                         .ft_transfer(
                             game.get_black().get_account_id().unwrap(),
                             amount,
