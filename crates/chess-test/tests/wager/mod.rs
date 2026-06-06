@@ -46,7 +46,7 @@ async fn test_accept_challenge_success() -> anyhow::Result<()> {
     )?;
 
     let whitelist = vec![test_token.id().clone()];
-    call::set_wager_whitelist(&contract, contract.as_account(), &whitelist).await?;
+    call::set_token_whitelist(&contract, contract.as_account(), &whitelist).await?;
     let actual_whitelist = view::get_token_whitelist(&contract).await?;
     assert_eq!(whitelist, actual_whitelist);
 
@@ -172,7 +172,7 @@ async fn test_accept_challenge_not_enough_wager() -> anyhow::Result<()> {
     )?;
 
     let whitelist = vec![test_token.id().clone()];
-    call::set_wager_whitelist(&contract, contract.as_account(), &whitelist).await?;
+    call::set_token_whitelist(&contract, contract.as_account(), &whitelist).await?;
     let actual_whitelist = view::get_token_whitelist(&contract).await?;
     assert_eq!(whitelist, actual_whitelist);
 
@@ -245,7 +245,7 @@ async fn test_accept_challenge_refund_too_much_wager() -> anyhow::Result<()> {
     )?;
 
     let whitelist = vec![test_token.id().clone()];
-    call::set_wager_whitelist(&contract, contract.as_account(), &whitelist).await?;
+    call::set_token_whitelist(&contract, contract.as_account(), &whitelist).await?;
     let actual_whitelist = view::get_token_whitelist(&contract).await?;
     assert_eq!(whitelist, actual_whitelist);
 
@@ -358,7 +358,7 @@ async fn test_reject_challenge_refund_wager() -> anyhow::Result<()> {
     )?;
 
     let whitelist = vec![test_token.id().clone()];
-    call::set_wager_whitelist(&contract, contract.as_account(), &whitelist).await?;
+    call::set_token_whitelist(&contract, contract.as_account(), &whitelist).await?;
     let actual_whitelist = view::get_token_whitelist(&contract).await?;
     assert_eq!(whitelist, actual_whitelist);
 
@@ -432,7 +432,7 @@ async fn test_challenger_reject_own_wager_challenge() -> anyhow::Result<()> {
     )?;
 
     let whitelist = vec![test_token.id().clone()];
-    call::set_wager_whitelist(&contract, contract.as_account(), &whitelist).await?;
+    call::set_token_whitelist(&contract, contract.as_account(), &whitelist).await?;
 
     call::challenge_with_wager(
         &player_a,
@@ -575,7 +575,7 @@ async fn test_reject_wager_wrong_token() -> anyhow::Result<()> {
     )?;
 
     let whitelist = vec![test_token.id().clone(), wrong_test_token.id().clone()];
-    call::set_wager_whitelist(&contract, contract.as_account(), &whitelist).await?;
+    call::set_token_whitelist(&contract, contract.as_account(), &whitelist).await?;
     let actual_whitelist = view::get_token_whitelist(&contract).await?;
     assert_eq!(whitelist, actual_whitelist);
 
@@ -641,7 +641,7 @@ async fn test_cancel_game_refund_wager() -> anyhow::Result<()> {
     )?;
 
     let whitelist = vec![test_token.id().clone()];
-    call::set_wager_whitelist(&contract, contract.as_account(), &whitelist).await?;
+    call::set_token_whitelist(&contract, contract.as_account(), &whitelist).await?;
     let actual_whitelist = view::get_token_whitelist(&contract).await?;
     assert_eq!(whitelist, actual_whitelist);
 
@@ -735,7 +735,7 @@ async fn test_finish_game_payout_wager() -> anyhow::Result<()> {
     )?;
 
     let whitelist = vec![test_token.id().clone()];
-    call::set_wager_whitelist(&contract, contract.as_account(), &whitelist).await?;
+    call::set_token_whitelist(&contract, contract.as_account(), &whitelist).await?;
     let actual_whitelist = view::get_token_whitelist(&contract).await?;
     assert_eq!(whitelist, actual_whitelist);
 
@@ -841,7 +841,7 @@ async fn test_finish_game_payout_fees() -> anyhow::Result<()> {
     assert_eq!(1000, actual_fees);
 
     let whitelist = vec![test_token.id().clone()];
-    call::set_wager_whitelist(&contract, contract.as_account(), &whitelist).await?;
+    call::set_token_whitelist(&contract, contract.as_account(), &whitelist).await?;
     let actual_whitelist = view::get_token_whitelist(&contract).await?;
     assert_eq!(whitelist, actual_whitelist);
 
@@ -957,7 +957,7 @@ async fn test_resign_payout_wager() -> anyhow::Result<()> {
     )?;
 
     let whitelist = vec![test_token.id().clone()];
-    call::set_wager_whitelist(&contract, contract.as_account(), &whitelist).await?;
+    call::set_token_whitelist(&contract, contract.as_account(), &whitelist).await?;
     let actual_whitelist = view::get_token_whitelist(&contract).await?;
     assert_eq!(whitelist, actual_whitelist);
 
@@ -1095,7 +1095,7 @@ async fn test_stalemate_refund_wager() -> anyhow::Result<()> {
     )?;
 
     let whitelist = vec![test_token.id().clone()];
-    call::set_wager_whitelist(&contract, contract.as_account(), &whitelist).await?;
+    call::set_token_whitelist(&contract, contract.as_account(), &whitelist).await?;
 
     call::challenge_with_wager(
         &player_a,
@@ -1170,7 +1170,7 @@ async fn test_fee_deducted_from_total_pool() -> anyhow::Result<()> {
     call::set_fees(&contract, &owner, 1000).await?;
 
     let whitelist = vec![test_token.id().clone()];
-    call::set_wager_whitelist(&contract, &owner, &whitelist).await?;
+    call::set_token_whitelist(&contract, &owner, &whitelist).await?;
 
     call::storage_deposit(
         &test_token,
@@ -1267,7 +1267,7 @@ async fn test_withdraw_treasury() -> anyhow::Result<()> {
     call::set_fees(&contract, &owner, 900).await?;
 
     let whitelist = vec![test_token.id().clone()];
-    call::set_wager_whitelist(&contract, &owner, &whitelist).await?;
+    call::set_token_whitelist(&contract, &owner, &whitelist).await?;
 
     call::storage_deposit(
         &test_token,

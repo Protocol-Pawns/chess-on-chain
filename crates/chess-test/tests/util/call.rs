@@ -129,15 +129,15 @@ pub async fn set_fees(
     Ok((res, events))
 }
 
-pub async fn set_wager_whitelist(
+pub async fn set_token_whitelist(
     contract: &Contract,
     sender: &Account,
     whitelist: &[AccountId],
 ) -> anyhow::Result<(ExecutionResult<Value>, Vec<ContractEvent>)> {
     let (res, events): (ExecutionResult<Value>, Vec<ContractEvent>) = log_tx_result(
-        Some("set_wager_whitelist"),
+        Some("set_token_whitelist"),
         sender
-            .call(contract.id(), "set_wager_whitelist")
+            .call(contract.id(), "set_token_whitelist")
             .args_json((whitelist,))
             .max_gas()
             .transact()

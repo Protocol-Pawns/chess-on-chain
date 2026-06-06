@@ -10,7 +10,7 @@
       "compiler": "rustc 1.86.0",
       "builder": "cargo-near cargo-near-build 0.11.3"
     },
-    "wasm_hash": "HYN54Wy422kdVFLR8jTSdXaJ1hks3xQainj7B1QQ8DwC"
+    "wasm_hash": "J87GZN2pA23XL66GfSd9Te8oZqcmyZuBWX3BnSkiriyz"
   },
   "body": {
     "functions": [
@@ -739,7 +739,7 @@
       },
       {
         "name": "get_token_amount",
-        "kind": "call",
+        "kind": "view",
         "params": {
           "serialization_type": "json",
           "args": [
@@ -782,7 +782,7 @@
       },
       {
         "name": "get_tokens",
-        "kind": "call",
+        "kind": "view",
         "params": {
           "serialization_type": "json",
           "args": [

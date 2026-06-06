@@ -108,7 +108,7 @@ impl Chess {
 
     #[handle_result]
     pub fn get_tokens(
-        &mut self,
+        &self,
         account_id: AccountId,
     ) -> Result<Vec<(AccountId, U128)>, ContractError> {
         let account = self.internal_get_account(&account_id)?;
@@ -121,7 +121,7 @@ impl Chess {
 
     #[handle_result]
     pub fn get_token_amount(
-        &mut self,
+        &self,
         account_id: AccountId,
         token_id: AccountId,
     ) -> Result<U128, ContractError> {

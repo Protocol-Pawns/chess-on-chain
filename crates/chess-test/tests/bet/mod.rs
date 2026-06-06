@@ -60,7 +60,7 @@ async fn test_bet_basic() -> anyhow::Result<()> {
     )?;
 
     let whitelist = vec![test_token.id().clone()];
-    call::set_wager_whitelist(&contract, contract.as_account(), &whitelist).await?;
+    call::set_token_whitelist(&contract, contract.as_account(), &whitelist).await?;
     let actual_whitelist = view::get_token_whitelist(&contract).await?;
     assert_eq!(whitelist, actual_whitelist);
 
@@ -226,7 +226,7 @@ async fn test_incomplete_bet() -> anyhow::Result<()> {
     )?;
 
     let whitelist = vec![test_token.id().clone()];
-    call::set_wager_whitelist(&contract, contract.as_account(), &whitelist).await?;
+    call::set_token_whitelist(&contract, contract.as_account(), &whitelist).await?;
     let actual_whitelist = view::get_token_whitelist(&contract).await?;
     assert_eq!(whitelist, actual_whitelist);
 
@@ -299,7 +299,7 @@ async fn test_bet_increase() -> anyhow::Result<()> {
     )?;
 
     let whitelist = vec![test_token.id().clone()];
-    call::set_wager_whitelist(&contract, contract.as_account(), &whitelist).await?;
+    call::set_token_whitelist(&contract, contract.as_account(), &whitelist).await?;
     let actual_whitelist = view::get_token_whitelist(&contract).await?;
     assert_eq!(whitelist, actual_whitelist);
 
@@ -412,7 +412,7 @@ async fn test_bet_weighted_win_imbalanced() -> anyhow::Result<()> {
     )?;
 
     let whitelist = vec![test_token.id().clone()];
-    call::set_wager_whitelist(&contract, contract.as_account(), &whitelist).await?;
+    call::set_token_whitelist(&contract, contract.as_account(), &whitelist).await?;
     let actual_whitelist = view::get_token_whitelist(&contract).await?;
     assert_eq!(whitelist, actual_whitelist);
 
@@ -514,7 +514,7 @@ async fn test_bet_weighted_win_imbalanced_reverse() -> anyhow::Result<()> {
     )?;
 
     let whitelist = vec![test_token.id().clone()];
-    call::set_wager_whitelist(&contract, contract.as_account(), &whitelist).await?;
+    call::set_token_whitelist(&contract, contract.as_account(), &whitelist).await?;
     let actual_whitelist = view::get_token_whitelist(&contract).await?;
     assert_eq!(whitelist, actual_whitelist);
 
@@ -616,7 +616,7 @@ async fn test_bet_weighted_win_with_refund() -> anyhow::Result<()> {
     )?;
 
     let whitelist = vec![test_token.id().clone()];
-    call::set_wager_whitelist(&contract, contract.as_account(), &whitelist).await?;
+    call::set_token_whitelist(&contract, contract.as_account(), &whitelist).await?;
     let actual_whitelist = view::get_token_whitelist(&contract).await?;
     assert_eq!(whitelist, actual_whitelist);
 
@@ -718,7 +718,7 @@ async fn test_bet_weighted_win_with_refund_reverse() -> anyhow::Result<()> {
     )?;
 
     let whitelist = vec![test_token.id().clone()];
-    call::set_wager_whitelist(&contract, contract.as_account(), &whitelist).await?;
+    call::set_token_whitelist(&contract, contract.as_account(), &whitelist).await?;
     let actual_whitelist = view::get_token_whitelist(&contract).await?;
     assert_eq!(whitelist, actual_whitelist);
 
@@ -822,7 +822,7 @@ async fn test_bet_events_lifecycle() -> anyhow::Result<()> {
     )?;
 
     let whitelist = vec![test_token.id().clone()];
-    call::set_wager_whitelist(&contract, contract.as_account(), &whitelist).await?;
+    call::set_token_whitelist(&contract, contract.as_account(), &whitelist).await?;
 
     // PlaceBet events
     let (_, events) =
@@ -945,7 +945,7 @@ async fn test_bet_winner_must_be_a_player() -> anyhow::Result<()> {
     call::mint_tokens(&test_token, better.id(), bet_amount).await?;
 
     let whitelist = vec![test_token.id().clone()];
-    call::set_wager_whitelist(&contract, contract.as_account(), &whitelist).await?;
+    call::set_token_whitelist(&contract, contract.as_account(), &whitelist).await?;
 
     call::bet(
         &better,
@@ -1002,7 +1002,7 @@ async fn test_bet_zero_amount_fails() -> anyhow::Result<()> {
     call::mint_tokens(&test_token, better.id(), 10_000_000).await?;
 
     let whitelist = vec![test_token.id().clone()];
-    call::set_wager_whitelist(&contract, contract.as_account(), &whitelist).await?;
+    call::set_token_whitelist(&contract, contract.as_account(), &whitelist).await?;
 
     let res = call::bet(
         &better,
@@ -1051,7 +1051,7 @@ async fn test_bet_unregistered_bettor_fails() -> anyhow::Result<()> {
     call::mint_tokens(&test_token, unregistered.id(), bet_amount).await?;
 
     let whitelist = vec![test_token.id().clone()];
-    call::set_wager_whitelist(&contract, contract.as_account(), &whitelist).await?;
+    call::set_token_whitelist(&contract, contract.as_account(), &whitelist).await?;
 
     call::bet(
         &unregistered,
@@ -1118,7 +1118,7 @@ async fn test_max_open_bets_per_bettor() -> anyhow::Result<()> {
     call::mint_tokens(&test_token, better.id(), bet_amount * 20).await?;
 
     let whitelist = vec![test_token.id().clone()];
-    call::set_wager_whitelist(&contract, contract.as_account(), &whitelist).await?;
+    call::set_token_whitelist(&contract, contract.as_account(), &whitelist).await?;
 
     let mut players = vec![];
     for _ in 0..12 {
@@ -1199,7 +1199,7 @@ async fn test_player_cannot_bet_on_own_game() -> anyhow::Result<()> {
     )?;
 
     let whitelist = vec![test_token.id().clone()];
-    call::set_wager_whitelist(&contract, contract.as_account(), &whitelist).await?;
+    call::set_token_whitelist(&contract, contract.as_account(), &whitelist).await?;
 
     let res =
         bet!(&player_a, test_token.id(), contract.id(), bet_amount, player_a => player_b).await;
@@ -1252,7 +1252,7 @@ async fn test_cancel_bet_before_game() -> anyhow::Result<()> {
     call::mint_tokens(&test_token, better.id(), bet_amount).await?;
 
     let whitelist = vec![test_token.id().clone()];
-    call::set_wager_whitelist(&contract, contract.as_account(), &whitelist).await?;
+    call::set_token_whitelist(&contract, contract.as_account(), &whitelist).await?;
 
     bet!(&better, test_token.id(), contract.id(), bet_amount, player_a => player_b).await?;
 
@@ -1304,7 +1304,7 @@ async fn test_cancel_bet_locked_fails() -> anyhow::Result<()> {
     call::mint_tokens(&test_token, better.id(), bet_amount).await?;
 
     let whitelist = vec![test_token.id().clone()];
-    call::set_wager_whitelist(&contract, contract.as_account(), &whitelist).await?;
+    call::set_token_whitelist(&contract, contract.as_account(), &whitelist).await?;
 
     bet!(&better, test_token.id(), contract.id(), bet_amount, player_a => player_b).await?;
 
@@ -1362,7 +1362,7 @@ async fn test_cancel_game_refunds_bettors() -> anyhow::Result<()> {
     )?;
 
     let whitelist = vec![test_token.id().clone()];
-    call::set_wager_whitelist(&contract, contract.as_account(), &whitelist).await?;
+    call::set_token_whitelist(&contract, contract.as_account(), &whitelist).await?;
 
     bet!(&better_a, test_token.id(), contract.id(), bet_amount, player_a => player_b).await?;
     bet!(&better_b, test_token.id(), contract.id(), bet_amount, player_b => player_a).await?;
@@ -1469,7 +1469,7 @@ async fn test_stalemate_bet_refund() -> anyhow::Result<()> {
     )?;
 
     let whitelist = vec![test_token.id().clone()];
-    call::set_wager_whitelist(&contract, contract.as_account(), &whitelist).await?;
+    call::set_token_whitelist(&contract, contract.as_account(), &whitelist).await?;
 
     bet!(&better_a, test_token.id(), contract.id(), bet_amount, player_a => player_b).await?;
     bet!(&better_b, test_token.id(), contract.id(), bet_amount, player_b => player_a).await?;
@@ -1549,12 +1549,24 @@ async fn test_bet_payout_with_fees() -> anyhow::Result<()> {
 
     call::set_fees(&contract, &owner, 1000).await?;
     let whitelist = vec![test_token.id().clone()];
-    call::set_wager_whitelist(&contract, &owner, &whitelist).await?;
+    call::set_token_whitelist(&contract, &owner, &whitelist).await?;
 
     bet!(&better_a, test_token.id(), contract.id(), bet_amount, player_a => player_b).await?;
     bet!(&better_b, test_token.id(), contract.id(), bet_amount, player_b => player_a).await?;
 
     play_game(&contract, &player_a, &player_b).await?;
+
+    let tokens = view::get_tokens(&contract, better_a.id()).await?;
+    assert_eq!(tokens.len(), 1);
+    assert_eq!(tokens[0].0, test_token.id().clone());
+    assert_eq!(tokens[0].1 .0, 1_900_000);
+    let amount = view::get_token_amount(&contract, better_a.id(), test_token.id()).await?;
+    assert_eq!(amount.0, 1_900_000);
+
+    let tokens = view::get_tokens(&contract, better_b.id()).await?;
+    assert!(tokens.is_empty());
+    let amount = view::get_token_amount(&contract, better_b.id(), test_token.id()).await?;
+    assert_eq!(amount.0, 0);
 
     call::withdraw_token(&contract, &better_a, test_token.id()).await?;
     call::withdraw_token(&contract, &better_b, test_token.id()).await?;
@@ -1615,7 +1627,7 @@ async fn test_resign_with_active_bets() -> anyhow::Result<()> {
     )?;
 
     let whitelist = vec![test_token.id().clone()];
-    call::set_wager_whitelist(&contract, contract.as_account(), &whitelist).await?;
+    call::set_token_whitelist(&contract, contract.as_account(), &whitelist).await?;
 
     bet!(&better_a, test_token.id(), contract.id(), bet_amount, player_a => player_b).await?;
     bet!(&better_b, test_token.id(), contract.id(), bet_amount, player_b => player_a).await?;
@@ -1705,7 +1717,7 @@ async fn test_wager_and_bets_combined() -> anyhow::Result<()> {
 
     call::set_fees(&contract, &owner, 1000).await?;
     let whitelist = vec![test_token.id().clone()];
-    call::set_wager_whitelist(&contract, &owner, &whitelist).await?;
+    call::set_token_whitelist(&contract, &owner, &whitelist).await?;
 
     call::challenge_with_wager(
         &player_a,
@@ -1829,7 +1841,7 @@ async fn test_bet_multiple_tokens() -> anyhow::Result<()> {
 
     call::set_fees(&contract, &owner, 1000).await?;
     let whitelist = vec![token_a.id().clone(), token_b.id().clone()];
-    call::set_wager_whitelist(&contract, &owner, &whitelist).await?;
+    call::set_token_whitelist(&contract, &owner, &whitelist).await?;
 
     call::challenge(&contract, &player_a, player_b.id()).await?;
 
@@ -1873,9 +1885,7 @@ async fn test_bet_multiple_tokens() -> anyhow::Result<()> {
     let treasury_tokens = view::get_treasury_tokens(&contract).await?;
     assert_eq!(treasury_tokens.len(), 2);
     for (tid, amt) in &treasury_tokens {
-        if tid == token_a.id() {
-            assert_eq!(amt.0, 100_000);
-        } else if tid == token_b.id() {
+        if tid == token_a.id() || tid == token_b.id() {
             assert_eq!(amt.0, 100_000);
         } else {
             panic!("unexpected treasury token: {}", tid);
@@ -1909,26 +1919,33 @@ async fn test_cancel_bet_non_owner() -> anyhow::Result<()> {
             None,
             Some(NearToken::from_millinear(100))
         ),
-        call::storage_deposit(&test_token, &better_a, None, Some(NearToken::from_millinear(100))),
-        call::storage_deposit(&test_token, &better_b, None, Some(NearToken::from_millinear(100))),
+        call::storage_deposit(
+            &test_token,
+            &better_a,
+            None,
+            Some(NearToken::from_millinear(100))
+        ),
+        call::storage_deposit(
+            &test_token,
+            &better_b,
+            None,
+            Some(NearToken::from_millinear(100))
+        ),
     )?;
     call::mint_tokens(&test_token, better_a.id(), bet_amount).await?;
 
     let whitelist = vec![test_token.id().clone()];
-    call::set_wager_whitelist(&contract, contract.as_account(), &whitelist).await?;
+    call::set_token_whitelist(&contract, contract.as_account(), &whitelist).await?;
 
     call::challenge(&contract, &player_a, player_b.id()).await?;
     let challenge_id = create_challenge_id(player_a.id(), player_b.id());
-    let (game_id, _) = call::accept_challenge(&contract, &player_b, &challenge_id).await?;
+    call::accept_challenge(&contract, &player_b, &challenge_id).await?;
 
     bet!(&better_a, test_token.id(), contract.id(), bet_amount, player_a => player_b).await?;
 
     let res = better_b
         .call(contract.id(), "cancel_bet")
-        .args_json((
-            (player_a.id(), player_b.id()),
-            test_token.id(),
-        ))
+        .args_json(((player_a.id(), player_b.id()), test_token.id()))
         .max_gas()
         .transact()
         .await?;
@@ -1969,16 +1986,21 @@ async fn test_cancel_bet_wrong_token() -> anyhow::Result<()> {
             None,
             Some(NearToken::from_millinear(100))
         ),
-        call::storage_deposit(&token_a, &better, None, Some(NearToken::from_millinear(100))),
+        call::storage_deposit(
+            &token_a,
+            &better,
+            None,
+            Some(NearToken::from_millinear(100))
+        ),
     )?;
     call::mint_tokens(&token_a, better.id(), bet_amount).await?;
 
     let whitelist = vec![token_a.id().clone()];
-    call::set_wager_whitelist(&contract, contract.as_account(), &whitelist).await?;
+    call::set_token_whitelist(&contract, contract.as_account(), &whitelist).await?;
 
     call::challenge(&contract, &player_a, player_b.id()).await?;
     let challenge_id = create_challenge_id(player_a.id(), player_b.id());
-    let (game_id, _) = call::accept_challenge(&contract, &player_b, &challenge_id).await?;
+    call::accept_challenge(&contract, &player_b, &challenge_id).await?;
 
     bet!(&better, token_a.id(), contract.id(), bet_amount, player_a => player_b).await?;
 
@@ -2020,12 +2042,17 @@ async fn test_bet_same_players() -> anyhow::Result<()> {
             None,
             Some(NearToken::from_millinear(100))
         ),
-        call::storage_deposit(&test_token, &better, None, Some(NearToken::from_millinear(100))),
+        call::storage_deposit(
+            &test_token,
+            &better,
+            None,
+            Some(NearToken::from_millinear(100))
+        ),
     )?;
     call::mint_tokens(&test_token, better.id(), bet_amount).await?;
 
     let whitelist = vec![test_token.id().clone()];
-    call::set_wager_whitelist(&contract, contract.as_account(), &whitelist).await?;
+    call::set_token_whitelist(&contract, contract.as_account(), &whitelist).await?;
 
     let (res, _) = call::bet(
         &better,
@@ -2042,6 +2069,104 @@ async fn test_bet_same_players() -> anyhow::Result<()> {
 
     let balance = view::ft_balance_of(&test_token, better.id()).await?;
     assert_eq!(balance.0, bet_amount);
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn test_bet_between_challenge_and_accept() -> anyhow::Result<()> {
+    let (worker, _, contract) = initialize_contracts(None).await?;
+    let test_token = initialize_token(&worker, "SHITZU", "SHITZU", None, 24).await?;
+    let bet_amount = 1_000_000;
+
+    let player_a = worker.dev_create_account().await?;
+    let player_b = worker.dev_create_account().await?;
+    let better_a = worker.dev_create_account().await?;
+    let better_b = worker.dev_create_account().await?;
+    let better_late = worker.dev_create_account().await?;
+
+    tokio::try_join!(
+        call::storage_deposit(&contract, &player_a, None, None),
+        call::storage_deposit(&contract, &player_b, None, None),
+        call::storage_deposit(&contract, &better_a, None, None),
+        call::storage_deposit(&contract, &better_b, None, None),
+        call::storage_deposit(&contract, &better_late, None, None),
+    )?;
+    tokio::try_join!(
+        call::storage_deposit(
+            &test_token,
+            contract.as_account(),
+            None,
+            Some(NearToken::from_millinear(100))
+        ),
+        call::storage_deposit(
+            &test_token,
+            &better_a,
+            None,
+            Some(NearToken::from_millinear(100))
+        ),
+        call::storage_deposit(
+            &test_token,
+            &better_b,
+            None,
+            Some(NearToken::from_millinear(100))
+        ),
+        call::storage_deposit(
+            &test_token,
+            &better_late,
+            None,
+            Some(NearToken::from_millinear(100))
+        ),
+    )?;
+    tokio::try_join!(
+        call::mint_tokens(&test_token, better_a.id(), bet_amount),
+        call::mint_tokens(&test_token, better_b.id(), bet_amount),
+        call::mint_tokens(&test_token, better_late.id(), bet_amount),
+    )?;
+
+    let whitelist = vec![test_token.id().clone()];
+    call::set_token_whitelist(&contract, contract.as_account(), &whitelist).await?;
+
+    call::challenge(&contract, &player_a, player_b.id()).await?;
+
+    bet!(&better_a, test_token.id(), contract.id(), bet_amount, player_a => player_b).await?;
+    bet!(&better_b, test_token.id(), contract.id(), bet_amount, player_b => player_a).await?;
+
+    let bet_info = view::get_bet_info(&contract, (player_a.id(), player_b.id())).await?;
+    assert!(!bet_info.is_locked);
+
+    let challenge_id = create_challenge_id(player_a.id(), player_b.id());
+    let (_game_id, events) = call::accept_challenge(&contract, &player_b, &challenge_id).await?;
+
+    let lock_events: Vec<_> = events
+        .iter()
+        .filter(|event| {
+            matches!(
+                event,
+                chess_common::ContractEvent::ChessGame(chess_common::ChessEvent {
+                    event_kind: chess_common::ChessEventKind::LockBets(_),
+                    ..
+                })
+            )
+        })
+        .collect();
+    assert_eq!(lock_events.len(), 1, "Expected exactly 1 LockBets event");
+
+    let bet_info = view::get_bet_info(&contract, (player_a.id(), player_b.id())).await?;
+    assert!(bet_info.is_locked);
+
+    let (res, _) = call::bet(
+        &better_late,
+        test_token.id(),
+        contract.id(),
+        bet_amount.into(),
+        BetMsg {
+            players: (player_a.id().clone(), player_b.id().clone()),
+            winner: player_a.id().clone(),
+        },
+    )
+    .await?;
+    assert!(!res.receipt_failures().is_empty());
 
     Ok(())
 }
