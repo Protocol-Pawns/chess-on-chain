@@ -396,6 +396,90 @@ async fn test_reject_challenge_refund_wager() -> anyhow::Result<()> {
 }
 
 #[tokio::test]
+async fn test_reject_challenge_refund_wager_ft_transfer_failure() -> anyhow::Result<()> {
+    let (worker, _, contract) = initialize_contracts(None).await?;
+    let test_token = initialize_token(&worker, "wrapped Near", "wNEAR", None, 24).await?;
+    let wager_amount = 10_000_000_000_000_000_000_000_000;
+
+    let player_a = worker.dev_create_account().await?;
+    let player_b = worker.dev_create_account().await?;
+
+    tokio::try_join!(
+        call::storage_deposit(&contract, &player_a, None, None),
+        call::storage_deposit(&contract, &player_b, None, None),
+        call::storage_deposit(
+            &test_token,
+            contract.as_account(),
+            None,
+            Some(NearToken::from_millinear(100)),
+        ),
+        call::storage_deposit(
+            &test_token,
+            &player_a,
+            None,
+            Some(NearToken::from_millinear(100)),
+        ),
+        call::storage_deposit(
+            &test_token,
+            &player_b,
+            None,
+            Some(NearToken::from_millinear(100)),
+        )
+    )?;
+    tokio::try_join!(
+        call::mint_tokens(&test_token, player_a.id(), wager_amount),
+        call::mint_tokens(&test_token, player_b.id(), wager_amount)
+    )?;
+
+    let whitelist = vec![test_token.id().clone()];
+    call::set_token_whitelist(&contract, contract.as_account(), &whitelist).await?;
+
+    call::challenge_with_wager(
+        &player_a,
+        test_token.id(),
+        contract.id(),
+        wager_amount.into(),
+        ChallengeMsg {
+            challenged_id: player_b.id().clone(),
+        },
+    )
+    .await?;
+    let challenge_id = create_challenge_id(player_a.id(), player_b.id());
+
+    let balance = view::ft_balance_of(&test_token, contract.id()).await?;
+    assert_eq!(balance.0, wager_amount);
+
+    player_a
+        .call(test_token.id(), "storage_unregister")
+        .args_json((Some(true),))
+        .max_gas()
+        .deposit(NearToken::from_yoctonear(1))
+        .transact()
+        .await?
+        .into_result()?;
+
+    let reject_res = player_b
+        .call(contract.id(), "reject_challenge")
+        .args_json((&challenge_id, false))
+        .max_gas()
+        .transact()
+        .await?;
+    assert!(!reject_res.receipt_failures().is_empty());
+
+    let balance_a = view::ft_balance_of(&test_token, player_a.id()).await?;
+    assert_eq!(balance_a.0, 0);
+
+    let internal_balance_a =
+        view::get_token_amount(&contract, player_a.id(), test_token.id()).await?;
+    assert_eq!(internal_balance_a.0, wager_amount);
+
+    let contract_balance = view::ft_balance_of(&test_token, contract.id()).await?;
+    assert_eq!(contract_balance.0, wager_amount);
+
+    Ok(())
+}
+
+#[tokio::test]
 async fn test_challenger_reject_own_wager_challenge() -> anyhow::Result<()> {
     let (worker, _, contract) = initialize_contracts(None).await?;
     let test_token = initialize_token(&worker, "wrapped Near", "wNEAR", None, 24).await?;
@@ -1456,7 +1540,8 @@ async fn test_cancel_game_refund_wager_ft_transfer_failure() -> anyhow::Result<(
     let balance_b = view::ft_balance_of(&test_token, player_b.id()).await?;
     assert_eq!(balance_b.0, 0);
 
-    let internal_balance_b = view::get_token_amount(&contract, player_b.id(), test_token.id()).await?;
+    let internal_balance_b =
+        view::get_token_amount(&contract, player_b.id(), test_token.id()).await?;
     assert_eq!(internal_balance_b.0, wager_amount);
 
     let contract_balance = view::ft_balance_of(&test_token, contract.id()).await?;

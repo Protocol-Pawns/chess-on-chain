@@ -48,6 +48,7 @@ pub const ONE_YOCTO: NearToken = NearToken::from_yoctonear(1);
 pub const FT_TRANSFER_GAS: Gas = Gas::from_tgas(15);
 pub const WITHDRAW_CALLBACK_GAS: Gas = Gas::from_tgas(5);
 pub const CANCEL_WAGER_CALLBACK_GAS: Gas = Gas::from_tgas(10);
+pub const REJECT_WAGER_CALLBACK_GAS: Gas = Gas::from_tgas(10);
 
 #[derive(BorshStorageKey, BorshSerialize)]
 #[borsh(crate = "near_sdk::borsh")]
@@ -405,18 +406,42 @@ impl Chess {
 
         Ok(if let Some((token_id, amount)) = wager {
             PromiseOrValue::Promise(
-                ext_ft_core::ext(token_id)
+                ext_ft_core::ext(token_id.clone())
                     .with_attached_deposit(ONE_YOCTO)
                     .with_static_gas(FT_TRANSFER_GAS)
                     .ft_transfer(
                         challenger_id.clone(),
                         amount,
                         Some("wager refund".to_string()),
+                    )
+                    .then(
+                        Self::ext(env::current_account_id())
+                            .with_static_gas(REJECT_WAGER_CALLBACK_GAS)
+                            .reject_challenge_wager_callback(
+                                token_id,
+                                challenger_id.clone(),
+                                amount.0,
+                            ),
                     ),
             )
         } else {
             PromiseOrValue::Value(())
         })
+    }
+
+    #[private]
+    #[allow(deprecated)]
+    pub fn reject_challenge_wager_callback(
+        &mut self,
+        token_id: AccountId,
+        challenger_id: AccountId,
+        amount: u128,
+    ) {
+        if !matches!(env::promise_result(0), PromiseResult::Successful(_)) {
+            if let Some(account) = self.accounts.get_mut(&challenger_id) {
+                account.add_token(&token_id, amount);
+            }
+        }
     }
 
     /// Plays a move.
