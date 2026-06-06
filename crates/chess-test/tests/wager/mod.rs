@@ -1551,6 +1551,79 @@ async fn test_cancel_game_refund_wager_ft_transfer_failure() -> anyhow::Result<(
 }
 
 #[tokio::test]
+async fn test_accept_free_challenge_via_ft_transfer_rejected() -> anyhow::Result<()> {
+    let (worker, _, contract) = initialize_contracts(None).await?;
+    let test_token = initialize_token(&worker, "wrapped Near", "wNEAR", None, 24).await?;
+    let wager_amount = 10_000_000_000_000_000_000_000_000;
+
+    let player_a = worker.dev_create_account().await?;
+    let player_b = worker.dev_create_account().await?;
+
+    tokio::try_join!(
+        call::storage_deposit(&contract, &player_a, None, None),
+        call::storage_deposit(&contract, &player_b, None, None),
+        call::storage_deposit(
+            &test_token,
+            contract.as_account(),
+            None,
+            Some(NearToken::from_millinear(100)),
+        ),
+        call::storage_deposit(
+            &test_token,
+            &player_a,
+            None,
+            Some(NearToken::from_millinear(100)),
+        ),
+        call::storage_deposit(
+            &test_token,
+            &player_b,
+            None,
+            Some(NearToken::from_millinear(100)),
+        )
+    )?;
+    tokio::try_join!(
+        call::mint_tokens(&test_token, player_a.id(), wager_amount),
+        call::mint_tokens(&test_token, player_b.id(), wager_amount)
+    )?;
+
+    let whitelist = vec![test_token.id().clone()];
+    call::set_token_whitelist(&contract, contract.as_account(), &whitelist).await?;
+
+    call::challenge(&contract, &player_a, player_b.id()).await?;
+    let challenge_id = create_challenge_id(player_a.id(), player_b.id());
+
+    let (res, _) = call::accept_challenge_with_wager(
+        &player_b,
+        test_token.id(),
+        contract.id(),
+        wager_amount.into(),
+        AcceptChallengeMsg {
+            challenge_id: challenge_id.clone(),
+        },
+    )
+    .await?;
+    assert!(
+        !res.receipt_failures().is_empty(),
+        "accepting a free challenge via ft_transfer_call should fail"
+    );
+
+    let game_ids = view::get_game_ids(&contract, player_a.id()).await?;
+    assert!(game_ids.is_empty());
+    let game_ids = view::get_game_ids(&contract, player_b.id()).await?;
+    assert!(game_ids.is_empty());
+
+    let balance_b = view::ft_balance_of(&test_token, player_b.id()).await?;
+    assert_eq!(
+        balance_b.0, wager_amount,
+        "player_b tokens should be refunded"
+    );
+    let contract_balance = view::ft_balance_of(&test_token, contract.id()).await?;
+    assert_eq!(contract_balance.0, 0, "contract should not hold any tokens");
+
+    Ok(())
+}
+
+#[tokio::test]
 async fn test_transfer_ownership() -> anyhow::Result<()> {
     let (worker, owner, contract) = initialize_contracts(None).await?;
 

@@ -56,13 +56,16 @@ impl Challenge {
         if challenged_id != &self.challenged {
             return Err(ContractError::WrongChallengedId);
         }
-        if let (Some(paid_wager), Some(wager)) = (paid_wager, &self.wager) {
-            if paid_wager.0 != wager.0 || paid_wager.1 < wager.1 {
-                return Err(ContractError::PaidWager);
+        match (paid_wager, &self.wager) {
+            (Some(paid_wager), Some(wager)) => {
+                if paid_wager.0 != wager.0 || paid_wager.1 < wager.1 {
+                    return Err(ContractError::PaidWager);
+                }
+                Ok(Some(paid_wager.1 .0 - wager.1 .0))
             }
-            Ok(Some(paid_wager.1 .0 - wager.1 .0))
-        } else {
-            Ok(None)
+            (Some(_), None) => Err(ContractError::PaidWager),
+            (None, Some(_)) => Err(ContractError::PaidWager),
+            (None, None) => Ok(None),
         }
     }
 
