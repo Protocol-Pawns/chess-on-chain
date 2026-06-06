@@ -1,4 +1,5 @@
 name: chess-on-chain-events-v3
+apiVersion: 3
 resource_size: s
 description: Indexes chess game events from the Protocol Pawns NEAR smart contract
 
@@ -37,7 +38,7 @@ transforms:
       event_type: string
       event_data: string
     script: |
-      function process(row) {
+      function invoke(data) {
         const CHESS_EVENTS = [
           'challenge',
           'accept_challenge',
@@ -53,7 +54,7 @@ transforms:
         ];
         const results = [];
 
-        const logs = row.logs || [];
+        const logs = data.logs || [];
         for (const log of logs) {
           const trimmed = (log || '').trim();
           const prefix = 'EVENT_JSON:';
@@ -67,9 +68,9 @@ transforms:
             const payload = (parsed.data && parsed.data[0]) || {};
 
             results.push({
-              id: row.id + '_' + parsed.event + '_' + results.length,
-              trigger_block_height: String(row.trigger_block_height),
-              trigger_block_timestamp: String(row.trigger_block_timestamp),
+              id: data.id + '_' + parsed.event + '_' + results.length,
+              trigger_block_height: String(data.trigger_block_height),
+              trigger_block_timestamp: String(data.trigger_block_timestamp),
               event_type: parsed.event,
               event_data: JSON.stringify(payload)
             });
