@@ -258,7 +258,7 @@ impl Chess {
         self.fees.set(treasury);
     }
 
-    pub fn set_wager_whitelist(&mut self, whitelist: Vec<AccountId>) {
+    pub fn set_token_whitelist(&mut self, whitelist: Vec<AccountId>) {
         self.assert_owner();
         self.token_whitelist.set(whitelist);
     }

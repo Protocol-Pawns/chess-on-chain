@@ -10,7 +10,7 @@
       "compiler": "rustc 1.86.0",
       "builder": "cargo-near cargo-near-build 0.11.3"
     },
-    "wasm_hash": "5EmPQuiiLbTD6UN7yX83UYEVoZwQwFTCMfeLWTaNh3fm"
+    "wasm_hash": "HYN54Wy422kdVFLR8jTSdXaJ1hks3xQainj7B1QQ8DwC"
   },
   "body": {
     "functions": [
@@ -1051,7 +1051,7 @@
         }
       },
       {
-        "name": "set_wager_whitelist",
+        "name": "set_token_whitelist",
         "kind": "call",
         "params": {
           "serialization_type": "json",
