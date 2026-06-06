@@ -217,7 +217,6 @@ impl Chess {
                         Color::Black => game.get_black().get_account_id().unwrap(),
                     };
 
-                    // TODO Limit max amount of bets
                     for (token_id, bets) in all_bets.bets.iter() {
                         let mut total_winner = 0;
                         let mut total_looser = 0;

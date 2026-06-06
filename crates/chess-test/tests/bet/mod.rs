@@ -1395,6 +1395,78 @@ async fn test_cancel_game_refunds_bettors() -> anyhow::Result<()> {
     Ok(())
 }
 
+#[tokio::test]
+async fn test_max_bets_per_game() -> anyhow::Result<()> {
+    let (worker, _, contract) = initialize_contracts(None).await?;
+    let test_token = initialize_token(&worker, "SHITZU", "SHITZU", None, 24).await?;
+    let bet_amount = 1_000_000;
+
+    let player_a = worker.dev_create_account().await?;
+    let player_b = worker.dev_create_account().await?;
+
+    call::storage_deposit(&contract, &player_a, None, None).await?;
+    call::storage_deposit(&contract, &player_b, None, None).await?;
+    call::storage_deposit(
+        &test_token,
+        contract.as_account(),
+        None,
+        Some(NearToken::from_millinear(100)),
+    )
+    .await?;
+
+    let whitelist = vec![test_token.id().clone()];
+    call::set_token_whitelist(&contract, contract.as_account(), &whitelist).await?;
+
+    let mut bettors = vec![];
+    for _ in 0..6 {
+        let bettor = worker.dev_create_account().await?;
+        call::storage_deposit(&contract, &bettor, None, None).await?;
+        call::storage_deposit(
+            &test_token,
+            &bettor,
+            None,
+            Some(NearToken::from_millinear(100)),
+        )
+        .await?;
+        call::mint_tokens(&test_token, bettor.id(), bet_amount).await?;
+        bettors.push(bettor);
+    }
+
+    for bettor in bettors.iter().take(5) {
+        call::bet(
+            bettor,
+            test_token.id(),
+            contract.id(),
+            bet_amount.into(),
+            BetMsg {
+                players: (player_a.id().clone(), player_b.id().clone()),
+                winner: player_a.id().clone(),
+            },
+        )
+        .await?;
+    }
+
+    call::bet(
+        &bettors[5],
+        test_token.id(),
+        contract.id(),
+        bet_amount.into(),
+        BetMsg {
+            players: (player_a.id().clone(), player_b.id().clone()),
+            winner: player_a.id().clone(),
+        },
+    )
+    .await?;
+
+    let balance = view::ft_balance_of(&test_token, bettors[5].id()).await?;
+    assert_eq!(
+        balance.0, bet_amount,
+        "6th bettor tokens should be refunded"
+    );
+
+    Ok(())
+}
+
 async fn play_stalemate_game(
     contract: &Contract,
     white: &Account,

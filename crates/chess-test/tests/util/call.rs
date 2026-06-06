@@ -1,8 +1,8 @@
 use super::log_tx_result;
 use chess_common::ContractEvent;
 use chess_lib::{
-    create_challenge_id, AcceptChallengeMsg, BetMsg, ChallengeId, ChallengeMsg, Difficulty,
-    FtReceiverMsg, GameId, GameOutcome, MoveStr,
+    AcceptChallengeMsg, BetMsg, ChallengeId, ChallengeMsg, Difficulty, FtReceiverMsg, GameId,
+    GameOutcome, MoveStr,
 };
 use near_sdk::json_types::U128;
 use near_workspaces::{

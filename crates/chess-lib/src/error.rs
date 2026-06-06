@@ -60,6 +60,8 @@ pub enum ContractError {
     InvalidBetWinner,
     #[error("Maximum amount of open bets reached")]
     MaxBetsReached,
+    #[error("Maximum amount of bets per game reached")]
+    MaxBetsPerGameReached,
     #[error("Players cannot bet on their own game")]
     PlayerCannotBetOnSelf,
     #[error("No bet found for this bettor on the given player pair and token")]

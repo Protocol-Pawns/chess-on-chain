@@ -1,5 +1,7 @@
 #[allow(deprecated)]
-use crate::{Account, Chess, ChessEvent, ContractError, StorageKey, MAX_OPEN_BETS};
+use crate::{
+    Account, Chess, ChessEvent, ContractError, StorageKey, MAX_BETS_PER_GAME, MAX_OPEN_BETS,
+};
 use near_sdk::{
     borsh::{self, BorshDeserialize, BorshSerialize},
     env,
@@ -191,6 +193,11 @@ impl Chess {
                 .is_ok()
         });
         if !bettor_already_has_bet {
+            let total_bets: usize = bets.bets.iter().map(|(_, bl)| bl.len()).sum();
+            if total_bets >= MAX_BETS_PER_GAME as usize {
+                return Err(ContractError::MaxBetsPerGameReached);
+            }
+
             let active = self
                 .bettor_active_bets
                 .get(&sender_id)
