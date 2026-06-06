@@ -207,6 +207,7 @@ const handlers: Record<string, EventHandler> = {
   async resolve_bets(sql, event) {
     const d = event.event_data;
     const gid = gameId(d);
+    const feeBps = (d.fee_bps as number) ?? 0;
 
     await sql`
       UPDATE bets SET
@@ -216,11 +217,98 @@ const handlers: Record<string, EventHandler> = {
         AND status = 'locked'
     `;
 
-    for (const p of (d.payouts ?? []) as Array<{
-      bettor: string;
-      token_id: string;
-      amount: string;
-    }>) {
+    const outcome = d.outcome as { result: string; color?: string };
+    const bets = await sql`
+      SELECT bettor, token_id, amount, winner FROM bets
+      WHERE game_id = ${gid} AND status = 'resolved'
+    `;
+
+    const byToken = new Map<
+      string,
+      Array<{ bettor: string; amount: string; winner: string }>
+    >();
+    for (const b of bets) {
+      const row = b as {
+        bettor: string;
+        amount: string;
+        winner: string;
+        token_id: string;
+      };
+      let arr = byToken.get(row.token_id);
+      if (!arr) {
+        arr = [];
+        byToken.set(row.token_id, arr);
+      }
+      arr.push(row);
+    }
+
+    const payouts: Array<{ bettor: string; token_id: string; amount: string }> =
+      [];
+
+    if (outcome.result === 'Stalemate') {
+      for (const [tokenId, tokenBets] of byToken) {
+        for (const b of tokenBets) {
+          payouts.push({
+            bettor: b.bettor,
+            token_id: tokenId,
+            amount: b.amount
+          });
+        }
+      }
+    } else if (outcome.result === 'Victory' && outcome.color) {
+      const gameRows =
+        await sql`SELECT white_type, white_value, black_type, black_value FROM games WHERE game_id = ${gid}`;
+      if (gameRows.length > 0) {
+        const game = gameRows[0] as Record<string, string>;
+        const winnerId =
+          outcome.color === 'White' ? game.white_value : game.black_value;
+
+        for (const [tokenId, tokenBets] of byToken) {
+          const winners = tokenBets.filter(b => b.winner === winnerId);
+          const losers = tokenBets.filter(b => b.winner !== winnerId);
+          const totalWinner = winners.reduce(
+            (s, b) => s + BigInt(b.amount),
+            0n
+          );
+          const totalLoserRaw = losers.reduce(
+            (s, b) => s + BigInt(b.amount),
+            0n
+          );
+          const fee = (totalLoserRaw * BigInt(feeBps)) / 10_000n;
+          const totalLoser = totalLoserRaw - fee;
+
+          let totalWinAmount = 0n;
+          if (totalWinner > 0n) {
+            for (const b of winners) {
+              const amt = BigInt(b.amount);
+              let winAmount = (totalLoser * amt) / totalWinner;
+              if (winAmount > amt) winAmount = amt;
+              totalWinAmount += winAmount;
+              payouts.push({
+                bettor: b.bettor,
+                token_id: tokenId,
+                amount: String(winAmount + amt)
+              });
+            }
+          }
+
+          const totalRefund = totalLoser - totalWinAmount;
+          if (totalRefund > 0n && totalLoser > 0n) {
+            for (const b of losers) {
+              const refundAmount =
+                (totalRefund * BigInt(b.amount)) / totalLoser;
+              payouts.push({
+                bettor: b.bettor,
+                token_id: tokenId,
+                amount: String(refundAmount)
+              });
+            }
+          }
+        }
+      }
+    }
+
+    for (const p of payouts) {
       await sql`
         UPDATE bets SET payout = ${p.amount}
         WHERE game_id = ${gid}

@@ -159,14 +159,7 @@ pub struct ResolveBets {
     pub players: (AccountId, AccountId),
     pub game_id: GameId,
     pub outcome: GameOutcome,
-    pub payouts: Vec<BetPayout>,
-}
-
-#[derive(Clone, Serialize, Deserialize, Debug)]
-pub struct BetPayout {
-    pub bettor: AccountId,
-    pub token_id: AccountId,
-    pub amount: String,
+    pub fee_bps: u16,
 }
 
 impl Display for ContractEvent {

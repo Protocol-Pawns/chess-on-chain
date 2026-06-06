@@ -4,6 +4,7 @@ mod util;
 mod wager;
 
 use base64::Engine;
+use chess_common::ContractEvent;
 use chess_engine::Color;
 use chess_lib::{
     create_challenge_id, Challenge, ChessEvent, Difficulty, GameId, GameInfo, GameOutcome, Player,
@@ -862,6 +863,149 @@ async fn test_mainnet_migration() -> anyhow::Result<()> {
         .await?
         .json()?;
     assert_eq!(account_ids, account_ids_after);
+
+    Ok(())
+}
+
+fn count_piece(board: &[String; 8], piece: char) -> usize {
+    board
+        .iter()
+        .map(|row| row.chars().filter(|&c| c == piece).count())
+        .sum()
+}
+
+fn assert_valid_board(board: &[String; 8]) {
+    let white_kings = count_piece(board, 'K');
+    let black_kings = count_piece(board, 'k');
+    assert_eq!(
+        white_kings, 1,
+        "board must have exactly 1 white king: {:?}",
+        board
+    );
+    assert_eq!(
+        black_kings, 1,
+        "board must have exactly 1 black king: {:?}",
+        board
+    );
+}
+
+fn generate_white_move_attempts(board: &[String; 8]) -> Vec<String> {
+    let mut moves = Vec::new();
+    let priority_pieces: &[char] = &['P', 'N', 'B', 'R', 'Q', 'K'];
+    let cols = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'];
+    for &piece_ch in priority_pieces {
+        for row in 0..8u8 {
+            for col in 0..8u8 {
+                let ch = board[row as usize].as_bytes()[col as usize] as char;
+                if ch != piece_ch {
+                    continue;
+                }
+                let deltas: &[(i8, i8)] = if piece_ch == 'P' {
+                    &[(0, 1), (0, 2), (-1, 1), (1, 1)]
+                } else if piece_ch == 'N' {
+                    &[
+                        (-2, -1),
+                        (-2, 1),
+                        (-1, -2),
+                        (-1, 2),
+                        (1, -2),
+                        (1, 2),
+                        (2, -1),
+                        (2, 1),
+                    ]
+                } else {
+                    &[]
+                };
+                for &(dc, dr) in deltas {
+                    let nc = col as i8 + dc;
+                    let nr = row as i8 + dr;
+                    if nc >= 0 && nc < 8 && nr >= 0 && nr < 8 {
+                        let target = board[nr as usize].as_bytes()[nc as usize] as char;
+                        if target == ' ' || target.is_ascii_lowercase() {
+                            let from = format!("{}{}", cols[col as usize], row + 1);
+                            let to = format!("{}{}", cols[nc as usize], nr + 1);
+                            moves.push(format!("{}{}", from, to));
+                        }
+                    }
+                }
+            }
+        }
+    }
+    moves
+}
+
+#[tokio::test]
+async fn test_ai_move_board_state_consistency() -> anyhow::Result<()> {
+    let (worker, _, contract) = initialize_contracts(None).await?;
+    let player_a = worker.dev_create_account().await?;
+    call::storage_deposit(&contract, &player_a, None, None).await?;
+
+    let (game_id, _) = call::create_ai_game(&contract, &player_a, Difficulty::Easy).await?;
+    let block_height = game_id.0;
+    let game_id = GameId(block_height, player_a.id().clone(), None);
+
+    let mut tested_moves = 0u32;
+    let max_moves = 10;
+
+    while tested_moves < max_moves {
+        let current_board = view::get_board(&contract, &game_id).await?;
+        let candidates = generate_white_move_attempts(&current_board);
+        if candidates.is_empty() {
+            break;
+        }
+
+        let mut played_this_turn = false;
+        for mv in candidates {
+            let result = call::play_move(&contract, &player_a, &game_id, mv.clone()).await;
+            let ((outcome, returned_board), _, events) = match result {
+                Ok(r) => r,
+                Err(_) => continue,
+            };
+            played_this_turn = true;
+            tested_moves += 1;
+
+            for event in &events {
+                if let ContractEvent::ChessGame(ce) = event {
+                    if let chess_common::ChessEventKind::PlayMove(pm) = &ce.event_kind {
+                        assert_valid_board(&pm.board);
+                    }
+                }
+            }
+
+            let ai_event_board = events.iter().rev().find_map(|e| {
+                if let ContractEvent::ChessGame(ce) = e {
+                    if let chess_common::ChessEventKind::PlayMove(pm) = &ce.event_kind {
+                        if pm.color == Color::Black {
+                            return Some(pm.board.clone());
+                        }
+                    }
+                }
+                None
+            });
+            if let Some(event_board) = ai_event_board {
+                assert_valid_board(&event_board);
+                assert_eq!(
+                    returned_board, event_board,
+                    "returned board must match AI event board"
+                );
+            }
+
+            if outcome.is_some() {
+                return Ok(());
+            }
+            break;
+        }
+
+        if !played_this_turn {
+            break;
+        }
+    }
+
+    assert!(
+        tested_moves >= 3,
+        "should have tested at least 3 moves, got {}",
+        tested_moves
+    );
 
     Ok(())
 }

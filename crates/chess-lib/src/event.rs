@@ -65,14 +65,6 @@ pub enum ChessEvent {
         players: (AccountId, AccountId),
         game_id: GameId,
         outcome: GameOutcome,
-        payouts: Vec<BetPayoutEvent>,
+        fee_bps: u16,
     },
-}
-
-#[derive(Debug, Clone, near_sdk::serde::Serialize, near_sdk::serde::Deserialize)]
-#[serde(crate = "near_sdk::serde")]
-pub struct BetPayoutEvent {
-    pub bettor: AccountId,
-    pub token_id: AccountId,
-    pub amount: U128,
 }

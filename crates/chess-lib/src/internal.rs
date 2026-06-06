@@ -1,7 +1,7 @@
 use crate::{
-    calculate_elo, create_challenge_id, Account, Achievement, BetId, BetPayoutEvent, Challenge,
-    ChallengeId, Chess, ChessEvent, ContractError, Difficulty, EloConfig, EloOutcome, Game, GameId,
-    GameOutcome, Player, Wager, FT_TRANSFER_GAS, ONE_YOCTO, WAGER_PAYOUT_CALLBACK_GAS,
+    calculate_elo, create_challenge_id, Account, Achievement, BetId, Challenge, ChallengeId, Chess,
+    ChessEvent, ContractError, Difficulty, EloConfig, EloOutcome, Game, GameId, GameOutcome,
+    Player, Wager, FT_TRANSFER_GAS, ONE_YOCTO, WAGER_PAYOUT_CALLBACK_GAS,
 };
 use chess_engine::Color;
 use near_contract_standards::fungible_token::core::ext_ft_core;
@@ -221,7 +221,7 @@ impl Chess {
                     *active = active.saturating_sub(1);
                 }
             }
-            let mut payouts: Vec<BetPayoutEvent> = vec![];
+            let fee_bps = *self.fees.get();
             match outcome {
                 GameOutcome::Victory(color) => {
                     let winner_id = match color {
@@ -260,11 +260,6 @@ impl Chess {
                                     .get_mut(account_id)
                                     .unwrap()
                                     .add_token(token_id, payout);
-                                payouts.push(BetPayoutEvent {
-                                    bettor: account_id.clone(),
-                                    token_id: token_id.clone(),
-                                    amount: payout.into(),
-                                });
                             }
                         }
 
@@ -282,11 +277,6 @@ impl Chess {
                                         .get_mut(account_id)
                                         .unwrap()
                                         .add_token(token_id, refund_amount);
-                                    payouts.push(BetPayoutEvent {
-                                        bettor: account_id.clone(),
-                                        token_id: token_id.clone(),
-                                        amount: refund_amount.into(),
-                                    });
                                 }
                             }
                         }
@@ -299,11 +289,6 @@ impl Chess {
                                 .get_mut(account_id)
                                 .unwrap()
                                 .add_token(token_id, bet.amount);
-                            payouts.push(BetPayoutEvent {
-                                bettor: account_id.clone(),
-                                token_id: token_id.clone(),
-                                amount: bet.amount.into(),
-                            });
                         }
                     }
                 }
@@ -313,7 +298,7 @@ impl Chess {
                 players,
                 game_id: game_id.clone(),
                 outcome: outcome.clone(),
-                payouts,
+                fee_bps,
             };
             event.emit();
         }

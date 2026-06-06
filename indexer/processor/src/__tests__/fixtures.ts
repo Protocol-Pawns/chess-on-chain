@@ -151,12 +151,12 @@ export function makeResolveBets(
   players = ['alice.near', 'bob.near'] as [string, string],
   gameId: [number, string, string | null] = [123, 'alice.near', 'bob.near'],
   outcome = { result: 'Victory', color: 'White' },
-  payouts: Array<{ bettor: string; token_id: string; amount: string }> = []
+  feeBps = 0
 ): RawEvent {
   return makeEvent('resolve_bets', {
     players,
     game_id: gameId,
     outcome,
-    payouts
+    fee_bps: feeBps
   });
 }

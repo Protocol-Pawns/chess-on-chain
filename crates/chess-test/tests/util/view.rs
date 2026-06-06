@@ -155,6 +155,18 @@ pub async fn get_treasury_tokens(contract: &Contract) -> anyhow::Result<Vec<(Acc
     Ok(res.json()?)
 }
 
+pub async fn get_board(contract: &Contract, game_id: &GameId) -> anyhow::Result<[String; 8]> {
+    let res = log_view_result(
+        contract
+            .call("get_board")
+            .args_json((game_id,))
+            .max_gas()
+            .view()
+            .await?,
+    )?;
+    Ok(res.json()?)
+}
+
 pub async fn ft_balance_of(contract: &Contract, account_id: &AccountId) -> anyhow::Result<U128> {
     let res = log_view_result(
         contract

@@ -230,8 +230,9 @@ describe('handlers', () => {
     const players = ['alice.near', 'bob.near'] as [string, string];
 
     it('places, locks, and resolves bets with payouts', async () => {
+      await processEvent(makeCreateGame(GAME_ID));
       await processEvent(makePlaceBet('carol.near', players));
-      await processEvent(makePlaceBet('dave.near', players));
+      await processEvent(makePlaceBet('dave.near', players, 'usdc.testnet', '1000000', 'bob.near'));
 
       let rows = await db`SELECT * FROM bets ORDER BY bettor`;
       expect(rows).toHaveLength(2);
@@ -247,10 +248,7 @@ describe('handlers', () => {
       }
 
       await processEvent(
-        makeResolveBets(players, GAME_ID, undefined, [
-          { bettor: 'carol.near', token_id: 'usdc.testnet', amount: '2000000' },
-          { bettor: 'dave.near', token_id: 'usdc.testnet', amount: '0' }
-        ])
+        makeResolveBets(players, GAME_ID)
       );
       rows = await db`SELECT * FROM bets ORDER BY bettor`;
       for (const r of rows) {
@@ -263,7 +261,7 @@ describe('handlers', () => {
       const dave = rows.find(
         r => (r as Record<string, unknown>).bettor === 'dave.near'
       )!;
-      expect((dave as Record<string, unknown>).payout).toBe('0');
+      expect((dave as Record<string, unknown>).payout).toBeNull();
     });
 
     it('cancels a pending bet', async () => {

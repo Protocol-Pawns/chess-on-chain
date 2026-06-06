@@ -206,8 +206,8 @@ where
 }
 
 const STALEMATE_MOVES: [&str; 18] = [
-    "e2e3", "a7a5", "d1h5", "a8a6", "h5a5", "h7h5", "a5c7", "a6h6", "h2h4", "f7f6", "c7d7",
-    "e8f7", "d7b7", "d8d3", "b7b8", "d3h7", "b8c8", "f7g6",
+    "e2e3", "a7a5", "d1h5", "a8a6", "h5a5", "h7h5", "a5c7", "a6h6", "h2h4", "f7f6", "c7d7", "e8f7",
+    "d7b7", "d8d3", "b7b8", "d3h7", "b8c8", "f7g6",
 ];
 const STALEMATE_LAST_MOVE: &str = "c8e6";
 
