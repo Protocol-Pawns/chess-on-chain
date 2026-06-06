@@ -1782,3 +1782,266 @@ async fn test_wager_and_bets_combined() -> anyhow::Result<()> {
 
     Ok(())
 }
+
+#[tokio::test]
+async fn test_bet_multiple_tokens() -> anyhow::Result<()> {
+    let (worker, owner, contract) = initialize_contracts(None).await?;
+    let token_a = initialize_token(&worker, "TokenA", "TKA", None, 6).await?;
+    let token_b = initialize_token(&worker, "TokenB", "TKB", None, 6).await?;
+    let bet_amount = 1_000_000;
+
+    let player_a = worker.dev_create_account().await?;
+    let player_b = worker.dev_create_account().await?;
+    let better_a = worker.dev_create_account().await?;
+    let better_b = worker.dev_create_account().await?;
+    let better_c = worker.dev_create_account().await?;
+    let better_d = worker.dev_create_account().await?;
+
+    tokio::try_join!(
+        call::storage_deposit(&contract, &player_a, None, None),
+        call::storage_deposit(&contract, &player_b, None, None),
+        call::storage_deposit(&contract, &better_a, None, None),
+        call::storage_deposit(&contract, &better_b, None, None),
+        call::storage_deposit(&contract, &better_c, None, None),
+        call::storage_deposit(&contract, &better_d, None, None),
+    )?;
+
+    for token in [&token_a, &token_b] {
+        tokio::try_join!(
+            call::storage_deposit(
+                token,
+                contract.as_account(),
+                None,
+                Some(NearToken::from_millinear(100))
+            ),
+            call::storage_deposit(token, &better_a, None, Some(NearToken::from_millinear(100))),
+            call::storage_deposit(token, &better_b, None, Some(NearToken::from_millinear(100))),
+            call::storage_deposit(token, &better_c, None, Some(NearToken::from_millinear(100))),
+            call::storage_deposit(token, &better_d, None, Some(NearToken::from_millinear(100))),
+        )?;
+        tokio::try_join!(
+            call::mint_tokens(token, better_a.id(), bet_amount),
+            call::mint_tokens(token, better_b.id(), bet_amount),
+            call::mint_tokens(token, better_c.id(), bet_amount),
+            call::mint_tokens(token, better_d.id(), bet_amount),
+        )?;
+    }
+
+    call::set_fees(&contract, &owner, 1000).await?;
+    let whitelist = vec![token_a.id().clone(), token_b.id().clone()];
+    call::set_wager_whitelist(&contract, &owner, &whitelist).await?;
+
+    call::challenge(&contract, &player_a, player_b.id()).await?;
+
+    bet!(&better_a, token_a.id(), contract.id(), bet_amount, player_a => player_b).await?;
+    bet!(&better_b, token_a.id(), contract.id(), bet_amount, player_b => player_a).await?;
+    bet!(&better_c, token_b.id(), contract.id(), bet_amount, player_a => player_b).await?;
+    bet!(&better_d, token_b.id(), contract.id(), bet_amount, player_b => player_a).await?;
+
+    let challenge_id = create_challenge_id(player_a.id(), player_b.id());
+    let (game_id, _) = call::accept_challenge(&contract, &player_b, &challenge_id).await?;
+
+    call::play_move(&contract, &player_a, &game_id, "e2e4".to_string()).await?;
+    call::play_move(&contract, &player_b, &game_id, "a7a6".to_string()).await?;
+    call::play_move(&contract, &player_a, &game_id, "d1f3".to_string()).await?;
+    call::play_move(&contract, &player_b, &game_id, "a6a5".to_string()).await?;
+    call::play_move(&contract, &player_a, &game_id, "f1c4".to_string()).await?;
+    call::play_move(&contract, &player_b, &game_id, "a5a4".to_string()).await?;
+    let ((outcome, _), _, _) =
+        call::play_move(&contract, &player_a, &game_id, "f3f7".to_string()).await?;
+    assert_eq!(outcome.unwrap(), GameOutcome::Victory(Color::White));
+
+    call::withdraw_token(&contract, &better_a, token_a.id()).await?;
+    call::withdraw_token(&contract, &better_b, token_a.id()).await?;
+    let balance = view::ft_balance_of(&token_a, better_a.id()).await?;
+    assert_eq!(balance.0, 1_900_000);
+    let balance = view::ft_balance_of(&token_a, better_b.id()).await?;
+    assert_eq!(balance.0, 0);
+
+    call::withdraw_token(&contract, &better_c, token_b.id()).await?;
+    call::withdraw_token(&contract, &better_d, token_b.id()).await?;
+    let balance = view::ft_balance_of(&token_b, better_c.id()).await?;
+    assert_eq!(balance.0, 1_900_000);
+    let balance = view::ft_balance_of(&token_b, better_d.id()).await?;
+    assert_eq!(balance.0, 0);
+
+    let balance = view::ft_balance_of(&token_a, contract.id()).await?;
+    assert_eq!(balance.0, 100_000);
+    let balance = view::ft_balance_of(&token_b, contract.id()).await?;
+    assert_eq!(balance.0, 100_000);
+
+    let treasury_tokens = view::get_treasury_tokens(&contract).await?;
+    assert_eq!(treasury_tokens.len(), 2);
+    for (tid, amt) in &treasury_tokens {
+        if tid == token_a.id() {
+            assert_eq!(amt.0, 100_000);
+        } else if tid == token_b.id() {
+            assert_eq!(amt.0, 100_000);
+        } else {
+            panic!("unexpected treasury token: {}", tid);
+        }
+    }
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn test_cancel_bet_non_owner() -> anyhow::Result<()> {
+    let (worker, _, contract) = initialize_contracts(None).await?;
+    let test_token = initialize_token(&worker, "SHITZU", "SHITZU", None, 24).await?;
+    let bet_amount = 1_000_000;
+
+    let player_a = worker.dev_create_account().await?;
+    let player_b = worker.dev_create_account().await?;
+    let better_a = worker.dev_create_account().await?;
+    let better_b = worker.dev_create_account().await?;
+
+    tokio::try_join!(
+        call::storage_deposit(&contract, &player_a, None, None),
+        call::storage_deposit(&contract, &player_b, None, None),
+        call::storage_deposit(&contract, &better_a, None, None),
+        call::storage_deposit(&contract, &better_b, None, None),
+    )?;
+    tokio::try_join!(
+        call::storage_deposit(
+            &test_token,
+            contract.as_account(),
+            None,
+            Some(NearToken::from_millinear(100))
+        ),
+        call::storage_deposit(&test_token, &better_a, None, Some(NearToken::from_millinear(100))),
+        call::storage_deposit(&test_token, &better_b, None, Some(NearToken::from_millinear(100))),
+    )?;
+    call::mint_tokens(&test_token, better_a.id(), bet_amount).await?;
+
+    let whitelist = vec![test_token.id().clone()];
+    call::set_wager_whitelist(&contract, contract.as_account(), &whitelist).await?;
+
+    call::challenge(&contract, &player_a, player_b.id()).await?;
+    let challenge_id = create_challenge_id(player_a.id(), player_b.id());
+    let (game_id, _) = call::accept_challenge(&contract, &player_b, &challenge_id).await?;
+
+    bet!(&better_a, test_token.id(), contract.id(), bet_amount, player_a => player_b).await?;
+
+    let res = better_b
+        .call(contract.id(), "cancel_bet")
+        .args_json((
+            (player_a.id(), player_b.id()),
+            test_token.id(),
+        ))
+        .max_gas()
+        .transact()
+        .await?;
+    let failures = res.receipt_failures();
+    assert!(!failures.is_empty());
+
+    let bet_info = view::get_bet_info(&contract, (player_a.id(), player_b.id())).await?;
+    assert!(!bet_info.is_locked);
+    assert_eq!(bet_info.bets.len(), 1);
+    let token_bets = bet_info.bets.get(test_token.id()).unwrap();
+    assert_eq!(token_bets.len(), 1);
+    assert_eq!(token_bets[0].0, better_a.id().clone());
+    assert_eq!(token_bets[0].1.amount.0, bet_amount);
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn test_cancel_bet_wrong_token() -> anyhow::Result<()> {
+    let (worker, _, contract) = initialize_contracts(None).await?;
+    let token_a = initialize_token(&worker, "TokenA", "TKA", None, 6).await?;
+    let token_b = initialize_token(&worker, "TokenB", "TKB", None, 6).await?;
+    let bet_amount = 1_000_000;
+
+    let player_a = worker.dev_create_account().await?;
+    let player_b = worker.dev_create_account().await?;
+    let better = worker.dev_create_account().await?;
+
+    tokio::try_join!(
+        call::storage_deposit(&contract, &player_a, None, None),
+        call::storage_deposit(&contract, &player_b, None, None),
+        call::storage_deposit(&contract, &better, None, None),
+    )?;
+    tokio::try_join!(
+        call::storage_deposit(
+            &token_a,
+            contract.as_account(),
+            None,
+            Some(NearToken::from_millinear(100))
+        ),
+        call::storage_deposit(&token_a, &better, None, Some(NearToken::from_millinear(100))),
+    )?;
+    call::mint_tokens(&token_a, better.id(), bet_amount).await?;
+
+    let whitelist = vec![token_a.id().clone()];
+    call::set_wager_whitelist(&contract, contract.as_account(), &whitelist).await?;
+
+    call::challenge(&contract, &player_a, player_b.id()).await?;
+    let challenge_id = create_challenge_id(player_a.id(), player_b.id());
+    let (game_id, _) = call::accept_challenge(&contract, &player_b, &challenge_id).await?;
+
+    bet!(&better, token_a.id(), contract.id(), bet_amount, player_a => player_b).await?;
+
+    let res = better
+        .call(contract.id(), "cancel_bet")
+        .args_json(((player_a.id(), player_b.id()), token_b.id()))
+        .max_gas()
+        .transact()
+        .await?;
+    let failures = res.receipt_failures();
+    assert!(!failures.is_empty());
+
+    let bet_info = view::get_bet_info(&contract, (player_a.id(), player_b.id())).await?;
+    assert!(!bet_info.is_locked);
+    let token_bets = bet_info.bets.get(token_a.id()).unwrap();
+    assert_eq!(token_bets.len(), 1);
+    assert_eq!(token_bets[0].1.amount.0, bet_amount);
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn test_bet_same_players() -> anyhow::Result<()> {
+    let (worker, _, contract) = initialize_contracts(None).await?;
+    let test_token = initialize_token(&worker, "SHITZU", "SHITZU", None, 24).await?;
+    let bet_amount = 1_000_000;
+
+    let player = worker.dev_create_account().await?;
+    let better = worker.dev_create_account().await?;
+
+    tokio::try_join!(
+        call::storage_deposit(&contract, &player, None, None),
+        call::storage_deposit(&contract, &better, None, None),
+    )?;
+    tokio::try_join!(
+        call::storage_deposit(
+            &test_token,
+            contract.as_account(),
+            None,
+            Some(NearToken::from_millinear(100))
+        ),
+        call::storage_deposit(&test_token, &better, None, Some(NearToken::from_millinear(100))),
+    )?;
+    call::mint_tokens(&test_token, better.id(), bet_amount).await?;
+
+    let whitelist = vec![test_token.id().clone()];
+    call::set_wager_whitelist(&contract, contract.as_account(), &whitelist).await?;
+
+    let (res, _) = call::bet(
+        &better,
+        test_token.id(),
+        contract.id(),
+        bet_amount.into(),
+        BetMsg {
+            players: (player.id().clone(), player.id().clone()),
+            winner: player.id().clone(),
+        },
+    )
+    .await?;
+    assert!(!res.receipt_failures().is_empty());
+
+    let balance = view::ft_balance_of(&test_token, better.id()).await?;
+    assert_eq!(balance.0, bet_amount);
+
+    Ok(())
+}
