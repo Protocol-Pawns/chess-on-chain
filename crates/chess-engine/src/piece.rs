@@ -476,7 +476,8 @@ impl Piece {
                 }
                 if board.can_kingside_castle(ally_color) {
                     out.push(Move::KingSideCastle);
-                } else if board.can_queenside_castle(ally_color) {
+                }
+                if board.can_queenside_castle(ally_color) {
                     out.push(Move::QueenSideCastle);
                 }
             }
