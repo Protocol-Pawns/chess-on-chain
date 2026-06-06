@@ -386,7 +386,7 @@ export async function getUnnotifiedEvents(db: Db): Promise<UnnotifiedEvent[]> {
   return db`
     SELECT id, event_type, event_data FROM chess_events
     WHERE processed = true AND notified = false
-    ORDER BY trigger_block_timestamp ASC
+    ORDER BY trigger_block_timestamp::bigint ASC
     LIMIT 100
   ` as Promise<UnnotifiedEvent[]>;
 }

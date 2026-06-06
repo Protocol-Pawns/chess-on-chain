@@ -2,8 +2,8 @@ BEGIN;
 
 CREATE TABLE IF NOT EXISTS chess_events (
   id TEXT PRIMARY KEY,
-  trigger_block_height BIGINT NOT NULL,
-  trigger_block_timestamp BIGINT NOT NULL,
+  trigger_block_height TEXT NOT NULL,
+  trigger_block_timestamp TEXT NOT NULL,
   event_type TEXT NOT NULL,
   event_data TEXT NOT NULL,
   processed BOOLEAN NOT NULL DEFAULT FALSE,

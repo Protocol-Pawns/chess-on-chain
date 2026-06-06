@@ -9,14 +9,15 @@ async function processBatch(db: ReturnType<typeof getDb>): Promise<number> {
     SELECT id, trigger_block_height, trigger_block_timestamp, event_type, event_data
     FROM chess_events
     WHERE processed = false
-    ORDER BY trigger_block_height ASC, trigger_block_timestamp ASC
+    ORDER BY trigger_block_height::bigint ASC, trigger_block_timestamp::bigint ASC
     LIMIT ${BATCH_SIZE}
   `;
   const events = rows.map((r: Record<string, unknown>) => ({
     ...r,
     trigger_block_height: String(r.trigger_block_height),
     trigger_block_timestamp: String(r.trigger_block_timestamp),
-    event_data: typeof r.event_data === 'string' ? JSON.parse(r.event_data) : r.event_data
+    event_data:
+      typeof r.event_data === 'string' ? JSON.parse(r.event_data) : r.event_data
   })) as RawEvent[];
 
   if (events.length === 0) return 0;

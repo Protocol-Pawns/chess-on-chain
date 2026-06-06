@@ -205,7 +205,7 @@ export async function processNotifications(
   const rawEvents = (await db`
     SELECT id, event_type, event_data FROM chess_events
     WHERE processed = true AND notified = false
-    ORDER BY trigger_block_timestamp ASC
+    ORDER BY trigger_block_timestamp::bigint ASC
     LIMIT 100
   `) as Array<{
     id: string;
