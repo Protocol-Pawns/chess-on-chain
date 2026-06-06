@@ -1,11 +1,10 @@
 use crate::util::*;
-use chess_common::{ContractEvent};
 use chess_engine::Color;
 use chess_lib::{
     create_challenge_id, AcceptChallengeMsg, Challenge, ChallengeMsg, ChessEvent, GameId,
     GameOutcome, Player,
 };
-use near_workspaces::{types::NearToken, Account, Contract};
+use near_workspaces::types::NearToken;
 
 #[tokio::test]
 async fn test_accept_challenge_success() -> anyhow::Result<()> {

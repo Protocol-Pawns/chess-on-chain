@@ -311,11 +311,11 @@ impl Game {
                     (None, Self::_get_board_state(&board))
                 }
                 GameResult::Victory(color) => {
-                    let board_state = Self::_get_board_state(&game.board.apply_eval_move(mv));
+                    let board_state = Self::_get_board_state(&board.apply_eval_move(ai_mv));
                     (Some(GameOutcome::Victory(color)), board_state)
                 }
                 GameResult::Stalemate => {
-                    let board_state = Self::_get_board_state(&game.board.apply_eval_move(mv));
+                    let board_state = Self::_get_board_state(&board.apply_eval_move(ai_mv));
                     (Some(GameOutcome::Stalemate), board_state)
                 }
                 GameResult::IllegalMove(_) => return Err(ContractError::IllegalMove),
