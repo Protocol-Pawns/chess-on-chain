@@ -13,12 +13,7 @@
   import { accountStore } from '$lib/near/account';
   import { colorFromFEN } from '$lib/chess/board';
   import { showTxToast, showToast } from '$lib/toast';
-  import {
-    loadGameFromContract,
-    normalizePlayer,
-    parseChessEvents,
-    parseChessLogs
-  } from '$lib/game';
+  import { loadGameFromContract, normalizePlayer } from '$lib/game';
   import type { GameId, ContractGameData } from '$lib/game';
   import Board from '$lib/components/Board.svelte';
   import MoveHistory from '$lib/components/MoveHistory.svelte';
@@ -33,18 +28,19 @@
   let pollInterval: ReturnType<typeof setInterval>;
   let showResignModal = $state(false);
   let showCancelModal = $state(false);
-  let pendingAnimation = $state<{ from: string; to: string } | null>(null);
+  let pendingLastMove = $state<{ from: string; to: string } | null>(null);
 
   const gameIdStr = decodeURIComponent(page.params.id ?? '');
   const gameId: GameId = JSON.parse(gameIdStr);
 
   let lastMove = $derived(
-    moves.length > 0
-      ? {
-          from: moves[moves.length - 1].move_notation.slice(0, 2),
-          to: moves[moves.length - 1].move_notation.slice(2, 4)
-        }
-      : null
+    pendingLastMove ??
+      (moves.length > 0
+        ? {
+            from: moves[moves.length - 1].move_notation.slice(0, 2),
+            to: moves[moves.length - 1].move_notation.slice(2, 4)
+          }
+        : null)
   );
 
   let isMyTurn = $derived.by(() => {
@@ -105,6 +101,18 @@
       game = g;
       moves = m;
       contractTurnColor = null;
+      console.log('[game] load() moves count:', m.length, 'last move:', m.length > 0 ? m[m.length - 1].move_notation : 'none', 'pendingLastMove:', pendingLastMove);
+      if (m.length > 0 && pendingLastMove) {
+        const apiLast = m[m.length - 1].move_notation;
+        if (
+          apiLast.slice(0, 2) === pendingLastMove.from &&
+          apiLast.slice(2, 4) === pendingLastMove.to
+        ) {
+          pendingLastMove = null;
+        }
+      } else if (m.length > 0) {
+        pendingLastMove = null;
+      }
       gameBets = await api.gameBets(gameIdStr).catch(() => []);
     } catch (e) {
       console.warn('[game] API load failed, falling back to contract:', e);
@@ -123,52 +131,79 @@
     }
   }
 
+  function parseLastAiMove(
+    logs: string[]
+  ): { from: string; to: string } | null {
+    let result: { from: string; to: string } | null = null;
+    for (const log of logs) {
+      try {
+        const json = log.startsWith('EVENT_JSON:') ? log.slice(11) : log;
+        const event = JSON.parse(json);
+        if (event.standard === 'chess-game' && event.event === 'play_move') {
+          const parts: string[] = event.data.mv.split(' to ');
+          if (parts.length === 2) {
+            result = { from: parts[0], to: parts[1] };
+          }
+        }
+      } catch {
+        // skip
+      }
+    }
+    return result;
+  }
+
   function handleMove(from: string, to: string) {
     if (!game || submitting) return;
     submitting = true;
+    const isAiGame = game.white.type === 'AI' || game.black?.type === 'AI';
     contract
       .playMove($state.snapshot(game.game_id), from + to)
       .then(async txResult => {
         submitting = false;
-        console.log('[game] tx result:', JSON.stringify(txResult, null, 2));
-        let events = parseChessEvents(txResult);
-        const isAiGame =
-          game?.white.type === 'AI' || game?.black?.type === 'AI';
-        if (events.length === 0 && isAiGame) {
-          const txHash =
-            (txResult as { transaction?: { hash?: string } })?.transaction
-              ?.hash ??
-            (txResult as { transaction_outcome?: { id?: string } })
-              ?.transaction_outcome?.id;
-          if (txHash) {
-            try {
-              const logs = await getTxLogs(txHash);
-              console.log('[game] RPC logs:', logs);
-              events = parseChessLogs(logs);
-            } catch (e) {
-              console.warn('[game] failed to fetch tx logs:', e);
+        if (isAiGame) {
+          let lastAiMove: { from: string; to: string } | null = null;
+          const tx = txResult as {
+            receipts_outcome?: { outcome: { logs: string[] } }[];
+            transaction?: { hash?: string };
+            transaction_outcome?: { id?: string };
+          };
+          const txLogs: string[] = [];
+          if (tx.receipts_outcome) {
+            for (const r of tx.receipts_outcome) {
+              txLogs.push(...(r.outcome?.logs ?? []));
             }
           }
-        }
-        console.log('[game] parsed events:', events, 'isAiGame:', isAiGame);
-        const aiMove =
-          isAiGame && events.length >= 2 ? events[events.length - 1] : null;
-        console.log('[game] aiMove:', aiMove);
-        if (aiMove) {
-          pendingAnimation = { from: aiMove.from, to: aiMove.to };
+          lastAiMove = parseLastAiMove(txLogs);
+          console.log('[game] txLogs from result:', txLogs, 'lastAiMove:', lastAiMove);
+          if (!lastAiMove) {
+            const txHash = tx.transaction?.hash ?? tx.transaction_outcome?.id;
+            console.log('[game] txHash:', txHash);
+            if (txHash) {
+              try {
+                const rpcLogs = await getTxLogs(txHash);
+                console.log('[game] rpcLogs:', rpcLogs);
+                lastAiMove = parseLastAiMove(rpcLogs);
+                console.log('[game] lastAiMove from rpc:', lastAiMove);
+              } catch (e) {
+                console.warn('[game] getTxLogs failed:', e);
+              }
+            }
+          }
+          if (lastAiMove) {
+            pendingLastMove = lastAiMove;
+            console.log('[game] set pendingLastMove:', pendingLastMove);
+          } else {
+            console.log('[game] NO lastAiMove found');
+          }
         } else {
-          load();
+          console.log('[game] not AI game, isAiGame:', isAiGame);
         }
+        load();
       })
       .catch(() => {
         submitting = false;
       });
     showToast('info', 'Submitting move...');
-  }
-
-  function handleAnimationDone() {
-    pendingAnimation = null;
-    load();
   }
 
   function handleResign() {
@@ -307,8 +342,6 @@
           disabled={game.status !== 'in_progress' || submitting || !isMyTurn}
           {flipped}
           {lastMove}
-          {pendingAnimation}
-          onAnimationDone={handleAnimationDone}
         />
       </div>
 

@@ -1,48 +1,5 @@
 import type { GameOverview } from '$lib/api/client';
 
-export interface ChessMoveEvent {
-  color: string;
-  from: string;
-  to: string;
-}
-
-export function parseChessLogs(logs: string[]): ChessMoveEvent[] {
-  const moves: ChessMoveEvent[] = [];
-  for (const log of logs) {
-    try {
-      const json = log.startsWith('EVENT_JSON:') ? log.slice(11) : log;
-      const event = JSON.parse(json);
-      if (event.standard === 'chess-game' && event.event === 'play_move') {
-        const mv: string = event.data.mv;
-        const parts = mv.split(' to ');
-        if (parts.length === 2) {
-          moves.push({
-            color: event.data.color,
-            from: parts[0],
-            to: parts[1]
-          });
-        }
-      }
-    } catch {
-      // not a JSON log, skip
-    }
-  }
-  return moves;
-}
-
-export function parseChessEvents(txResult: unknown): ChessMoveEvent[] {
-  const result = txResult as {
-    receipts_outcome?: { outcome: { logs: string[] } }[];
-  };
-  const logs: string[] = [];
-  if (result?.receipts_outcome) {
-    for (const receipt of result.receipts_outcome) {
-      logs.push(...(receipt.outcome?.logs ?? []));
-    }
-  }
-  return parseChessLogs(logs);
-}
-
 export type GameId = [number, string, string | null];
 
 export function normalizePlayer(

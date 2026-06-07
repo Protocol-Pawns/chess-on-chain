@@ -3,7 +3,6 @@
   import {
     boardFromInput,
     posToAlgebraic,
-    algebraicToPos,
     type Square
   } from '$lib/chess/board';
 
@@ -13,9 +12,7 @@
     onMove,
     flipped = false,
     lastMove,
-    disabled = false,
-    pendingAnimation,
-    onAnimationDone
+    disabled = false
   }: {
     board?: string[];
     fen?: string;
@@ -23,14 +20,11 @@
     flipped?: boolean;
     lastMove?: { from: string; to: string } | null;
     disabled?: boolean;
-    pendingAnimation?: { from: string; to: string } | null;
-    onAnimationDone?: () => void;
   } = $props();
 
   let selected: [number, number] | null = $state(null);
   let dragFrom: [number, number] | null = $state(null);
   let dragOverPos: [number, number] | null = $state(null);
-  let animating = $state(false);
 
   let squares = $derived(boardFromInput(board, fen));
 
@@ -44,22 +38,6 @@
     }
   });
 
-  let animSrc = $derived.by(() => {
-    if (!pendingAnimation) return null;
-    const pos = algebraicToPos(pendingAnimation.from);
-    return pos;
-  });
-  let animDst = $derived.by(() => {
-    if (!pendingAnimation) return null;
-    const pos = algebraicToPos(pendingAnimation.to);
-    return pos;
-  });
-  let animPiece = $derived.by(() => {
-    if (!animSrc) return null;
-    const sq = squares[animSrc.row]?.[animSrc.col];
-    return sq?.piece ?? null;
-  });
-
   let legalTargets = $derived.by(() => {
     const src = selected ?? dragFrom;
     if (!src || !chess) return new Set<string>();
@@ -70,37 +48,6 @@
       return new Set(moves.map(m => m.to));
     } catch {
       return new Set<string>();
-    }
-  });
-
-  $effect(() => {
-    if (pendingAnimation && animSrc && animDst && animPiece && !animating) {
-      animating = true;
-      requestAnimationFrame(() => {
-        const el = document.getElementById('anim-piece');
-        if (el) {
-          const boardEl = el.parentElement!;
-          const cellSize = boardEl.clientWidth / 8;
-          const fromR = flipped ? 7 - animSrc!.row : animSrc!.row;
-          const fromC = flipped ? 7 - animSrc!.col : animSrc!.col;
-          const toR = flipped ? 7 - animDst!.row : animDst!.row;
-          const toC = flipped ? 7 - animDst!.col : animDst!.col;
-          el.style.left = fromC * cellSize + 'px';
-          el.style.top = fromR * cellSize + 'px';
-          el.style.transition = 'none';
-          el.offsetHeight;
-          el.style.transition = 'left 350ms ease-in-out, top 350ms ease-in-out';
-          el.style.left = toC * cellSize + 'px';
-          el.style.top = toR * cellSize + 'px';
-          setTimeout(() => {
-            animating = false;
-            onAnimationDone?.();
-          }, 380);
-        } else {
-          animating = false;
-          onAnimationDone?.();
-        }
-      });
     }
   });
 
@@ -153,7 +100,7 @@
   }
 
   function handleClick(r: number, c: number) {
-    if (disabled || animating) return;
+    if (disabled) return;
     const [ar, ac] = actualCoords(r, c);
     const sq = squares[ar][ac];
 
@@ -177,10 +124,6 @@
   }
 
   function handleDragStart(r: number, c: number, e: DragEvent) {
-    if (animating) {
-      e.preventDefault();
-      return;
-    }
     const [ar, ac] = actualCoords(r, c);
     if (!isSelectable(ar, ac)) {
       e.preventDefault();
@@ -217,12 +160,6 @@
     selected = null;
   }
 
-  function isAnimSrc(r: number, c: number): boolean {
-    if (!animSrc || !animating) return false;
-    const [ar, ac] = actualCoords(r, c);
-    return ar === animSrc.row && ac === animSrc.col;
-  }
-
   function cellClass(r: number, c: number): string {
     const [ar, ac] = actualCoords(r, c);
     const sq = squares[ar][ac];
@@ -233,7 +170,7 @@
     if (lastMove) {
       const pos = posToAlgebraic(ar, ac);
       if (lastMove.from === pos || lastMove.to === pos) {
-        bg = isLight ? 'bg-[#b6da95]' : 'bg-[#6a9f4b]';
+        bg = isLight ? 'bg-[#b6da95]/60' : 'bg-[#6a9f4b]/60';
       }
     }
 
@@ -273,7 +210,7 @@
 
 <!-- svelte-ignore a11y_no_static_element_interactions -->
 <div
-  class="inline-grid grid-cols-8 relative"
+  class="inline-grid grid-cols-8"
   style="width: min(100%, 30rem); aspect-ratio: 1; user-select: none; -webkit-user-select: none; touch-action: none;"
   ondragover={e => e.preventDefault()}
 >
@@ -283,15 +220,15 @@
         class="flex items-center justify-center relative aspect-square transition-colors {cellClass(
           r,
           c
-        )} {sq.piece && !disabled && !animating ? 'cursor-pointer' : ''}"
-        draggable={sq.piece && !disabled && !animating ? true : undefined}
+        )} {sq.piece && !disabled ? 'cursor-pointer' : ''}"
+        draggable={sq.piece && !disabled ? true : undefined}
         onclick={() => handleClick(r, c)}
         ondragstart={e => handleDragStart(r, c, e)}
         ondragover={e => handleDragOver(r, c, e)}
         ondrop={e => handleDrop(r, c, e)}
         ondragend={handleDragEnd}
       >
-        {#if sq.piece && !isAnimSrc(r, c)}
+        {#if sq.piece}
           <img
             src={PIECE_IMG[sq.piece]}
             alt={sq.piece}
@@ -320,13 +257,4 @@
       </button>
     {/each}
   {/each}
-  {#if animating && animPiece}
-    <img
-      id="anim-piece"
-      src={PIECE_IMG[animPiece]}
-      alt=""
-      class="absolute w-[12.5%] h-[12.5%] object-contain pointer-events-none z-10"
-      style="left: 0; top: 0;"
-    />
-  {/if}
 </div>
