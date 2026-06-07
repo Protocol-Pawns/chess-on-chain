@@ -19,8 +19,8 @@
         ></span>
         {game.black?.type === 'Human'
           ? game.black.value
-          : game.black?.type === 'AI'
-            ? 'AI'
+          : game.black?.type?.toLowerCase() === 'ai'
+            ? `AI (${game.black.value})`
             : 'Waiting...'}
       </div>
     </div>

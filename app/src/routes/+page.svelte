@@ -219,7 +219,7 @@
   {#if myGames.length > 0}
     <section>
       <h3 class="text-base font-semibold mb-2">My Games</h3>
-      <div class="space-y-2">
+      <div class="space-y-2 overflow-hidden" style="transition: max-height 0.3s ease-out; max-height: {myGames.length * 80}px;">
         {#each myGames as game}
           <button
             class="w-full text-left"

@@ -285,6 +285,9 @@
   <div class="text-center py-12 text-primary-err">{error}</div>
 {:else if game}
   <div class="flex flex-col gap-4">
+    <button class="text-sm text-white/60 hover:text-white self-start" onclick={() => goto('/')}>
+      &larr; Back
+    </button>
     <div class="card">
       <div class="flex justify-between items-center mb-2">
         <span
@@ -296,7 +299,7 @@
           <span
             class="inline-block w-3 h-3 rounded-full bg-white mr-1 align-middle"
           ></span>
-          {game.white.type === 'Human' ? game.white.value : 'AI'}
+          {game.white.type === 'Human' ? game.white.value : `AI (${game.white.value})`}
           {#if currentTurn === 'White'}
             <span class="text-xs ml-1 text-primary-green">&#9654;</span>
           {/if}
@@ -325,8 +328,8 @@
           {/if}
           {game.black?.type === 'Human'
             ? game.black.value
-            : game.black?.type === 'AI'
-              ? 'AI'
+            : game.black?.type?.toLowerCase() === 'ai'
+              ? `AI (${game.black.value})`
               : '...'}
           <span
             class="inline-block w-3 h-3 rounded-full bg-gray-700 border border-gray-500 ml-1 align-middle"
