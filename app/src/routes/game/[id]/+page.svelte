@@ -30,6 +30,8 @@
   let showResignModal = $state(false);
   let showCancelModal = $state(false);
   let pendingLastMove = $state<{ from: string; to: string } | null>(null);
+  let viewingMoveIndex = $state<number | null>(null);
+  const STARTING_FEN = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
 
   const gameIdStr = decodeURIComponent(page.params.id ?? '');
   const gameId: GameId = JSON.parse(gameIdStr);
@@ -43,6 +45,35 @@
           }
         : null)
   );
+
+  let isViewingCurrent = $derived(viewingMoveIndex === null);
+
+  let displayFen = $derived.by(() => {
+    if (isViewingCurrent) return game?.fen ?? undefined;
+    if (viewingMoveIndex === -1) return STARTING_FEN;
+    if (viewingMoveIndex != null && viewingMoveIndex >= 0 && viewingMoveIndex < moves.length)
+      return moves[viewingMoveIndex].fen;
+    return game?.fen ?? undefined;
+  });
+
+  let displayBoard = $derived.by(() => {
+    if (isViewingCurrent) return game?.board;
+    return undefined;
+  });
+
+  let displayLastMove = $derived.by(() => {
+    if (isViewingCurrent) return lastMove;
+    if (viewingMoveIndex === -1) return null;
+    if (viewingMoveIndex != null && viewingMoveIndex >= 0 && viewingMoveIndex < moves.length) {
+      const mv = moves[viewingMoveIndex].move_notation;
+      return { from: mv.slice(0, 2), to: mv.slice(2, 4) };
+    }
+    return null;
+  });
+
+  function selectMove(index: number | null) {
+    viewingMoveIndex = index;
+  }
 
   let isMyTurn = $derived.by(() => {
     if (!game || game.status !== 'in_progress' || !$accountStore) return false;
@@ -426,12 +457,12 @@
 
       <div class="flex justify-center">
         <Board
-          board={game.board}
-          fen={game.fen ?? undefined}
+          board={displayBoard}
+          fen={displayFen}
           onMove={handleMove}
-          disabled={game.status !== 'in_progress' || submitting || !isMyTurn}
+          disabled={game.status !== 'in_progress' || submitting || !isMyTurn || !isViewingCurrent}
           {flipped}
-          {lastMove}
+          lastMove={displayLastMove}
         />
       </div>
 
@@ -482,7 +513,13 @@
       {/if}
     </div>
 
-    <MoveHistory {moves} />
+    <MoveHistory
+      {moves}
+      selectedMoveIndex={viewingMoveIndex}
+      onSelectMove={selectMove}
+      {isViewingCurrent}
+      isLiveMyTurn={isMyTurn}
+    />
 
     {#if game.white.type === 'Human' && game.black?.type === 'Human'}
       <BetPanel
