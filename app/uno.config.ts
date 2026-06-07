@@ -36,7 +36,7 @@ export default defineConfig({
     }
   },
   shortcuts: {
-    btn: 'px-4 py-2 rounded font-semibold transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed',
+    btn: 'px-4 py-2 rounded font-semibold transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed hover:bg-white/5',
     'btn-primary':
       'btn text-primary bg-primary-transparent hover:bg-[rgba(174,213,129,0.15)]',
     'btn-secondary':
