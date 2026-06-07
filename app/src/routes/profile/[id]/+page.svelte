@@ -2,7 +2,7 @@
   import { onMount } from 'svelte';
   import { page } from '$app/state';
   import { api, type AccountStats, type GameOverview, type BetStats } from '$lib/api/client';
-  import { fmtOneDecimal } from '$lib/format';
+  import { fmtOneDecimal, truncateAddr } from '$lib/format';
   import { contract } from '$lib/near/connector';
   import { accountStore } from '$lib/near/account';
   import { showTxToast } from '$lib/toast';
@@ -52,6 +52,15 @@
   function shortToken(id: string): string {
     if (id.length <= 24) return id;
     return id.slice(0, 12) + '...' + id.slice(-8);
+  }
+
+  let copied = $state(false);
+
+  function copyAddress() {
+    navigator.clipboard.writeText(accountId).then(() => {
+      copied = true;
+      setTimeout(() => (copied = false), 2000);
+    });
   }
 
   function handleWithdraw(tokenId: string) {
@@ -132,30 +141,48 @@
 {:else}
   <div class="space-y-6">
     <section class="card">
-      <h2 class="text-lg font-bold mb-1 text-primary">{accountId}</h2>
-
-      {#if elo !== null || points !== null}
-        <div
-          class="grid {elo !== null && points !== null
-            ? 'grid-cols-2'
-            : 'grid-cols-1'} gap-3 mb-3"
+      <div class="flex items-center gap-2 mb-1">
+        <h2 class="text-lg font-bold text-primary">{truncateAddr(accountId)}</h2>
+        <button
+          onclick={copyAddress}
+          class="text-white/40 hover:text-white/80 transition-colors"
+          title="Copy address"
         >
-          {#if elo !== null}
-            <div class="text-center bg-primary-transparent2 rounded p-2">
-              <div class="text-xl font-bold text-primary-warn">{elo}</div>
-              <div class="text-xs text-white/50">ELO</div>
-            </div>
+          {#if copied}
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+          {:else}
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
           {/if}
-          {#if points !== null}
-            <div class="text-center bg-primary-transparent2 rounded p-2">
-              <div class="text-xl font-bold text-primary">
-                {formatPoints(points)} PPP
-              </div>
-              <div class="text-xs text-white/50">Points</div>
-            </div>
-          {/if}
+        </button>
+        <a
+          href="https://near.rocks/account/{accountId}"
+          target="_blank"
+          rel="noopener"
+          class="text-white/40 hover:text-white/80 transition-colors"
+          title="View on Explorer"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" x2="21" y1="14" y2="3"/></svg>
+        </a>
+      </div>
+
+      <div
+        class="grid {points !== null
+          ? 'grid-cols-2'
+          : 'grid-cols-1'} gap-3 mb-3"
+      >
+        <div class="text-center bg-primary-transparent2 rounded p-2">
+          <div class="text-xl font-bold text-primary-warn">{elo ?? 1000}</div>
+          <div class="text-xs text-white/50">ELO</div>
         </div>
-      {/if}
+        {#if points !== null}
+          <div class="text-center bg-primary-transparent2 rounded p-2">
+            <div class="text-xl font-bold text-primary">
+              {formatPoints(points)} PPP
+            </div>
+            <div class="text-xs text-white/50">Points</div>
+          </div>
+        {/if}
+      </div>
 
       {#if stats}
         <div class="grid grid-cols-4 gap-3">

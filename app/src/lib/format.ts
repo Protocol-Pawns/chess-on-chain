@@ -16,6 +16,13 @@ export function fmtOneDecimal(value: number): string {
   return oneDecimal.format(value);
 }
 
+export function truncateAddr(id: string, max = 20): string {
+  if (id.length <= max) return id;
+  const head = Math.ceil((max - 3) / 2);
+  const tail = Math.floor((max - 3) / 2);
+  return `${id.slice(0, head)}...${id.slice(-tail)}`;
+}
+
 export function fmtPPP(raw: string): string {
   const val = BigInt(raw);
   const whole = val / BigInt(1000000);

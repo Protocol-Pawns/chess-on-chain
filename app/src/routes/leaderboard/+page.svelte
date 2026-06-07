@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { fmtOneDecimal } from '$lib/format';
+  import { fmtOneDecimal, truncateAddr } from '$lib/format';
   import {
     api,
     type EloLeaderboardPage,
@@ -27,13 +27,6 @@
   let betLoading = $state(false);
   let pppEntries = $state<PppEntry[]>([]);
   let pppLoading = $state(false);
-
-  function truncateAddr(id: string, max = 20): string {
-    if (id.length <= max) return id;
-    const head = Math.ceil((max - 3) / 2);
-    const tail = Math.floor((max - 3) / 2);
-    return `${id.slice(0, head)}...${id.slice(-tail)}`;
-  }
 
   const pppFmt = new Intl.NumberFormat('en-US', {
     maximumFractionDigits: 6
