@@ -394,14 +394,14 @@
             value={newBetPlayer0}
             oninput={(e) => (newBetPlayer0 = e.currentTarget.value)}
             placeholder="Player 1 address"
-            class="bg-transparent border border-primary rounded px-2 py-1 text-xs focus:outline-none"
+            class="bg-transparent border border-white/15 rounded px-2 py-1 text-xs focus:outline-none focus:border-primary"
           />
           <input
             type="text"
             value={newBetPlayer1}
             oninput={(e) => (newBetPlayer1 = e.currentTarget.value)}
             placeholder="Player 2 address"
-            class="bg-transparent border border-primary rounded px-2 py-1 text-xs focus:outline-none"
+            class="bg-transparent border border-white/15 rounded px-2 py-1 text-xs focus:outline-none focus:border-primary"
           />
         </div>
 
@@ -428,7 +428,7 @@
           <select
             value={newBetToken}
             onchange={(e) => (newBetToken = e.currentTarget.value)}
-            class="bg-transparent border border-primary rounded px-2 py-1 text-xs focus:outline-none"
+            class="bg-transparent border border-white/15 rounded px-2 py-1 text-xs focus:outline-none focus:border-primary"
           >
             {#each challengeTokens as token}
               <option value={token}>{shortToken(token)}</option>
@@ -439,7 +439,7 @@
             value={newBetAmount}
             oninput={(e) => (newBetAmount = e.currentTarget.value)}
             placeholder="Amount"
-            class="flex-1 bg-transparent border border-primary rounded px-2 py-1 text-xs focus:outline-none"
+            class="flex-1 bg-transparent border border-white/15 rounded px-2 py-1 text-xs focus:outline-none focus:border-primary"
           />
         </div>
 
@@ -511,7 +511,7 @@
                       onchange={(e) => {
                         betForms[key].token = e.currentTarget.value;
                       }}
-                      class="bg-transparent border border-primary rounded px-2 py-1 text-xs focus:outline-none"
+                      class="bg-transparent border border-white/15 rounded px-2 py-1 text-xs focus:outline-none focus:border-primary"
                     >
                       {#each challengeTokens as token}
                         <option value={token}>{shortToken(token)}</option>
@@ -524,7 +524,7 @@
                         betForms[key].amount = e.currentTarget.value;
                       }}
                       placeholder="Amount"
-                      class="flex-1 bg-transparent border border-primary rounded px-2 py-1 text-xs focus:outline-none"
+                      class="flex-1 bg-transparent border border-white/15 rounded px-2 py-1 text-xs focus:outline-none focus:border-primary"
                     />
                   </div>
                   <div class="flex gap-2">

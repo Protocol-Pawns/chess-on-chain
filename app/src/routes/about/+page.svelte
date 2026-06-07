@@ -157,7 +157,7 @@
           </thead>
           <tbody>
             {#each questList as q}
-              <tr class="border-t border-primary/20">
+              <tr class="border-t border-white/10">
                 <td class="py-1.5">{QUEST_LABELS[q.name] ?? q.name}</td>
                 <td class="py-1.5 text-right text-primary-green"
                   >{fmtPPP(q.points)}</td
@@ -193,7 +193,7 @@
           </thead>
           <tbody>
             {#each achievementList as a}
-              <tr class="border-t border-primary/20">
+              <tr class="border-t border-white/10">
                 <td class="py-1.5">{ACHIEVEMENT_LABELS[a.name] ?? a.name}</td>
                 <td class="py-1.5 text-right text-primary-green"
                   >{fmtPPP(a.points)}</td

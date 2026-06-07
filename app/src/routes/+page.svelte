@@ -194,8 +194,9 @@
           Play vs AI
         </button>
         {#if showAiMenu}
+          <div class="fixed inset-0 z-40" onclick={() => (showAiMenu = false)}></div>
           <div
-            class="absolute right-0 top-full mt-1 card min-w-28 z-50 space-y-1 bg-[#1a1a2e]"
+            class="dropdown right-0 top-full mt-1 min-w-28 space-y-0.5"
           >
             <button
               class="btn-secondary w-full text-left text-sm"

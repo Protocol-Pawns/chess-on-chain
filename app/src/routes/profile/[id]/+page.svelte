@@ -236,7 +236,7 @@
         <a
           href="/game/{encodeURIComponent(JSON.stringify(activeGame.game_id))}"
         >
-          <div class="card flex items-center justify-between">
+          <div class="card-accent flex items-center justify-between">
             <div class="text-sm">
               <span
                 class="inline-block w-3 h-3 rounded-full bg-white mr-1 align-middle"
@@ -281,7 +281,7 @@
         <div class="flex flex-wrap gap-2">
           {#each achievements as [ts, ach]}
             <span
-              class="text-xs px-2 py-1 rounded bg-primary-transparent2 text-primary border border-primary/30"
+              class="text-xs px-2 py-1 rounded bg-primary-transparent2 text-primary border border-white/20"
             >
               {ACHIEVEMENT_LABELS[ach] ?? ach}
             </span>

@@ -176,7 +176,7 @@
           <tbody>
             {#each data.entries as entry}
               {@const stats = statsMap.get(entry.account_id)}
-              <tr class="border-t border-primary/20">
+              <tr class="border-t border-white/10">
                 <td class="py-1.5 text-white/40">{entry.rank}</td>
                 <td class="py-1.5">
                   <a
@@ -267,7 +267,7 @@
           </thead>
           <tbody>
             {#each betEntries as entry, i}
-              <tr class="border-t border-primary/20">
+              <tr class="border-t border-white/10">
                 <td class="py-1.5 text-white/40">{i + 1}</td>
                 <td class="py-1.5">
                   <a
@@ -334,7 +334,7 @@
           </thead>
           <tbody>
             {#each pppEntries as entry, i}
-              <tr class="border-t border-primary/20">
+              <tr class="border-t border-white/10">
                 <td class="py-1.5 text-white/40">{i + 1}</td>
                 <td class="py-1.5">
                   <a

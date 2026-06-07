@@ -22,7 +22,8 @@
       <span class="truncate max-w-24 sm:max-w-32">{$accountStore}</span>
     </button>
     {#if showMenu}
-      <div class="absolute right-0 top-full mt-1 card min-w-40 z-50 space-y-1">
+      <div class="fixed inset-0 z-40" onclick={() => (showMenu = false)}></div>
+      <div class="dropdown right-0 top-full mt-1 min-w-40 space-y-0.5">
         <a
           href="/profile/{$accountStore}"
           class="block btn-secondary w-full text-left text-sm"

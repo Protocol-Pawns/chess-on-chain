@@ -48,7 +48,7 @@
         <a
           href={link.href}
           class="btn text-sm {isActive(link.href)
-            ? 'bg-primary-transparent2 border-primary-light text-primary-light'
+            ? 'bg-primary-transparent2 border border-primary-light text-primary-light'
             : 'hover:bg-primary-transparent'}"
         >
           {link.label}

@@ -111,7 +111,7 @@
           type="text"
           bind:value={challengeTarget}
           placeholder="wallet.near"
-          class="flex-1 bg-transparent border border-primary rounded px-2 py-1.5 text-sm focus:outline-none focus:border-primary-light"
+          class="flex-1 bg-transparent border border-white/15 rounded px-2 py-1.5 text-sm focus:outline-none focus:border-primary"
         />
         <button
           class="btn-primary text-sm"

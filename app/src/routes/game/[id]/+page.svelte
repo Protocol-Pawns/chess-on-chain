@@ -400,7 +400,7 @@
     <button class="text-sm text-white/60 hover:text-white self-start" onclick={() => goto('/')}>
       &larr; Back
     </button>
-    <div class="card">
+    <div class="card-accent">
       <div class="flex justify-between items-center mb-2">
         <span
           class="text-sm px-2 py-1 rounded transition-all {currentTurn ===
@@ -498,7 +498,7 @@
         <div class="flex gap-2 mt-3 justify-center">
           {#if canResign}
             <button
-              class="btn text-sm text-primary-err border-primary-err hover:bg-primary-bgErr"
+              class="btn text-sm text-primary-err border border-primary-err hover:bg-primary-bgErr"
               onclick={handleResign}
             >
               Resign

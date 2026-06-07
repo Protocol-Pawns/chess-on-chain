@@ -41,7 +41,7 @@
     <div class="flex gap-2">
       <select
         bind:value={tokenId}
-        class="bg-transparent border border-primary rounded px-2 py-1.5 text-sm focus:outline-none focus:border-primary-light"
+        class="bg-transparent border border-white/15 rounded px-2 py-1.5 text-sm focus:outline-none focus:border-primary"
       >
         {#each tokens as token}
           <option value={token}>{token}</option>
@@ -51,7 +51,7 @@
         type="text"
         bind:value={amount}
         placeholder="Amount"
-        class="flex-1 bg-transparent border border-primary rounded px-2 py-1.5 text-sm focus:outline-none focus:border-primary-light"
+        class="flex-1 bg-transparent border border-white/15 rounded px-2 py-1.5 text-sm focus:outline-none focus:border-primary"
       />
     </div>
   {/if}
