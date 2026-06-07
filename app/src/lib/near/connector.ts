@@ -41,7 +41,7 @@ export async function viewFunction<T = unknown>(
   const result = await p.callFunction({
     contractId: CONTRACT_ID,
     method: methodName,
-    args: Buffer.from(JSON.stringify(args))
+    args
   });
   return result as T;
 }

@@ -1,3 +1,25 @@
-# allow crawling everything by default
 User-agent: *
-Disallow:
+Allow: /
+
+User-agent: GPTBot
+Allow: /
+
+User-agent: ChatGPT-User
+Allow: /
+
+User-agent: ClaudeBot
+Allow: /
+
+User-agent: anthropic-ai
+Allow: /
+
+User-agent: Google-Extended
+Allow: /
+
+User-agent: Omgili
+Allow: /
+
+User-agent: Bytespider
+Allow: /
+
+Sitemap: https://app.protocol-pawns.com/sitemap.xml
