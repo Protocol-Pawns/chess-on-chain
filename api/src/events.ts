@@ -221,6 +221,12 @@ export const BetLeaderboardEntrySchema = z.object({
 });
 export type BetLeaderboardEntry = z.infer<typeof BetLeaderboardEntrySchema>;
 
+export const PaginatedChallengesSchema = z.object({
+  items: ChallengeSchema.array(),
+  next_cursor: z.string().nullable()
+});
+export type PaginatedChallenges = z.infer<typeof PaginatedChallengesSchema>;
+
 export const EloLeaderboardEntrySchema = z.object({
   rank: z.number(),
   account_id: z.string(),

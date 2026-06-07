@@ -173,5 +173,17 @@ export const api = {
   betLeaderboard: (cursor?: string, limit?: number) =>
     request<PaginatedResult<BetLeaderboardEntry>>(
       `/leaderboard/bets${cursor ? `?cursor=${cursor}` : ''}${limit ? `${cursor ? '&' : '?'}limit=${limit}` : ''}`
+    ),
+  openChallenges: (cursor?: string, limit?: number) =>
+    request<PaginatedResult<Challenge>>(
+      `/challenges${cursor ? `?cursor=${cursor}` : ''}${limit ? `${cursor ? '&' : '?'}limit=${limit}` : ''}`
+    ),
+  globalBets: (
+    status?: 'pending' | 'locked' | 'resolved',
+    cursor?: string,
+    limit?: number
+  ) =>
+    request<PaginatedResult<Bet>>(
+      `/bets${status ? `?status=${status}` : ''}${cursor ? `${status ? '&' : '?'}cursor=${cursor}` : ''}${limit ? `${status || cursor ? '&' : '?'}limit=${limit}` : ''}`
     )
 };

@@ -16,6 +16,7 @@ import {
   GlobalStatsSchema,
   InfoSchema,
   PaginatedBetsSchema,
+  PaginatedChallengesSchema,
   PaginatedGamesSchema,
   PushSubscriptionSchema,
   VapidPublicKeySchema
@@ -322,6 +323,43 @@ export const getBetLeaderboardRoute = createRoute({
         }
       },
       description: 'Returns top bettors ranked by total winnings'
+    }
+  }
+});
+
+export const getOpenChallengesRoute = createRoute({
+  method: 'get',
+  path: '/challenges',
+  request: {
+    query: z.object({
+      cursor: z.string().optional(),
+      limit: z.string().optional()
+    })
+  },
+  responses: {
+    200: {
+      content: {
+        'application/json': { schema: PaginatedChallengesSchema }
+      },
+      description: 'Returns paginated open (pending) challenges'
+    }
+  }
+});
+
+export const getGlobalBetsRoute = createRoute({
+  method: 'get',
+  path: '/bets',
+  request: {
+    query: z.object({
+      status: z.enum(['pending', 'locked', 'resolved']).optional(),
+      cursor: z.string().optional(),
+      limit: z.string().optional()
+    })
+  },
+  responses: {
+    200: {
+      content: { 'application/json': { schema: PaginatedBetsSchema } },
+      description: 'Returns paginated bets across all accounts'
     }
   }
 });

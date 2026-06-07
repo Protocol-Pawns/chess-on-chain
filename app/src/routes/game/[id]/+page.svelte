@@ -17,7 +17,7 @@
   import type { GameId, ContractGameData } from '$lib/game';
   import Board from '$lib/components/Board.svelte';
   import MoveHistory from '$lib/components/MoveHistory.svelte';
-  import BetPanel from '$lib/components/BetPanel.svelte';
+
   import dayjs from 'dayjs';
 
   let game = $state<Game | null>(null);
@@ -520,14 +520,6 @@
       {isViewingCurrent}
       isLiveMyTurn={isMyTurn}
     />
-
-    {#if game.white.type === 'Human' && game.black?.type === 'Human'}
-      <BetPanel
-        playerWhite={game.white.value}
-        playerBlack={game.black.value}
-        disabled={game.status !== 'in_progress'}
-      />
-    {/if}
 
     {#if gameBets.length > 0}
       <div class="card space-y-2">

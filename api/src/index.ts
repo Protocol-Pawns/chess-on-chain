@@ -17,8 +17,10 @@ import {
   getGameBets,
   getGameMoves,
   getGames,
+  getGlobalBets,
   getGlobalStats,
   getInfo,
+  getOpenChallenges,
   queryGames,
   removePushSubscription
 } from './db';
@@ -38,9 +40,11 @@ import {
   getGameMovesRoute,
   getGameRoute,
   getGamesRoute,
+  getGlobalBetsRoute,
   getGlobalStatsRoute,
   getInfoRoute,
   getLeaderboardEloRoute,
+  getOpenChallengesRoute,
   getVapidPublicKeyRoute,
   queryGamesRoute,
   subscribePushRoute,
@@ -218,6 +222,20 @@ app.openapi(getBetLeaderboardRoute, async c => {
   const { cursor, limit } = c.req.valid('query');
   const db = c.get('DB');
   const result = await getBetLeaderboard(db, cursor ?? null, Number(limit) || 25);
+  return c.json(result, 200);
+});
+
+app.openapi(getOpenChallengesRoute, async c => {
+  const { cursor, limit } = c.req.valid('query');
+  const db = c.get('DB');
+  const result = await getOpenChallenges(db, cursor ?? null, Number(limit) || 25);
+  return c.json(result, 200);
+});
+
+app.openapi(getGlobalBetsRoute, async c => {
+  const { status, cursor, limit } = c.req.valid('query');
+  const db = c.get('DB');
+  const result = await getGlobalBets(db, status ?? null, cursor ?? null, Number(limit) || 25);
   return c.json(result, 200);
 });
 

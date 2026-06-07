@@ -571,6 +571,86 @@ export async function getBetLeaderboard(
   return { items, next_cursor: nextCursor };
 }
 
+export async function getOpenChallenges(
+  db: Db,
+  cursor: string | null,
+  limit: number
+) {
+  const actualLimit = clampLimit(limit);
+  let rows;
+  if (cursor) {
+    rows = await db`
+      SELECT * FROM challenges
+      WHERE status = 'pending' AND created_at < ${cursor}
+      ORDER BY created_at DESC
+      LIMIT ${actualLimit + 1}
+    `;
+  } else {
+    rows = await db`
+      SELECT * FROM challenges
+      WHERE status = 'pending'
+      ORDER BY created_at DESC
+      LIMIT ${actualLimit + 1}
+    `;
+  }
+
+  const hasMore = rows.length > actualLimit;
+  const items = (hasMore ? rows.slice(0, -1) : rows).map((r: unknown) =>
+    rowToChallenge(r as ChallengeRow)
+  );
+  const lastItem = items[items.length - 1] as { created_at?: string } | undefined;
+  const nextCursor = hasMore && lastItem ? lastItem.created_at ?? null : null;
+
+  return { items, next_cursor: nextCursor };
+}
+
+export async function getGlobalBets(
+  db: Db,
+  status: string | null,
+  cursor: string | null,
+  limit: number
+) {
+  const actualLimit = clampLimit(limit);
+  let rows;
+  if (cursor && status) {
+    rows = await db`
+      SELECT * FROM bets
+      WHERE status = ${status} AND created_at < ${cursor}
+      ORDER BY created_at DESC
+      LIMIT ${actualLimit + 1}
+    `;
+  } else if (cursor) {
+    rows = await db`
+      SELECT * FROM bets
+      WHERE created_at < ${cursor}
+      ORDER BY created_at DESC
+      LIMIT ${actualLimit + 1}
+    `;
+  } else if (status) {
+    rows = await db`
+      SELECT * FROM bets
+      WHERE status = ${status}
+      ORDER BY created_at DESC
+      LIMIT ${actualLimit + 1}
+    `;
+  } else {
+    rows = await db`
+      SELECT * FROM bets
+      ORDER BY created_at DESC
+      LIMIT ${actualLimit + 1}
+    `;
+  }
+
+  const hasMore = rows.length > actualLimit;
+  const items = (hasMore ? rows.slice(0, -1) : rows).map((r: unknown) =>
+    rowToBet(r as BetRow)
+  );
+  const lastItem = items[items.length - 1] as { created_at?: string } | undefined;
+  const nextCursor = hasMore && lastItem ? lastItem.created_at ?? null : null;
+
+  return { items, next_cursor: nextCursor };
+}
+
 export async function deleteExpiredSubscriptions(
   db: Db,
   endpoints: string[]
