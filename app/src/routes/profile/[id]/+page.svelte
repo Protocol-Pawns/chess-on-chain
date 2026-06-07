@@ -7,6 +7,7 @@
   import { accountStore } from '$lib/near/account';
   import { showTxToast } from '$lib/toast';
   import GameCard from '$lib/components/GameCard.svelte';
+  import PppIcon from '$lib/components/PppIcon.svelte';
 
   const accountId = page.params.id ?? '';
 
@@ -177,7 +178,7 @@
         {#if points !== null}
           <div class="text-center bg-primary-transparent2 rounded p-2">
             <div class="text-xl font-bold text-primary">
-              {formatPoints(points)} PPP
+              <PppIcon size={22} /> {formatPoints(points)} PPP
             </div>
             <div class="text-xs text-white/50">Points</div>
           </div>

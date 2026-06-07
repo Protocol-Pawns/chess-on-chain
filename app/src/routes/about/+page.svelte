@@ -9,6 +9,7 @@
   import { contract } from '$lib/near/connector';
   import { showTxToast } from '$lib/toast';
   import { fmtPPP, fmtOneDecimal } from '$lib/format';
+  import PppIcon from '$lib/components/PppIcon.svelte';
 
   let questList = $state<
     Array<{
@@ -126,7 +127,7 @@
   </section>
 
   <section class="flex flex-col gap-2">
-    <h3 class="text-base font-semibold">Points System (PPP)</h3>
+    <h3 class="text-base font-semibold"><PppIcon size={22} /> Points System (PPP)</h3>
     <p class="text-sm text-white/80 leading-relaxed">
       PPP (Protocol Pawns Points) is a non-transferable on-chain token. You earn
       it by playing — every move counts, every win matters. Points are awarded

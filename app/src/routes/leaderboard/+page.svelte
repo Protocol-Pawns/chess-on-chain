@@ -7,6 +7,7 @@
     type AccountStats,
     type BetLeaderboardEntry
   } from '$lib/api/client';
+  import PppIcon from '$lib/components/PppIcon.svelte';
 
   interface PppEntry {
     account_id: string;
@@ -137,7 +138,7 @@
       class:btn-primary={tab === 'ppp'}
       onclick={() => switchTab('ppp')}
     >
-      PPP
+      <PppIcon size={20} /> PPP
     </button>
   </div>
 
@@ -322,7 +323,7 @@
             <tr class="text-white/50 text-xs">
               <th class="pb-2 text-left">#</th>
               <th class="pb-2 text-left">Player</th>
-              <th class="pb-2 text-right">PPP</th>
+              <th class="pb-2 text-right"><PppIcon size={20} /></th>
             </tr>
           </thead>
           <tbody>
