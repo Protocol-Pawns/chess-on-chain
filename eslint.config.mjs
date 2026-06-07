@@ -19,7 +19,8 @@ export default tseslint.config(
       'package-lock.json',
       'yarn.lock',
       'app-old',
-      'res'
+      'res',
+      'app/static/sw.js'
     ]
   },
   js.configs.recommended,

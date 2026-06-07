@@ -1,10 +1,13 @@
 <script lang="ts">
+  import { onMount } from 'svelte';
   import { page } from '$app/state';
   import { slide } from 'svelte/transition';
   import WalletButton from '$lib/components/WalletButton.svelte';
   import Toasts from '$lib/components/Toasts.svelte';
+  import UpdateBanner from '$lib/components/UpdateBanner.svelte';
   import dayjs from 'dayjs';
   import localizedFormat from 'dayjs/plugin/localizedFormat';
+  import { registerServiceWorker, initPwaInstallPrompt } from '$lib/pwa';
   import 'virtual:uno.css';
   import '@unocss/reset/tailwind.css';
 
@@ -30,6 +33,11 @@
   function closeNav() {
     showNav = false;
   }
+
+  onMount(function () {
+    registerServiceWorker();
+    initPwaInstallPrompt();
+  });
 </script>
 
 <div class="h-screen flex flex-col bg-bg text-white">
@@ -166,6 +174,7 @@
       </div>
     </footer>
   </div>
+  <UpdateBanner />
   <Toasts />
 </div>
 

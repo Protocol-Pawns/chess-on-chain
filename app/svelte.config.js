@@ -14,7 +14,10 @@ const config = {
         include: ['/*'],
         exclude: ['<all>']
       }
-    })
+    }),
+    files: {
+      serviceWorker: 'static/sw.js'
+    }
   }
 };
 

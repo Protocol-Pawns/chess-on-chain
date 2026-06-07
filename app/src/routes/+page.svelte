@@ -15,6 +15,7 @@
   import type { GameId } from '$lib/game';
   import GameCard from '$lib/components/GameCard.svelte';
   import PushSettings from '$lib/components/PushSettings.svelte';
+  import PwaInstallCard from '$lib/components/PwaInstallCard.svelte';
   import ConfirmModal from '$lib/components/ConfirmModal.svelte';
 
   let stats = $state<GlobalStats | null>(null);
@@ -217,6 +218,7 @@
         {/if}
       </div>
     </div>
+    <PwaInstallCard />
     <PushSettings />
   {/if}
 
