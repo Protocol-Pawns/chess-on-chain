@@ -1,15 +1,28 @@
-import { KeyPairEd25519 } from 'near-api-js';
+import { KeyPair, KeyPairEd25519 } from 'near-api-js';
 import { writable, derived } from 'svelte/store';
 
 import { getConnector, contract } from './connector';
 
 import { browser } from '$app/environment';
 
+const KEY_STORE_KEY = 'chess-fc-keypair';
+
 export const accountStore = writable<string | undefined>(undefined);
 export const isLoggedIn = derived(accountStore, $a => $a !== undefined);
 export const isRegistered = writable(false);
 export const isCheckingRegistration = writable(false);
 export const pushEnabled = writable(false);
+
+export function getLocalKeyPair(): KeyPairEd25519 | null {
+  if (!browser) return null;
+  try {
+    const raw = localStorage.getItem(KEY_STORE_KEY);
+    if (!raw) return null;
+    return KeyPair.fromString(raw as `ed25519:${string}`) as KeyPairEd25519;
+  } catch {
+    return null;
+  }
+}
 
 if (browser) {
   const c = getConnector();
@@ -25,6 +38,7 @@ if (browser) {
     accountStore.set(undefined);
     isRegistered.set(false);
     pushEnabled.set(false);
+    localStorage.removeItem(KEY_STORE_KEY);
   });
 
   (async () => {
@@ -69,6 +83,8 @@ function checkPushStatus() {
 export async function connect() {
   const c = getConnector();
   const keyPair = KeyPairEd25519.fromRandom();
+  localStorage.setItem(KEY_STORE_KEY, keyPair.toString());
+  console.log('[account] stored local fc key:', keyPair.getPublicKey().toString());
   await c.connect({
     addFunctionCallKey: {
       contractId: import.meta.env.VITE_CONTRACT_ID || 'app.chess-game.near',

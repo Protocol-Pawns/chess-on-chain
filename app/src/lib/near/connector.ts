@@ -1,10 +1,10 @@
 import { NearConnector } from '@hot-labs/near-connect';
-import { JsonRpcProvider } from 'near-api-js';
+import { JsonRpcProvider, Account, KeyPairSigner, actions } from 'near-api-js';
 
 const NETWORK = import.meta.env.VITE_NETWORK_ID || 'mainnet';
 const CONTRACT_ID = import.meta.env.VITE_CONTRACT_ID || 'app.chess-game.near';
 const RPC_URL = import.meta.env.VITE_RPC_URL || 'https://rpc.shitzuapes.xyz';
-const GAS = '30000000000000';
+const GAS = BigInt('30000000000000');
 
 let connector: NearConnector | undefined;
 let provider: JsonRpcProvider;
@@ -68,6 +68,11 @@ async function sendTransaction(
   args: Record<string, unknown>,
   deposit: string = '0'
 ) {
+  if (methodName === 'play_move') {
+    const localResult = await tryLocalSign(methodName, args, deposit);
+    if (localResult) return localResult;
+  }
+  const GAS_STR = '30000000000000';
   const c = getConnector();
   const wallet = await c.wallet();
   return wallet.signAndSendTransaction({
@@ -75,10 +80,53 @@ async function sendTransaction(
     actions: [
       {
         type: 'FunctionCall',
-        params: { methodName, args, gas: GAS, deposit }
+        params: { methodName, args, gas: GAS_STR, deposit }
       }
     ]
   });
+}
+
+async function tryLocalSign(
+  methodName: string,
+  args: Record<string, unknown>,
+  deposit: string
+): Promise<unknown | null> {
+  try {
+    const { getLocalKeyPair } = await import('./account');
+    const keyPair = getLocalKeyPair();
+    if (!keyPair) {
+      console.log('[connector] no local fc keypair, falling back to wallet');
+      return null;
+    }
+
+    const accountId = await getAccountId();
+    if (!accountId) return null;
+
+    const signer = new KeyPairSigner(keyPair);
+    const account = new Account(accountId, getProvider(), signer);
+
+    console.log('[connector] local sign via Account for', methodName);
+    const result = await account.signAndSendTransaction({
+      receiverId: CONTRACT_ID,
+      actions: [actions.functionCall(methodName, args, GAS, BigInt(deposit))]
+    });
+    console.log('[connector] local sign result:', result);
+    return result;
+  } catch (e) {
+    console.warn('[connector] local sign failed, falling back to wallet:', e);
+    return null;
+  }
+}
+
+async function getAccountId(): Promise<string | null> {
+  try {
+    const c = getConnector();
+    const wallet = await c.wallet();
+    const accounts = await wallet.getAccounts();
+    return accounts?.[0]?.accountId ?? null;
+  } catch {
+    return null;
+  }
 }
 
 async function sendTokenTransaction(
@@ -87,6 +135,7 @@ async function sendTokenTransaction(
   args: Record<string, unknown>,
   deposit: string = '1'
 ) {
+  const GAS_STR = '30000000000000';
   const c = getConnector();
   const wallet = await c.wallet();
   return wallet.signAndSendTransaction({
@@ -94,7 +143,7 @@ async function sendTokenTransaction(
     actions: [
       {
         type: 'FunctionCall',
-        params: { methodName, args, gas: GAS, deposit }
+        params: { methodName, args, gas: GAS_STR, deposit }
       }
     ]
   });
