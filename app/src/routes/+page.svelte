@@ -15,6 +15,7 @@
   import type { GameId } from '$lib/game';
   import GameCard from '$lib/components/GameCard.svelte';
   import PushSettings from '$lib/components/PushSettings.svelte';
+  import ConfirmModal from '$lib/components/ConfirmModal.svelte';
 
   let stats = $state<GlobalStats | null>(null);
   let myGames = $state<GameOverview[]>([]);
@@ -24,6 +25,8 @@
   let loadingMore = $state(false);
   let loading = $state(true);
   let showAiMenu = $state(false);
+  let selectedDifficulty = $state<'Easy' | 'Medium' | 'Hard'>('Easy');
+  let showAiConfirm = $state(false);
 
   async function loadMyGames() {
     if (!$accountStore) {
@@ -200,15 +203,15 @@
           >
             <button
               class="btn-secondary w-full text-left text-sm"
-              onclick={() => createAiGame('Easy')}>Easy</button
+              onclick={() => { selectedDifficulty = 'Easy'; showAiMenu = false; showAiConfirm = true; }}>Easy</button
             >
             <button
               class="btn-secondary w-full text-left text-sm"
-              onclick={() => createAiGame('Medium')}>Medium</button
+              onclick={() => { selectedDifficulty = 'Medium'; showAiMenu = false; showAiConfirm = true; }}>Medium</button
             >
             <button
               class="btn-secondary w-full text-left text-sm"
-              onclick={() => createAiGame('Hard')}>Hard</button
+              onclick={() => { selectedDifficulty = 'Hard'; showAiMenu = false; showAiConfirm = true; }}>Hard</button
             >
           </div>
         {/if}
@@ -314,3 +317,12 @@
     </section>
   {/if}
 </div>
+
+<ConfirmModal
+  open={showAiConfirm}
+  title="Start AI Game?"
+  message={`Start a ${selectedDifficulty.toLowerCase()} AI game? This will create an on-chain game.`}
+  confirmLabel="Start Game"
+  onconfirm={() => { showAiConfirm = false; createAiGame(selectedDifficulty); }}
+  onclose={() => (showAiConfirm = false)}
+/>

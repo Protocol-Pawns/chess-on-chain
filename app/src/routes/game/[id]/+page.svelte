@@ -17,6 +17,7 @@
   import type { GameId, ContractGameData } from '$lib/game';
   import Board from '$lib/components/Board.svelte';
   import MoveHistory from '$lib/components/MoveHistory.svelte';
+  import ConfirmModal from '$lib/components/ConfirmModal.svelte';
 
   import dayjs from 'dayjs';
 
@@ -560,69 +561,20 @@
   </div>
 {/if}
 
-{#if showResignModal}
-  <!-- svelte-ignore a11y_click_events_have_key_events -->
-  <!-- svelte-ignore a11y_no_static_element_interactions -->
-  <div
-    class="fixed inset-0 z-50 flex items-center justify-center bg-black/60"
-    onclick={() => (showResignModal = false)}
-  >
-    <div
-      class="card max-w-sm w-full mx-4 bg-[#1a1a2e]"
-      onclick={e => e.stopPropagation()}
-    >
-      <h3 class="text-base font-semibold mb-2">Resign Game?</h3>
-      <p class="text-sm text-white/70 mb-4">
-        Are you sure you want to resign? This cannot be undone and will count as
-        a loss.
-      </p>
-      <div class="flex gap-2 justify-end">
-        <button
-          class="btn-secondary text-sm"
-          onclick={() => (showResignModal = false)}
-        >
-          Cancel
-        </button>
-        <button
-          class="btn text-sm text-white bg-primary-err hover:bg-primary-err/80"
-          onclick={confirmResign}
-        >
-          Resign
-        </button>
-      </div>
-    </div>
-  </div>
-{/if}
+<ConfirmModal
+  open={showResignModal}
+  title="Resign Game?"
+  message="Are you sure you want to resign? This cannot be undone and will count as a loss."
+  confirmLabel="Resign"
+  onconfirm={confirmResign}
+  onclose={() => (showResignModal = false)}
+/>
 
-{#if showCancelModal}
-  <!-- svelte-ignore a11y_click_events_have_key_events -->
-  <!-- svelte-ignore a11y_no_static_element_interactions -->
-  <div
-    class="fixed inset-0 z-50 flex items-center justify-center bg-black/60"
-    onclick={() => (showCancelModal = false)}
-  >
-    <div
-      class="card max-w-sm w-full mx-4 bg-[#1a1a2e]"
-      onclick={e => e.stopPropagation()}
-    >
-      <h3 class="text-base font-semibold mb-2">Cancel Game?</h3>
-      <p class="text-sm text-white/70 mb-4">
-        Are you sure you want to cancel this game?
-      </p>
-      <div class="flex gap-2 justify-end">
-        <button
-          class="btn-secondary text-sm"
-          onclick={() => (showCancelModal = false)}
-        >
-          No
-        </button>
-        <button
-          class="btn text-sm text-white bg-primary-err hover:bg-primary-err/80"
-          onclick={confirmCancel}
-        >
-          Yes, Cancel
-        </button>
-      </div>
-    </div>
-  </div>
-{/if}
+<ConfirmModal
+  open={showCancelModal}
+  title="Cancel Game?"
+  message="Are you sure you want to cancel this game?"
+  confirmLabel="Yes, Cancel"
+  onconfirm={confirmCancel}
+  onclose={() => (showCancelModal = false)}
+/>
