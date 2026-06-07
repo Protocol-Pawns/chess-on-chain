@@ -8,8 +8,13 @@
     type BetLeaderboardEntry
   } from '$lib/api/client';
 
+  interface PppEntry {
+    account_id: string;
+    balance: string;
+  }
+
   let loading = $state(true);
-  let tab = $state<'elo' | 'bets'>('elo');
+  let tab = $state<'elo' | 'bets' | 'ppp'>('elo');
   let page = $state(1);
   const PER_PAGE = 25;
   let data: EloLeaderboardPage | null = $state(null);
@@ -20,6 +25,23 @@
   let betHasMore = $state(false);
   let betPage = $state(1);
   let betLoading = $state(false);
+  let pppEntries = $state<PppEntry[]>([]);
+  let pppLoading = $state(false);
+
+  function truncateAddr(id: string, max = 20): string {
+    if (id.length <= max) return id;
+    const head = Math.ceil((max - 3) / 2);
+    const tail = Math.floor((max - 3) / 2);
+    return `${id.slice(0, head)}...${id.slice(-tail)}`;
+  }
+
+  const pppFmt = new Intl.NumberFormat('en-US', {
+    maximumFractionDigits: 6
+  });
+
+  function fmtPpp(rawBalance: string): string {
+    return pppFmt.format(Number(rawBalance) / 1_000_000);
+  }
 
   async function loadElo(p: number) {
     loading = true;
@@ -45,6 +67,20 @@
       console.error('Failed to load leaderboard:', e);
     } finally {
       loading = false;
+    }
+  }
+
+  async function loadPPP() {
+    pppLoading = true;
+    try {
+      const res = await fetch('https://api.fastnear.com/v1/ft/app.chess-game.near/top');
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const json = await res.json();
+      pppEntries = (json.accounts ?? []) as PppEntry[];
+    } catch (e) {
+      console.error('Failed to load PPP leaderboard:', e);
+    } finally {
+      pppLoading = false;
     }
   }
 
@@ -75,10 +111,11 @@
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
-  function switchTab(t: 'elo' | 'bets') {
+  function switchTab(t: 'elo' | 'bets' | 'ppp') {
     tab = t;
     if (t === 'elo' && !data) loadElo(1);
     if (t === 'bets' && betEntries.length === 0) loadBets(true);
+    if (t === 'ppp' && pppEntries.length === 0) loadPPP();
   }
 
   onMount(() => loadElo(1));
@@ -101,6 +138,13 @@
       onclick={() => switchTab('bets')}
     >
       Betting
+    </button>
+    <button
+      class="btn text-xs"
+      class:btn-primary={tab === 'ppp'}
+      onclick={() => switchTab('ppp')}
+    >
+      PPP
     </button>
   </div>
 
@@ -138,7 +182,7 @@
                   <a
                     href="/profile/{entry.account_id}"
                     class="text-primary hover:underline text-xs"
-                    >{entry.account_id}</a
+                    >{truncateAddr(entry.account_id)}</a
                   >
                 </td>
                 <td class="py-1.5 text-right text-primary-warn font-semibold"
@@ -197,7 +241,7 @@
         </p>
       {/if}
     {/if}
-  {:else}
+  {:else if tab === 'bets'}
     {#if betLoading && betEntries.length === 0}
       <div class="space-y-1.5 animate-pulse">
         {#each Array(10) as _}
@@ -229,7 +273,7 @@
                   <a
                     href="/profile/{entry.account_id}"
                     class="text-primary hover:underline text-xs"
-                    >{entry.account_id}</a
+                    >{truncateAddr(entry.account_id)}</a
                   >
                 </td>
                 <td class="py-1.5 text-right text-white/70">{entry.total_wagered}</td>
@@ -264,6 +308,53 @@
       {#if betEntries.length === 0}
         <p class="text-white/50 text-sm text-center">
           No bets placed yet.
+        </p>
+      {/if}
+    {/if}
+  {:else}
+    {#if pppLoading && pppEntries.length === 0}
+      <div class="space-y-1.5 animate-pulse">
+        {#each Array(10) as _}
+          <div class="card flex items-center gap-3 py-2">
+            <div class="h-4 w-6 rounded bg-white/10"></div>
+            <div class="h-4 w-28 rounded bg-white/10 flex-1"></div>
+            <div class="h-4 w-10 rounded bg-white/5"></div>
+          </div>
+        {/each}
+      </div>
+    {:else}
+      <div class="card">
+        <table class="w-full text-sm">
+          <thead>
+            <tr class="text-white/50 text-xs">
+              <th class="pb-2 text-left">#</th>
+              <th class="pb-2 text-left">Player</th>
+              <th class="pb-2 text-right">PPP</th>
+            </tr>
+          </thead>
+          <tbody>
+            {#each pppEntries as entry, i}
+              <tr class="border-t border-primary/20">
+                <td class="py-1.5 text-white/40">{i + 1}</td>
+                <td class="py-1.5">
+                  <a
+                    href="/profile/{entry.account_id}"
+                    class="text-primary hover:underline text-xs"
+                    >{truncateAddr(entry.account_id)}</a
+                  >
+                </td>
+                <td class="py-1.5 text-right text-primary font-semibold"
+                  >{fmtPpp(entry.balance)}</td
+                >
+              </tr>
+            {/each}
+          </tbody>
+        </table>
+      </div>
+
+      {#if pppEntries.length === 0}
+        <p class="text-white/50 text-sm text-center">
+          No PPP holders yet.
         </p>
       {/if}
     {/if}
