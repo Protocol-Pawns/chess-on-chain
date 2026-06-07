@@ -65,7 +65,7 @@ transforms:
             if (parsed.standard !== 'chess-game') continue;
             if (!CHESS_EVENTS.includes(parsed.event)) continue;
 
-            const payload = (parsed.data && parsed.data[0]) || {};
+            const payload = parsed.data || {};
 
             results.push({
               id: data.id + '_' + parsed.event + '_' + results.length,
