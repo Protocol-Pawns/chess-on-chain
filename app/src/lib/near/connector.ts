@@ -68,7 +68,7 @@ async function sendTransaction(
   args: Record<string, unknown>,
   deposit: string = '0'
 ) {
-  if (methodName === 'play_move') {
+  if (deposit === '0') {
     const localResult = await tryLocalSign(methodName, args, deposit);
     if (localResult) return localResult;
   }

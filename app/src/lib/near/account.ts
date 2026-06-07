@@ -84,14 +84,16 @@ export async function connect() {
   const c = getConnector();
   const keyPair = KeyPairEd25519.fromRandom();
   localStorage.setItem(KEY_STORE_KEY, keyPair.toString());
-  console.log('[account] stored local fc key:', keyPair.getPublicKey().toString());
+  console.log(
+    '[account] stored local fc key:',
+    keyPair.getPublicKey().toString()
+  );
   await c.connect({
     addFunctionCallKey: {
       contractId: import.meta.env.VITE_CONTRACT_ID || 'app.chess-game.near',
       publicKey: keyPair.getPublicKey().toString(),
       allowMethods: {
-        anyMethod: false,
-        methodNames: ['play_move']
+        anyMethod: true
       },
       gasAllowance: { kind: 'unlimited' }
     }
