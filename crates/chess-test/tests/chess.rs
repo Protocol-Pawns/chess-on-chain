@@ -40,7 +40,7 @@ async fn test_migrate() -> anyhow::Result<()> {
         .create_tla_and_deploy(
             "chess.registrar".parse()?,
             key,
-            &fs::read("../../res/chess_old.wasm").await?,
+            &fs::read("../../res/chess_mainnet.wasm").await?,
         )
         .await?
         .into_result()?;
