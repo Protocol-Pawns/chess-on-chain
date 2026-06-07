@@ -60,7 +60,8 @@ export async function loadGameFromContract(
     black: normalizePlayer(info.black),
     board,
     fen,
-    status: 'in_progress',
-    turn_color: info.turn_color
+    status: 'in_progress' as const,
+    turn_color: info.turn_color,
+    outcome: null
   };
 }

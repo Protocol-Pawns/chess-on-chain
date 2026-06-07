@@ -2894,6 +2894,7 @@ __metadata:
     "@unocss/postcss": "npm:^66.7.0"
     "@unocss/reset": "npm:^66.7.0"
     chess.js: "npm:^1.4.0"
+    dayjs: "npm:^1.11.21"
     near-api-js: "npm:^7.2.0"
     svelte: "npm:^5.55.2"
     svelte-check: "npm:^4.4.6"
@@ -3555,6 +3556,13 @@ __metadata:
     mdn-data: "npm:2.27.1"
     source-map-js: "npm:^1.2.1"
   checksum: 10c0/1f65e9ccaa56112a4706d6f003dd43d777f0dbcf848e66fd320f823192533581f8dd58daa906cb80622658332d50284d6be13b87a6ab4556cbbfe9ef535bbf7e
+  languageName: node
+  linkType: hard
+
+"dayjs@npm:^1.11.21":
+  version: 1.11.21
+  resolution: "dayjs@npm:1.11.21"
+  checksum: 10c0/bd97dfdc4bfea3c66268635690313828b386faa040fbc1f829ff42a2bd748b72c9d9b3c8f9616ce9e61fcb78923f1461a462c969c54b1084458ae1b715898fb0
   languageName: node
   linkType: hard
 

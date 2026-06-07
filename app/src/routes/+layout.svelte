@@ -3,8 +3,12 @@
   import { slide } from 'svelte/transition';
   import WalletButton from '$lib/components/WalletButton.svelte';
   import Toasts from '$lib/components/Toasts.svelte';
+  import dayjs from 'dayjs';
+  import localizedFormat from 'dayjs/plugin/localizedFormat';
   import 'virtual:uno.css';
   import '@unocss/reset/tailwind.css';
+
+  dayjs.extend(localizedFormat);
 
   let { children } = $props();
   let showNav = $state(false);

@@ -18,6 +18,7 @@
   import Board from '$lib/components/Board.svelte';
   import MoveHistory from '$lib/components/MoveHistory.svelte';
   import BetPanel from '$lib/components/BetPanel.svelte';
+  import dayjs from 'dayjs';
 
   let game = $state<Game | null>(null);
   let moves = $state<GameMove[]>([]);
@@ -98,6 +99,9 @@
         api.game(gameIdStr),
         api.gameMoves(gameIdStr)
       ]);
+      if (game && game.status !== 'in_progress' && game.status !== g.status) {
+        return;
+      }
       game = g;
       moves = m;
       contractTurnColor = null;
@@ -115,6 +119,7 @@
       }
       gameBets = await api.gameBets(gameIdStr).catch(() => []);
     } catch (e) {
+      if (game?.status !== 'in_progress' && game?.status !== undefined) return;
       console.warn('[game] API load failed, falling back to contract:', e);
       try {
         const contractGame = await loadFromContract();
@@ -131,25 +136,43 @@
     }
   }
 
-  function parseLastAiMove(
-    logs: string[]
-  ): { from: string; to: string } | null {
-    let result: { from: string; to: string } | null = null;
+  function parseTxLogs(logs: string[]) {
+    let lastMove: { from: string; to: string } | null = null;
+    let outcome: Record<string, unknown> | null = null;
+    let board: string[] | null = null;
+    let resigner: string | null = null;
+    let cancelled = false;
     for (const log of logs) {
       try {
         const json = log.startsWith('EVENT_JSON:') ? log.slice(11) : log;
         const event = JSON.parse(json);
-        if (event.standard === 'chess-game' && event.event === 'play_move') {
+        if (event.standard !== 'chess-game') continue;
+        if (event.event === 'play_move') {
           const parts: string[] = event.data.mv.split(' to ');
           if (parts.length === 2) {
-            result = { from: parts[0], to: parts[1] };
+            lastMove = { from: parts[0], to: parts[1] };
           }
+          if (event.data.board) {
+            board = event.data.board as string[];
+          }
+          if (event.data.outcome) {
+            outcome = event.data.outcome as Record<string, unknown>;
+          }
+        } else if (event.event === 'resign_game') {
+          if (event.data.outcome) {
+            outcome = event.data.outcome as Record<string, unknown>;
+          }
+          if (event.data.resigner) {
+            resigner = event.data.resigner as string;
+          }
+        } else if (event.event === 'cancel_game') {
+          cancelled = true;
         }
       } catch {
         // skip
       }
     }
-    return result;
+    return { lastMove, outcome, board, resigner, cancelled };
   }
 
   function handleMove(from: string, to: string) {
@@ -160,50 +183,68 @@
       .playMove($state.snapshot(game.game_id), from + to)
       .then(async txResult => {
         submitting = false;
-        if (isAiGame) {
-          let lastAiMove: { from: string; to: string } | null = null;
-          const tx = txResult as {
-            receipts_outcome?: { outcome: { logs: string[] } }[];
-            transaction?: { hash?: string };
-            transaction_outcome?: { id?: string };
-          };
-          const txLogs: string[] = [];
-          if (tx.receipts_outcome) {
-            for (const r of tx.receipts_outcome) {
-              txLogs.push(...(r.outcome?.logs ?? []));
-            }
+        const tx = txResult as {
+          receipts_outcome?: { outcome: { logs: string[] } }[];
+          transaction?: { hash?: string };
+          transaction_outcome?: { id?: string };
+        };
+        const txLogs: string[] = [];
+        if (tx.receipts_outcome) {
+          for (const r of tx.receipts_outcome) {
+            txLogs.push(...(r.outcome?.logs ?? []));
           }
-          lastAiMove = parseLastAiMove(txLogs);
-          console.log('[game] txLogs from result:', txLogs, 'lastAiMove:', lastAiMove);
-          if (!lastAiMove) {
-            const txHash = tx.transaction?.hash ?? tx.transaction_outcome?.id;
-            console.log('[game] txHash:', txHash);
-            if (txHash) {
-              try {
-                const rpcLogs = await getTxLogs(txHash);
-                console.log('[game] rpcLogs:', rpcLogs);
-                lastAiMove = parseLastAiMove(rpcLogs);
-                console.log('[game] lastAiMove from rpc:', lastAiMove);
-              } catch (e) {
-                console.warn('[game] getTxLogs failed:', e);
-              }
-            }
-          }
-          if (lastAiMove) {
-            pendingLastMove = lastAiMove;
-            console.log('[game] set pendingLastMove:', pendingLastMove);
-          } else {
-            console.log('[game] NO lastAiMove found');
-          }
-        } else {
-          console.log('[game] not AI game, isAiGame:', isAiGame);
         }
-        load();
+        let parsed = parseTxLogs(txLogs);
+
+        if (isAiGame && !parsed.lastMove) {
+          const txHash = tx.transaction?.hash ?? tx.transaction_outcome?.id;
+          if (txHash) {
+            try {
+              const rpcLogs = await getTxLogs(txHash);
+              parsed = parseTxLogs(rpcLogs);
+            } catch (e) {
+              console.warn('[game] getTxLogs failed:', e);
+            }
+          }
+        }
+
+        if (parsed.outcome && parsed.board && game) {
+          game = {
+            ...game,
+            board: parsed.board,
+            fen: undefined,
+            status: 'finished' as const,
+            outcome: parsed.outcome as GameOverview['outcome']
+          };
+          pendingLastMove = null;
+          contractTurnColor = null;
+          retryLoadUntilFinished();
+        } else {
+          if (isAiGame && parsed.lastMove) {
+            pendingLastMove = parsed.lastMove;
+          }
+          load();
+        }
       })
       .catch(() => {
         submitting = false;
       });
     showToast('info', 'Submitting move...');
+  }
+
+  async function retryLoadUntilFinished(targetStatus = 'finished') {
+    for (let i = 0; i < 5; i++) {
+      await new Promise(r => setTimeout(r, 2000));
+      try {
+        const g = await api.game(gameIdStr);
+        if (g.status === targetStatus) {
+          await load();
+          return;
+        }
+      } catch {
+        // retry
+      }
+    }
   }
 
   function handleResign() {
@@ -216,9 +257,30 @@
     showToast('info', 'Resigning...');
     contract
       .resign($state.snapshot(game.game_id))
-      .then(() => {
-        showToast('success', 'Game resigned');
-        setTimeout(() => goto('/'), 1500);
+      .then(async txResult => {
+        const tx = txResult as {
+          receipts_outcome?: { outcome: { logs: string[] } }[];
+        };
+        const txLogs: string[] = [];
+        if (tx.receipts_outcome) {
+          for (const r of tx.receipts_outcome) {
+            txLogs.push(...(r.outcome?.logs ?? []));
+          }
+        }
+        const parsed = parseTxLogs(txLogs);
+        if (parsed.outcome && game) {
+          game = {
+            ...game,
+            status: 'finished' as const,
+            outcome: parsed.outcome as GameOverview['outcome'],
+            resigner: (parsed.resigner as GameOverview['resigner']) ?? null
+          };
+          showToast('success', 'Game resigned');
+          retryLoadUntilFinished();
+        } else {
+          showToast('success', 'Game resigned');
+          load();
+        }
       })
       .catch((err: unknown) => {
         showToast(
@@ -239,9 +301,28 @@
     showToast('info', 'Cancelling...');
     contract
       .cancel($state.snapshot(game.game_id))
-      .then(() => {
-        showToast('success', 'Game cancelled');
-        setTimeout(() => goto('/'), 1500);
+      .then(async txResult => {
+        const tx = txResult as {
+          receipts_outcome?: { outcome: { logs: string[] } }[];
+        };
+        const txLogs: string[] = [];
+        if (tx.receipts_outcome) {
+          for (const r of tx.receipts_outcome) {
+            txLogs.push(...(r.outcome?.logs ?? []));
+          }
+        }
+        const parsed = parseTxLogs(txLogs);
+        if (parsed.cancelled && game) {
+          game = {
+            ...game,
+            status: 'cancelled' as const
+          };
+          showToast('success', 'Game cancelled');
+          retryLoadUntilFinished('cancelled');
+        } else {
+          showToast('success', 'Game cancelled');
+          load();
+        }
       })
       .catch((err: unknown) => {
         showToast(
@@ -336,6 +417,12 @@
           ></span>
         </span>
       </div>
+
+      {#if game.created_at}
+        <div class="text-xs text-white/40 text-center mt-1">
+          Started {dayjs(game.created_at).format('lll')}
+        </div>
+      {/if}
 
       <div class="flex justify-center">
         <Board

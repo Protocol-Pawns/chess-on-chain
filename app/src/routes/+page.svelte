@@ -219,7 +219,7 @@
   {#if myGames.length > 0}
     <section>
       <h3 class="text-base font-semibold mb-2">My Games</h3>
-      <div class="space-y-2 overflow-hidden" style="transition: max-height 0.3s ease-out; max-height: {myGames.length * 80}px;">
+      <div class="space-y-2 overflow-hidden" style="transition: max-height 0.3s ease-out; max-height: {myGames.length * 150}px;">
         {#each myGames as game}
           <button
             class="w-full text-left"
@@ -276,6 +276,7 @@
           <div class="space-y-2">
             {#each activeGames as game}
               <a
+                class="block"
                 href="/game/{encodeURIComponent(JSON.stringify(game.game_id))}"
               >
                 <GameCard {game} />
@@ -291,6 +292,7 @@
           <div class="space-y-2">
             {#each finishedGames as game}
               <a
+                class="block"
                 href="/game/{encodeURIComponent(JSON.stringify(game.game_id))}"
               >
                 <GameCard {game} />

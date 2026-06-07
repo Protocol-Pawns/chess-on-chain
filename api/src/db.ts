@@ -71,21 +71,28 @@ function parsePlayer(type: string, value: string | null): Player {
   return { type: 'Human', value: value! };
 }
 
+function parseJson<T>(value: T): T {
+  return typeof value === 'string' ? JSON.parse(value) : value;
+}
+
 function rowToGame(row: GameRow): Game {
+  const board = parseJson<string[]>(row.board);
+  const moves = parseJson<Array<{ color: string; mv: string; board: string[]; fen?: string }>>(row.moves);
+  const outcome = parseJson<GameOutcome | null>(row.outcome);
   return {
     game_id: JSON.parse(row.game_id),
     white: parsePlayer(row.white_type, row.white_value),
     black: parsePlayer(row.black_type, row.black_value),
-    board: row.board,
+    board,
     fen: row.fen,
-    moves: row.moves.map(m => ({
+    moves: moves.map(m => ({
       color: m.color as Color,
       mv: m.mv,
-      board: m.board,
+      board: parseJson<string[]>(m.board),
       fen: m.fen
     })),
     status: row.status as Game['status'],
-    outcome: row.outcome,
+    outcome,
     resigner: row.resigner,
     created_at: row.created_at,
     finished_at: row.finished_at
@@ -104,7 +111,7 @@ function rowToGameMove(row: GameMoveRow): GameMove {
     color: row.color as Color,
     move_notation: row.move_notation,
     fen: row.fen,
-    outcome: row.outcome
+    outcome: parseJson<GameOutcome | null>(row.outcome)
   };
 }
 

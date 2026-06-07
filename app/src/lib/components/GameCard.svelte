@@ -1,7 +1,15 @@
 <script lang="ts">
+  import dayjs from 'dayjs';
+  import { colorFromFEN } from '$lib/chess/board';
   import type { GameOverview } from '$lib/api/client';
 
   let { game }: { game: GameOverview } = $props();
+
+  let turn = $derived(
+    game.status === 'in_progress' && game.fen
+      ? colorFromFEN(game.fen)
+      : null
+  );
 </script>
 
 <div class="card-hover">
@@ -34,11 +42,20 @@
       {game.status === 'in_progress' ? 'Live' : game.status}
     </span>
   </div>
-  {#if game.outcome}
-    <div class="text-xs text-white/60">
-      {game.outcome.result === 'Victory'
-        ? `${game.outcome.color} wins`
-        : 'Draw'}
-    </div>
-  {/if}
+  <div class="flex justify-between items-center text-xs text-white/40">
+    <span>
+      {#if game.outcome}
+        <span class="text-white/60">
+          {game.outcome.result === 'Victory'
+            ? `${game.outcome.color} wins`
+            : 'Draw'}
+        </span>
+      {:else if turn}
+        {turn}'s turn
+      {/if}
+    </span>
+    {#if game.created_at}
+      <span>{dayjs(game.created_at).format('lll')}</span>
+    {/if}
+  </div>
 </div>
