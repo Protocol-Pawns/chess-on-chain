@@ -1,9 +1,11 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
+  import { goto } from '$app/navigation';
   import { api, type Challenge } from '$lib/api/client';
   import { accountStore, isLoggedIn } from '$lib/near/account';
   import { contract } from '$lib/near/connector';
-  import { showTxToast } from '$lib/toast';
+  import { showTxToast, showToast, decodeSuccessValue } from '$lib/toast';
+  import { gameUrl } from '$lib/game';
+  import type { GameId } from '$lib/game';
   import WagerInput from '$lib/components/WagerInput.svelte';
 
   let challenges = $state<Challenge[]>([]);
@@ -24,6 +26,10 @@
     }
   }
 
+  function navigateToGame(gameId: GameId) {
+    goto(gameUrl(gameId));
+  }
+
   function sendChallenge() {
     if (!$accountStore || !challengeTarget.trim()) return;
     const target = challengeTarget.trim();
@@ -37,18 +43,31 @@
   }
 
   function acceptChallenge(challenge: Challenge) {
-    if (challenge.wager_token && challenge.wager_amount) {
-      showTxToast(
-        contract.acceptChallengeWithWager(
-          challenge.wager_token,
-          challenge.id,
-          challenge.wager_amount
-        )
-      );
-    } else {
-      showTxToast(contract.acceptChallenge(challenge.id));
-    }
-    setTimeout(load, 4000);
+    showToast('info', 'Accepting challenge...');
+    const promise =
+      challenge.wager_token && challenge.wager_amount
+        ? contract.acceptChallengeWithWager(
+            challenge.wager_token,
+            challenge.id,
+            challenge.wager_amount
+          )
+        : contract.acceptChallenge(challenge.id);
+
+    promise
+      .then(result => {
+        const gameId = decodeSuccessValue<GameId>(result);
+        if (gameId) {
+          showToast('success', 'Challenge accepted! Redirecting...');
+          setTimeout(() => navigateToGame(gameId), 1000);
+        } else {
+          showToast('success', 'Challenge accepted!');
+          load();
+        }
+      })
+      .catch((err: unknown) => {
+        const msg = err instanceof Error ? err.message : String(err);
+        showToast('error', 'Failed to accept challenge', msg);
+      });
   }
 
   function rejectChallenge(id: string) {
@@ -56,7 +75,9 @@
     setTimeout(load, 4000);
   }
 
-  onMount(load);
+  $effect(() => {
+    if ($accountStore) load();
+  });
 </script>
 
 {#if !$isLoggedIn}
@@ -95,12 +116,17 @@
         <button
           class="btn-primary text-sm"
           onclick={sendChallenge}
-          disabled={!challengeTarget.trim() || (wagerEnabled && (!wagerAmount || !wagerToken))}
+          disabled={!challengeTarget.trim() ||
+            (wagerEnabled && (!wagerAmount || !wagerToken))}
         >
           Challenge
         </button>
       </div>
-      <WagerInput bind:enabled={wagerEnabled} bind:tokenId={wagerToken} bind:amount={wagerAmount} />
+      <WagerInput
+        bind:enabled={wagerEnabled}
+        bind:tokenId={wagerToken}
+        bind:amount={wagerAmount}
+      />
     </section>
 
     <section>

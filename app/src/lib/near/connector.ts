@@ -46,6 +46,23 @@ export async function viewFunction<T = unknown>(
   return result as T;
 }
 
+export async function getTxLogs(txHash: string): Promise<string[]> {
+  const p = getProvider();
+  const wallet = await (await getConnector().wallet()).getAccounts();
+  const accountId = wallet[0]?.accountId;
+  const status = await p.sendJsonRpc('EXPERIMENTAL_tx_status', [
+    txHash,
+    accountId
+  ]);
+  const logs: string[] = [];
+  if (status.receipts_outcome) {
+    for (const receipt of status.receipts_outcome) {
+      logs.push(...(receipt.outcome?.logs ?? []));
+    }
+  }
+  return logs;
+}
+
 async function sendTransaction(
   methodName: string,
   args: Record<string, unknown>,
@@ -122,6 +139,14 @@ export const contract = {
 
   createAiGame(difficulty: 'Easy' | 'Medium' | 'Hard') {
     return sendTransaction('create_ai_game', { difficulty });
+  },
+
+  getGameIds(accountId: string): Promise<[number, string, string | null][]> {
+    return viewFunction('get_game_ids', { account_id: accountId });
+  },
+
+  getBoard(gameId: unknown): Promise<string[]> {
+    return viewFunction('get_board', { game_id: gameId });
   },
 
   getGameInfo(gameId: unknown): Promise<{

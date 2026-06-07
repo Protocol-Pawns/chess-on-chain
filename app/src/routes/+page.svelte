@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
+  import { goto } from '$app/navigation';
   import { api, type GlobalStats, type GameOverview } from '$lib/api/client';
   import { contract } from '$lib/near/connector';
   import {
@@ -9,11 +10,14 @@
     isCheckingRegistration,
     register
   } from '$lib/near/account';
-  import { showTxToast } from '$lib/toast';
+  import { showToast, showTxToast, decodeSuccessValue } from '$lib/toast';
+  import { loadGameFromContract, gameUrl } from '$lib/game';
+  import type { GameId } from '$lib/game';
   import GameCard from '$lib/components/GameCard.svelte';
   import PushSettings from '$lib/components/PushSettings.svelte';
 
   let stats = $state<GlobalStats | null>(null);
+  let myGames = $state<GameOverview[]>([]);
   let activeGames = $state<GameOverview[]>([]);
   let finishedGames = $state<GameOverview[]>([]);
   let finishedCursor = $state<string | null>(null);
@@ -21,7 +25,62 @@
   let loading = $state(true);
   let showAiMenu = $state(false);
 
-  onMount(async () => {
+  async function loadMyGames() {
+    if (!$accountStore) {
+      console.log('[loadMyGames] no accountStore, skipping');
+      return;
+    }
+    try {
+      console.log('[loadMyGames] fetching game IDs for', $accountStore);
+      const gameIds: GameId[] = await contract.getGameIds($accountStore);
+      console.log('[loadMyGames] gameIds:', JSON.stringify(gameIds));
+      if (gameIds.length === 0) {
+        console.log('[loadMyGames] no game IDs returned');
+        myGames = [];
+        return;
+      }
+
+      let apiGames: GameOverview[] = [];
+      try {
+        apiGames = await api.query(gameIds);
+        console.log(
+          '[loadMyGames] api.query returned',
+          apiGames.length,
+          'games'
+        );
+      } catch (e) {
+        console.warn(
+          '[loadMyGames] api.query failed, will use contract fallback:',
+          e
+        );
+      }
+
+      const foundIds = new Set(apiGames.map(g => JSON.stringify(g.game_id)));
+      const missingIds = gameIds.filter(
+        id => !foundIds.has(JSON.stringify(id))
+      );
+
+      if (missingIds.length === 0) {
+        myGames = apiGames;
+        return;
+      }
+
+      console.log(
+        '[loadMyGames] fetching',
+        missingIds.length,
+        'games from contract fallback'
+      );
+      const contractGames = await Promise.all(
+        missingIds.map(id => loadGameFromContract(id))
+      );
+      myGames = [...apiGames, ...contractGames];
+      console.log('[loadMyGames] total myGames:', myGames.length);
+    } catch (e) {
+      console.error('[loadMyGames] FAILED:', e);
+    }
+  }
+
+  async function loadLobby() {
     try {
       const [s, ag, fg] = await Promise.all([
         api.stats(),
@@ -34,14 +93,44 @@
       finishedCursor = fg.next_cursor;
     } catch (e) {
       console.error('Failed to load lobby data:', e);
-    } finally {
+    }
+  }
+
+  onMount(() => {
+    loadLobby().then(() => {
       loading = false;
+    });
+  });
+
+  $effect(() => {
+    if ($accountStore) {
+      loadMyGames();
     }
   });
 
+  function navigateToGame(gameId: GameId) {
+    goto(gameUrl(gameId));
+  }
+
   function createAiGame(difficulty: 'Easy' | 'Medium' | 'Hard') {
     showAiMenu = false;
-    showTxToast(contract.createAiGame(difficulty));
+    showToast('info', 'Creating AI game...');
+    contract
+      .createAiGame(difficulty)
+      .then(result => {
+        const gameId = decodeSuccessValue<GameId>(result);
+        if (gameId) {
+          showToast('success', 'Game created! Redirecting...');
+          setTimeout(() => navigateToGame(gameId), 1000);
+        } else {
+          showToast('success', 'Game created!');
+          loadMyGames();
+        }
+      })
+      .catch((err: unknown) => {
+        const msg = err instanceof Error ? err.message : String(err);
+        showToast('error', 'Failed to create game', msg);
+      });
   }
 
   async function loadMoreFinished() {
@@ -96,7 +185,7 @@
     </div>
   {:else if $isRegistered}
     <div class="flex gap-2 justify-center">
-      <a href="/challenges" class="btn-secondary text-sm">Challenge Player</a>
+      <a href="/challenges" class="btn-primary text-sm">Challenge Player</a>
       <div class="relative">
         <button
           class="btn-primary text-sm"
@@ -106,7 +195,7 @@
         </button>
         {#if showAiMenu}
           <div
-            class="absolute right-0 top-full mt-1 card min-w-28 z-50 space-y-1"
+            class="absolute right-0 top-full mt-1 card min-w-28 z-50 space-y-1 bg-[#1a1a2e]"
           >
             <button
               class="btn-secondary w-full text-left text-sm"
@@ -125,6 +214,22 @@
       </div>
     </div>
     <PushSettings />
+  {/if}
+
+  {#if myGames.length > 0}
+    <section>
+      <h3 class="text-base font-semibold mb-2">My Games</h3>
+      <div class="space-y-2">
+        {#each myGames as game}
+          <button
+            class="w-full text-left"
+            onclick={() => navigateToGame(game.game_id)}
+          >
+            <GameCard {game} />
+          </button>
+        {/each}
+      </div>
+    </section>
   {/if}
 
   {#if loading}

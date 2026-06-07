@@ -29,6 +29,15 @@ export function dismissToast(id: number) {
   toasts.update(list => list.filter(t => t.id !== id));
 }
 
+export function decodeSuccessValue<T = unknown>(result: unknown): T | null {
+  const status = (result as { status?: { SuccessValue?: string } } | undefined)
+    ?.status;
+  if (status?.SuccessValue) {
+    return JSON.parse(atob(status.SuccessValue)) as T;
+  }
+  return null;
+}
+
 export function showTxToast(promise: Promise<unknown>) {
   showToast('info', 'Transaction pending...');
   promise
