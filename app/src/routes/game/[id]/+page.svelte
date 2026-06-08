@@ -543,9 +543,13 @@
 
       {#if game.outcome}
         <div class="text-center mt-2 font-semibold">
-          {game.outcome.result === 'Victory'
-            ? `${game.outcome.color} wins!`
-            : 'Draw - Stalemate'}
+          {#if game.outcome.result === 'Stalemate'}
+            Draw &mdash; Stalemate
+          {:else if game.resigner}
+            {game.outcome.color} wins by resignation!
+          {:else}
+            {game.outcome.color} wins by checkmate!
+          {/if}
         </div>
       {/if}
 

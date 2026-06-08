@@ -57,9 +57,13 @@
     <span>
       {#if game.outcome}
         <span class="text-white/60">
-          {game.outcome.result === 'Victory'
-            ? `${game.outcome.color} wins`
-            : 'Draw'}
+          {#if game.outcome.result === 'Stalemate'}
+            Draw
+          {:else if game.resigner}
+            {game.outcome.color} wins (resign)
+          {:else}
+            {game.outcome.color} wins (checkmate)
+          {/if}
         </span>
       {:else if isMyTurn}
         <span
