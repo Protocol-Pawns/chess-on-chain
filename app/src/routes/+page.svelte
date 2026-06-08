@@ -149,7 +149,7 @@
   }
 </script>
 
-<div class="flex flex-col gap-3">
+<div class="flex flex-col gap-5">
   <section class="text-center flex flex-col gap-3">
     <h2 class="text-xl font-bold text-primary">Welcome to Protocol Pawns!</h2>
     <p class="text-sm text-white/80 leading-relaxed">
@@ -268,6 +268,7 @@
   {:else}
     {#if stats}
       <section>
+        <h3 class="text-base font-semibold mb-2">Global Stats</h3>
         <div class="grid grid-cols-2 gap-3">
           <div class="card text-center">
             <div class="text-xl font-bold text-primary">
