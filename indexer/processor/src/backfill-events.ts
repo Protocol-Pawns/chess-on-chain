@@ -78,7 +78,10 @@ async function fetchWithRetry(url: string, body: unknown): Promise<any> {
     } catch (err) {
       if (attempt === 4) throw err;
       const wait = Math.min(1000 * Math.pow(2, attempt), 30000);
-      console.warn(`request failed (attempt ${attempt + 1}), retrying in ${wait}ms:`, err);
+      console.warn(
+        `request failed (attempt ${attempt + 1}), retrying in ${wait}ms:`,
+        err
+      );
       await delay(wait);
     }
   }
@@ -144,7 +147,10 @@ async function fetchAllTxHashes(): Promise<string[]> {
     if (resumeToken) pageBody.resume_token = resumeToken;
 
     await delay(DELAY_MS);
-    const page = (await fetchWithRetry(`${API_BASE}/account`, pageBody)) as AccountTxPage;
+    const page = (await fetchWithRetry(
+      `${API_BASE}/account`,
+      pageBody
+    )) as AccountTxPage;
     const hashes = page.account_txs?.map(t => t.transaction_hash) ?? [];
 
     if (hashes.length === 0) break;
@@ -195,7 +201,12 @@ function extractAllEvents(details: TxDetail[]): ExtractedEvent[] {
   events.sort((a, b) => {
     const h = BigInt(a.trigger_block_height) - BigInt(b.trigger_block_height);
     if (h !== 0n) return Number(h);
-    return Number(BigInt(a.trigger_block_timestamp) - BigInt(b.trigger_block_timestamp));
+    const t =
+      BigInt(a.trigger_block_timestamp) - BigInt(b.trigger_block_timestamp);
+    if (t !== 0n) return Number(t);
+    const idxA = parseInt(a.id.split('_').pop()!, 10);
+    const idxB = parseInt(b.id.split('_').pop()!, 10);
+    return idxA - idxB;
   });
 
   const byType = new Map<string, number>();
@@ -211,7 +222,10 @@ function extractAllEvents(details: TxDetail[]): ExtractedEvent[] {
   return events;
 }
 
-async function writeEvents(db: ReturnType<typeof getDb>, events: ExtractedEvent[]): Promise<void> {
+async function writeEvents(
+  db: ReturnType<typeof getDb>,
+  events: ExtractedEvent[]
+): Promise<void> {
   console.log(`phase 4: writing ${events.length} events to db...`);
 
   const INSERT_BATCH = 100;
@@ -226,7 +240,9 @@ async function writeEvents(db: ReturnType<typeof getDb>, events: ExtractedEvent[
         `;
       }
     });
-    console.log(`  wrote ${Math.min(i + INSERT_BATCH, events.length)}/${events.length}`);
+    console.log(
+      `  wrote ${Math.min(i + INSERT_BATCH, events.length)}/${events.length}`
+    );
   }
 }
 
@@ -252,7 +268,9 @@ async function main() {
       await writeEvents(db!, events);
     }
 
-    console.log(`done. ${txHashes.length} txs, ${events.length} events${DRY_RUN ? ' (dry run)' : ''}`);
+    console.log(
+      `done. ${txHashes.length} txs, ${events.length} events${DRY_RUN ? ' (dry run)' : ''}`
+    );
   } finally {
     await db?.end();
   }
