@@ -18,9 +18,7 @@ export function fmtOneDecimal(value: number): string {
 
 export function truncateAddr(id: string, max = 20): string {
   if (id.length <= max) return id;
-  const head = Math.ceil((max - 3) / 2);
-  const tail = Math.floor((max - 3) / 2);
-  return `${id.slice(0, head)}...${id.slice(-tail)}`;
+  return `${id.slice(0, 8)}...${id.slice(-4)}`;
 }
 
 export function fmtPPP(raw: string): string {

@@ -13,6 +13,7 @@
   import { accountStore } from '$lib/near/account';
   import { colorFromFEN } from '$lib/chess/board';
   import { showToast } from '$lib/toast';
+  import { truncateAddr } from '$lib/format';
   import { loadGameFromContract } from '$lib/game';
   import type { GameId, ContractGameData } from '$lib/game';
   import Board from '$lib/components/Board.svelte';
@@ -22,8 +23,17 @@
   import dayjs from 'dayjs';
 
   function parseMoveNotation(
-    notation: string
+    notation: string,
+    color?: string
   ): { from: string; to: string } | null {
+    if (/^O-O-O$/i.test(notation) || /^0-0-0$/.test(notation)) {
+      const rank = color === 'Black' ? '8' : '1';
+      return { from: `e${rank}`, to: `c${rank}` };
+    }
+    if (/^O-O$/i.test(notation) || /^0-0$/.test(notation)) {
+      const rank = color === 'Black' ? '8' : '1';
+      return { from: `e${rank}`, to: `g${rank}` };
+    }
     const parts = notation.split(' to ');
     if (parts.length >= 2) {
       const from = parts[0].trim();
@@ -55,7 +65,10 @@
   let lastMove = $derived(
     pendingLastMove ??
       (moves.length > 0
-        ? parseMoveNotation(moves[moves.length - 1].move_notation)
+        ? parseMoveNotation(
+            moves[moves.length - 1].move_notation,
+            moves[moves.length - 1].color
+          )
         : null)
   );
 
@@ -86,7 +99,10 @@
       viewingMoveIndex >= 0 &&
       viewingMoveIndex < moves.length
     ) {
-      return parseMoveNotation(moves[viewingMoveIndex].move_notation);
+      return parseMoveNotation(
+        moves[viewingMoveIndex].move_notation,
+        moves[viewingMoveIndex].color
+      );
     }
     return null;
   });
@@ -165,7 +181,10 @@
         pendingLastMove
       );
       if (m.length > 0 && pendingLastMove) {
-        const parsed = parseMoveNotation(m[m.length - 1].move_notation);
+        const parsed = parseMoveNotation(
+          m[m.length - 1].move_notation,
+          m[m.length - 1].color
+        );
         if (
           parsed &&
           parsed.from === pendingLastMove.from &&
@@ -431,7 +450,7 @@
     >
       &larr; Back
     </button>
-    <div class="card-accent">
+    <div class={isMyTurn ? 'card-accent' : 'card'}>
       <div class="flex justify-between items-center mb-2">
         <span
           class="text-sm px-2 py-1 rounded transition-all {currentTurn ===
@@ -443,7 +462,7 @@
             class="inline-block w-3 h-3 rounded-full bg-white mr-1 align-middle"
           ></span>
           {game.white.type === 'Human'
-            ? game.white.value
+            ? truncateAddr(game.white.value)
             : `AI (${game.white.value})`}
           {#if currentTurn === 'White'}
             <span class="text-xs ml-1 text-primary-green">&#9654;</span>
@@ -472,7 +491,7 @@
             <span class="text-xs mr-1 text-primary-green">&#9654;</span>
           {/if}
           {game.black?.type === 'Human'
-            ? game.black.value
+            ? truncateAddr(game.black.value ?? '')
             : game.black?.type?.toLowerCase() === 'ai'
               ? `AI (${game.black.value})`
               : '...'}
@@ -564,16 +583,9 @@
           {#each gameBets as bet}
             <div class="flex items-center justify-between text-xs">
               <div class="truncate mr-2">
-                <span class="text-white/70"
-                  >{bet.bettor.length > 20
-                    ? bet.bettor.slice(0, 10) + '...' + bet.bettor.slice(-6)
-                    : bet.bettor}</span
-                >
+                <span class="text-white/70">{truncateAddr(bet.bettor)}</span>
                 <span class="text-white/40 ml-1">bet {bet.amount} on</span>
-                <span class="text-primary ml-1"
-                  >{bet.winner.length > 20
-                    ? bet.winner.slice(0, 10) + '...' + bet.winner.slice(-6)
-                    : bet.winner}</span
+                <span class="text-primary ml-1">{truncateAddr(bet.winner)}</span
                 >
               </div>
               <div class="shrink-0 flex items-center gap-2">

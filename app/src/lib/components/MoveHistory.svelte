@@ -49,7 +49,9 @@
     if (!containerEl) return;
     const idx = selectedMoveIndex;
     if (idx === null || idx < 0) return;
-    const el = containerEl.querySelector(`[data-move-idx="${idx}"]`) as HTMLElement;
+    const el = containerEl.querySelector(
+      `[data-move-idx="${idx}"]`
+    ) as HTMLElement;
     if (el) {
       el.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
     }
@@ -77,44 +79,98 @@
         onclick={() => onSelectMove(-1)}
         disabled={selectedMoveIndex === -1 || moves.length === 0}
         title="Start"
-      ><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="4" x2="3" y2="20"/><polygon points="7 4 19 12 7 20"/></svg></button>
+        ><svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="16"
+          height="16"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          ><line x1="3" y1="4" x2="3" y2="20" /><polygon
+            points="7 4 19 12 7 20"
+          /></svg
+        ></button
+      >
       <button
         class="p-1 rounded border border-white/20 hover:bg-white/10 disabled:opacity-30 disabled:cursor-default transition-colors"
         onclick={goPrev}
         disabled={!canGoPrev}
         title="Previous move"
-      ><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg></button>
+        ><svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="16"
+          height="16"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"><polyline points="15 18 9 12 15 6" /></svg
+        ></button
+      >
       <button
         class="p-1 rounded border border-white/20 hover:bg-white/10 disabled:opacity-30 disabled:cursor-default transition-colors"
         onclick={goNext}
         disabled={!canGoNext}
         title="Next move"
-      ><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg></button>
+        ><svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="16"
+          height="16"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"><polyline points="9 18 15 12 9 6" /></svg
+        ></button
+      >
       <button
         class="p-1 rounded border border-white/20 hover:bg-white/10 disabled:opacity-30 disabled:cursor-default transition-colors"
         onclick={goLatest}
         disabled={isViewingCurrent}
         title="Latest position"
-      ><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 4 17 12 5 20"/><line x1="21" y1="4" x2="21" y2="20"/></svg></button>
+        ><svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="16"
+          height="16"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          ><polygon points="5 4 17 12 5 20" /><line
+            x1="21"
+            y1="4"
+            x2="21"
+            y2="20"
+          /></svg
+        ></button
+      >
     </div>
   </div>
 
-  <div class="max-h-64 overflow-y-auto" bind:this={containerEl}>
+  <div class="max-h-34 overflow-y-auto" bind:this={containerEl}>
     {#if moves.length === 0}
       <div class="text-sm text-white/40 py-2">No moves yet</div>
     {:else}
-      <div class="grid grid-cols-2 gap-x-4 gap-y-0.5 text-sm">
+      <div class="flex flex-wrap text-sm">
         {#each moves as move, i}
           <button
             data-move-idx={i}
-            class="flex gap-2 text-left rounded px-1 py-0.5 transition-colors {move.color === 'White'
-              ? ''
-              : 'col-start-2'} {selectedMoveIndex === i
+            class="flex gap-2 text-left rounded px-1 py-0.5 transition-colors w-1/2 {selectedMoveIndex ===
+            i
               ? 'bg-white/10 ring-1 ring-white/30'
               : 'hover:bg-white/5'}"
             onclick={() => onSelectMove(i)}
           >
-            <span class="text-white/50 w-6 text-right shrink-0">{move.move_number}.</span>
+            <span class="text-white/50 w-6 text-right shrink-0"
+              >{move.move_number}.</span
+            >
             <span class="font-mono">{move.move_notation}</span>
           </button>
         {/each}
@@ -126,8 +182,8 @@
     <div class="mt-2 text-center">
       <button
         class="text-xs font-semibold px-3 py-1 rounded bg-primary-green/20 text-primary-green border border-primary-green/30 hover:bg-primary-green/30 animate-pulse transition-colors"
-        onclick={goLatest}
-      >Return to current &mdash; it's your turn</button>
+        onclick={goLatest}>Return to current &mdash; it's your turn</button
+      >
     </div>
   {/if}
 </div>
