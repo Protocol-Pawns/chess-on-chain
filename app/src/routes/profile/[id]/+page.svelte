@@ -101,7 +101,8 @@
     if ($accountStore !== accountId) return;
     try {
       const all = await api.challenges(accountId);
-      pendingChallenges = all.filter(c => c.status === 'pending');
+      const items = 'items' in all ? all.items : all;
+      pendingChallenges = items.filter(c => c.status === 'pending');
     } catch (e) {
       console.error('Failed to load pending challenges:', e);
     }

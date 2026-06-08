@@ -162,8 +162,15 @@ app.openapi(getAccountStatsRoute, async c => {
 
 app.openapi(getChallengesRoute, async c => {
   const accountId = c.req.param('account_id');
+  const { page, per_page, exclude_rejected } = c.req.valid('query');
   const db = c.get('DB');
-  const challenges = await getChallenges(db, accountId);
+  const challenges = await getChallenges(
+    db,
+    accountId,
+    page ? Number(page) : undefined,
+    per_page ? Number(per_page) : undefined,
+    exclude_rejected
+  );
   return c.json(challenges, 200);
 });
 

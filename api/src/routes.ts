@@ -175,11 +175,23 @@ export const getChallengesRoute = createRoute({
   method: 'get',
   path: '/account/{account_id}/challenges',
   request: {
-    params: z.object({ account_id: z.string() })
+    params: z.object({ account_id: z.string() }),
+    query: z.object({
+      page: z.string().optional(),
+      per_page: z.string().optional(),
+      exclude_rejected: z
+        .enum(['true', '1'])
+        .optional()
+        .transform(v => v === 'true' || v === '1')
+    })
   },
   responses: {
     200: {
-      content: { 'application/json': { schema: ChallengeSchema.array() } },
+      content: {
+        'application/json': {
+          schema: z.union([ChallengeSchema.array(), PaginatedChallengesSchema])
+        }
+      },
       description: 'Returns challenges for an account'
     }
   }

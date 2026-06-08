@@ -377,11 +377,46 @@ export async function getAccountStats(
 
 export async function getChallenges(
   db: Db,
-  accountId: string
-): Promise<Challenge[]> {
+  accountId: string,
+  page?: number,
+  perPage?: number,
+  excludeRejected?: boolean
+): Promise<Challenge[] | OffsetPaginatedResult<Challenge>> {
+  const notRejected = excludeRejected ? db`AND status != 'rejected'` : db``;
+
+  if (page != null && page > 0) {
+    const limit = clampLimit(perPage, 100, 25);
+    const offset = (page - 1) * limit;
+
+    const countRows = await db`
+      SELECT COUNT(*) AS total FROM challenges
+      WHERE (challenger = ${accountId} OR challenged = ${accountId}) ${notRejected}
+    `;
+    const totalCount = Number(
+      (countRows[0] as unknown as Record<string, string>).total
+    );
+    const totalPages = Math.max(1, Math.ceil(totalCount / limit));
+
+    const rows = await db`
+      SELECT * FROM challenges
+      WHERE (challenger = ${accountId} OR challenged = ${accountId}) ${notRejected}
+      ORDER BY created_at DESC
+      LIMIT ${limit} OFFSET ${offset}
+    `;
+
+    return {
+      items: rows.map((r: unknown) => rowToChallenge(r as ChallengeRow)),
+      next_cursor: page < totalPages ? String(page + 1) : null,
+      total_count: totalCount,
+      total_pages: totalPages,
+      page,
+      per_page: limit
+    };
+  }
+
   const rows = await db`
     SELECT * FROM challenges
-    WHERE challenger = ${accountId} OR challenged = ${accountId}
+    WHERE (challenger = ${accountId} OR challenged = ${accountId}) ${notRejected}
     ORDER BY created_at DESC
   `;
   return rows.map((r: unknown) => rowToChallenge(r as ChallengeRow));

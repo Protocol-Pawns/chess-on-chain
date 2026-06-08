@@ -144,8 +144,22 @@ export const api = {
     ),
   accountStats: (accountId: string) =>
     request<AccountStats>(`/account/${accountId}/stats`),
-  challenges: (accountId: string) =>
-    request<Challenge[]>(`/account/${accountId}/challenges`),
+  challenges: (
+    accountId: string,
+    page?: number,
+    perPage?: number,
+    excludeRejected?: boolean
+  ) => {
+    const params = new URLSearchParams();
+    if (page) params.set('page', String(page));
+    if (perPage) params.set('per_page', String(perPage));
+    if (excludeRejected) params.set('exclude_rejected', 'true');
+    const qs = params.toString();
+    const suffix = qs ? `?${qs}` : '';
+    return request<Challenge[] | PaginatedResult<Challenge>>(
+      `/account/${accountId}/challenges${suffix}`
+    );
+  },
   query: (gameIds: [number, string, string | null][]) =>
     request<GameOverview[]>('/query', {
       method: 'POST',

@@ -223,7 +223,11 @@ export type BetLeaderboardEntry = z.infer<typeof BetLeaderboardEntrySchema>;
 
 export const PaginatedChallengesSchema = z.object({
   items: ChallengeSchema.array(),
-  next_cursor: z.string().nullable()
+  next_cursor: z.string().nullable(),
+  total_count: z.number().optional(),
+  total_pages: z.number().optional(),
+  page: z.number().optional(),
+  per_page: z.number().optional()
 });
 export type PaginatedChallenges = z.infer<typeof PaginatedChallengesSchema>;
 

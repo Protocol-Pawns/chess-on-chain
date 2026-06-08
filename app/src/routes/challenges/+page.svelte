@@ -1,6 +1,6 @@
 <script lang="ts">
   import { goto } from '$app/navigation';
-  import { api, type Challenge } from '$lib/api/client';
+  import { api, type Challenge, type GameOverview } from '$lib/api/client';
   import { accountStore, isLoggedIn } from '$lib/near/account';
   import { contract } from '$lib/near/connector';
   import { showTxToast, showToast, decodeSuccessValue } from '$lib/toast';
@@ -9,11 +9,17 @@
   import WagerInput from '$lib/components/WagerInput.svelte';
   import ChallengeCard from '$lib/components/ChallengeCard.svelte';
   import ConfirmModal from '$lib/components/ConfirmModal.svelte';
+  import Pagination from '$lib/components/Pagination.svelte';
 
   const MAX_OPEN_CHALLENGES = 25;
+  const PER_PAGE = 25;
 
   let challenges = $state<Challenge[]>([]);
+  let gameMap = $state<Map<string, GameOverview>>(new Map());
   let loading = $state(true);
+  let currentPage = $state(1);
+  let totalPages = $state(1);
+  let hideRejected = $state(true);
   let challengeTarget = $state('');
   let wagerEnabled = $state(false);
   let wagerToken = $state('');
@@ -31,15 +37,31 @@
   async function load() {
     if (!$accountStore) return;
     try {
-      const [ch, gameIds, sent, received] = await Promise.all([
-        api.challenges($accountStore),
+      const [result, gameIds, sent, received] = await Promise.all([
+        api.challenges($accountStore, currentPage, PER_PAGE, hideRejected),
         contract.getGameIds($accountStore),
         contract.getChallenges($accountStore, true).catch(() => []),
         contract.getChallenges($accountStore, false).catch(() => [])
       ]);
-      challenges = ch;
+      const items = 'items' in result ? result.items : result;
+      challenges = items;
+      if ('total_pages' in result && result.total_pages) {
+        totalPages = result.total_pages;
+      }
       gameCount = gameIds.length;
       ownChallengeCount = sent.length + received.length;
+
+      const acceptedIds = items
+        .filter(c => c.status === 'accepted' && c.game_id)
+        .map(c => JSON.parse(c.game_id!) as [number, string, string | null]);
+      if (acceptedIds.length > 0) {
+        const games = await api.query(acceptedIds);
+        const map = new Map<string, GameOverview>();
+        games.forEach(g => {
+          map.set(JSON.stringify(g.game_id), g);
+        });
+        gameMap = map;
+      }
     } catch (e) {
       console.error('Failed to load challenges:', e);
     } finally {
@@ -219,6 +241,20 @@
   $effect(() => {
     if ($accountStore) load();
   });
+
+  $effect(() => {
+    hideRejected;
+    if ($accountStore && !loading) {
+      currentPage = 1;
+      load();
+    }
+  });
+
+  function goToPage(p: number) {
+    currentPage = p;
+    loading = true;
+    load();
+  }
 </script>
 
 {#if !$isLoggedIn}
@@ -285,7 +321,19 @@
     </section>
 
     <section>
-      <h2 class="text-base font-semibold mb-2">Your Challenges</h2>
+      <div class="flex items-center justify-between mb-2">
+        <h2 class="text-base font-semibold">Your Challenges</h2>
+        <label
+          class="flex items-center gap-1.5 text-xs text-white/50 cursor-pointer select-none"
+        >
+          <input
+            type="checkbox"
+            bind:checked={hideRejected}
+            class="accent-primary"
+          />
+          Hide rejected
+        </label>
+      </div>
       {#if gameCount >= MAX_OPEN_GAMES}
         <p class="text-xs text-red-400 mb-2">
           Max games reached ({gameCount}/{MAX_OPEN_GAMES})
@@ -300,12 +348,16 @@
               {challenge}
               currentAccount={$accountStore!}
               {gameCount}
+              game={challenge.game_id
+                ? (gameMap.get(challenge.game_id) ?? null)
+                : null}
               onaccept={c => (acceptTarget = c)}
               onreject={c => (rejectTarget = c)}
               oncancel={c => (cancelTarget = c)}
             />
           {/each}
         </div>
+        <Pagination page={currentPage} {totalPages} onchange={goToPage} />
       {/if}
     </section>
   </div>
