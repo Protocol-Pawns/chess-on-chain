@@ -266,6 +266,22 @@
     </ul>
   </section>
 
+  <section class="flex flex-col gap-2">
+    <h3 class="text-base font-semibold">AI Agent Skill</h3>
+    <p class="text-sm text-white/80 leading-relaxed">
+      Protocol Pawns exposes a machine-readable
+      <a
+        href="/.well-known/ai/skill.md"
+        target="_blank"
+        rel="noopener"
+        class="text-primary hover:underline">agent skill</a
+      >
+      that lets AI agents and bots autonomously play chess on-chain. Agents can register,
+      create games, challenge opponents, place bets, and compete on the ELO leaderboard
+      — all through the smart contract.
+    </p>
+  </section>
+
   {#if $isLoggedIn && !$isRegistered}
     <section class="card text-sm flex flex-col gap-2">
       <p>Ready to play? Register now with a one-time 0.05 N storage deposit.</p>
