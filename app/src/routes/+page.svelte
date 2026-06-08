@@ -20,7 +20,6 @@
 
   let stats = $state<GlobalStats | null>(null);
   let myGames = $state<GameOverview[]>([]);
-  let activeGames = $state<GameOverview[]>([]);
   let finishedGames = $state<GameOverview[]>([]);
   let finishedCursor = $state<string | null>(null);
   let loadingMore = $state(false);
@@ -86,13 +85,11 @@
 
   async function loadLobby() {
     try {
-      const [s, ag, fg] = await Promise.all([
+      const [s, fg] = await Promise.all([
         api.stats(),
-        api.games('active', undefined, 20),
         api.games('finished', undefined, 20)
       ]);
       stats = s;
-      activeGames = ag.items;
       finishedGames = fg.items;
       finishedCursor = fg.next_cursor;
     } catch (e) {
@@ -198,21 +195,34 @@
           Play vs AI
         </button>
         {#if showAiMenu}
-          <div class="fixed inset-0 z-40" onclick={() => (showAiMenu = false)}></div>
           <div
-            class="dropdown right-0 top-full mt-1 min-w-28 space-y-0.5"
-          >
+            class="fixed inset-0 z-40"
+            onclick={() => (showAiMenu = false)}
+          ></div>
+          <div class="dropdown right-0 top-full mt-1 min-w-28 space-y-0.5">
             <button
               class="btn-secondary w-full text-left text-sm"
-              onclick={() => { selectedDifficulty = 'Easy'; showAiMenu = false; showAiConfirm = true; }}>Easy</button
+              onclick={() => {
+                selectedDifficulty = 'Easy';
+                showAiMenu = false;
+                showAiConfirm = true;
+              }}>Easy</button
             >
             <button
               class="btn-secondary w-full text-left text-sm"
-              onclick={() => { selectedDifficulty = 'Medium'; showAiMenu = false; showAiConfirm = true; }}>Medium</button
+              onclick={() => {
+                selectedDifficulty = 'Medium';
+                showAiMenu = false;
+                showAiConfirm = true;
+              }}>Medium</button
             >
             <button
               class="btn-secondary w-full text-left text-sm"
-              onclick={() => { selectedDifficulty = 'Hard'; showAiMenu = false; showAiConfirm = true; }}>Hard</button
+              onclick={() => {
+                selectedDifficulty = 'Hard';
+                showAiMenu = false;
+                showAiConfirm = true;
+              }}>Hard</button
             >
           </div>
         {/if}
@@ -225,7 +235,11 @@
   {#if myGames.length > 0}
     <section>
       <h3 class="text-base font-semibold mb-2">My Games</h3>
-      <div class="space-y-2 overflow-hidden" style="transition: max-height 0.3s ease-out; max-height: {myGames.length * 150}px;">
+      <div
+        class="space-y-2 overflow-hidden"
+        style="transition: max-height 0.3s ease-out; max-height: {myGames.length *
+          150}px;"
+      >
         {#each myGames as game}
           <button
             class="w-full text-left"
@@ -276,22 +290,6 @@
     {/if}
 
     <section class="space-y-6">
-      {#if activeGames.length > 0}
-        <div>
-          <h3 class="text-base font-semibold mb-2">Active Games</h3>
-          <div class="space-y-2">
-            {#each activeGames as game}
-              <a
-                class="block"
-                href="/game/{encodeURIComponent(JSON.stringify(game.game_id))}"
-              >
-                <GameCard {game} />
-              </a>
-            {/each}
-          </div>
-        </div>
-      {/if}
-
       {#if finishedGames.length > 0}
         <div>
           <h3 class="text-base font-semibold mb-2">Recent Games</h3>
@@ -325,6 +323,9 @@
   title="Start AI Game?"
   message={`Start a ${selectedDifficulty.toLowerCase()} AI game? This will create an on-chain game.`}
   confirmLabel="Start Game"
-  onconfirm={() => { showAiConfirm = false; createAiGame(selectedDifficulty); }}
+  onconfirm={() => {
+    showAiConfirm = false;
+    createAiGame(selectedDifficulty);
+  }}
   onclose={() => (showAiConfirm = false)}
 />

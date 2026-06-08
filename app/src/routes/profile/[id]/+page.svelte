@@ -1,10 +1,17 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { page } from '$app/state';
-  import { api, type AccountStats, type GameOverview, type BetStats } from '$lib/api/client';
+  import {
+    api,
+    type AccountStats,
+    type GameOverview,
+    type BetStats
+  } from '$lib/api/client';
   import { fmtOneDecimal, truncateAddr } from '$lib/format';
   import { contract } from '$lib/near/connector';
   import { accountStore } from '$lib/near/account';
+  import { loadGameFromContract } from '$lib/game';
+  import type { GameId } from '$lib/game';
   import { showTxToast } from '$lib/toast';
   import GameCard from '$lib/components/GameCard.svelte';
   import PppIcon from '$lib/components/PppIcon.svelte';
@@ -13,7 +20,7 @@
 
   let stats = $state<AccountStats | null>(null);
   let games = $state<GameOverview[]>([]);
-  let activeGame = $state<GameOverview | null>(null);
+  let activeGames = $state<GameOverview[]>([]);
   let elo = $state<number | null>(null);
   let points = $state<string | null>(null);
   let achievements: Array<[number, string]> = $state([]);
@@ -100,15 +107,30 @@
       questCooldowns = qc;
       betStats = bs;
 
-      const [account, ag, tb] = await Promise.all([
-        api.account(accountId),
-        api.activeGame(accountId).catch(() => null),
-        loadTokens()
-      ]);
-      if (ag) activeGame = ag as unknown as GameOverview;
-      if (account.finishedGameIds.length > 0) {
-        games = await api.query(account.finishedGameIds);
-      }
+      const [tb] = await Promise.all([loadTokens()]);
+      try {
+        const gameIds: GameId[] = await contract.getGameIds(accountId);
+        if (gameIds.length > 0) {
+          let apiGames: GameOverview[] = [];
+          try {
+            apiGames = await api.query(gameIds);
+          } catch {}
+          const foundIds = new Set(
+            apiGames.map(g => JSON.stringify(g.game_id))
+          );
+          const missingIds = gameIds.filter(
+            id => !foundIds.has(JSON.stringify(id))
+          );
+          if (missingIds.length > 0) {
+            const contractGames = await Promise.all(
+              missingIds.map(id => loadGameFromContract(id))
+            );
+            apiGames = [...apiGames, ...contractGames];
+          }
+          activeGames = apiGames.filter(g => g.status !== 'finished');
+          games = apiGames.filter(g => g.status === 'finished');
+        }
+      } catch {}
     } catch (e) {
       console.error('Failed to load profile:', e);
     } finally {
@@ -143,16 +165,41 @@
   <div class="space-y-6">
     <section class="card">
       <div class="flex items-center gap-2 mb-1">
-        <h2 class="text-lg font-bold text-primary">{truncateAddr(accountId)}</h2>
+        <h2 class="text-lg font-bold text-primary">
+          {truncateAddr(accountId)}
+        </h2>
         <button
           onclick={copyAddress}
           class="text-white/40 hover:text-white/80 transition-colors"
           title="Copy address"
         >
           {#if copied}
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"><polyline points="20 6 9 17 4 12" /></svg
+            >
           {:else}
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              ><rect width="14" height="14" x="8" y="8" rx="2" ry="2" /><path
+                d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"
+              /></svg
+            >
           {/if}
         </button>
         <a
@@ -162,7 +209,25 @@
           class="text-white/40 hover:text-white/80 transition-colors"
           title="View on Explorer"
         >
-          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" x2="21" y1="14" y2="3"/></svg>
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            ><path
+              d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"
+            /><polyline points="15 3 21 3 21 9" /><line
+              x1="10"
+              x2="21"
+              y1="14"
+              y2="3"
+            /></svg
+          >
         </a>
       </div>
 
@@ -178,7 +243,8 @@
         {#if points !== null}
           <div class="text-center bg-primary-transparent2 rounded p-2">
             <div class="text-xl font-bold text-primary">
-              <PppIcon size={22} /> {formatPoints(points)} PPP
+              <PppIcon size={22} />
+              {formatPoints(points)} PPP
             </div>
             <div class="text-xs text-white/50">Points</div>
           </div>
@@ -216,19 +282,27 @@
         <h3 class="text-base font-semibold mb-2">Betting Stats</h3>
         <div class="grid grid-cols-4 gap-3">
           <div class="text-center">
-            <div class="text-lg font-bold text-primary">{betStats.total_bets}</div>
+            <div class="text-lg font-bold text-primary">
+              {betStats.total_bets}
+            </div>
             <div class="text-xs text-white/50">Total</div>
           </div>
           <div class="text-center">
-            <div class="text-lg font-bold text-primary-warn">{betStats.total_wagered}</div>
+            <div class="text-lg font-bold text-primary-warn">
+              {betStats.total_wagered}
+            </div>
             <div class="text-xs text-white/50">Wagered</div>
           </div>
           <div class="text-center">
-            <div class="text-lg font-bold text-primary-green">{betStats.won_bets}</div>
+            <div class="text-lg font-bold text-primary-green">
+              {betStats.won_bets}
+            </div>
             <div class="text-xs text-white/50">Won</div>
           </div>
           <div class="text-center">
-            <div class="text-lg font-bold text-primary-green">{betStats.total_won}</div>
+            <div class="text-lg font-bold text-primary-green">
+              {betStats.total_won}
+            </div>
             <div class="text-xs text-white/50">Earned</div>
           </div>
         </div>
@@ -240,7 +314,9 @@
         <h3 class="text-base font-semibold mb-1">Token Balances</h3>
         {#each tokenBalances as [tokenId, balance]}
           <div class="flex items-center justify-between text-sm">
-            <span class="text-white/70 truncate mr-2">{shortToken(tokenId)}</span>
+            <span class="text-white/70 truncate mr-2"
+              >{shortToken(tokenId)}</span
+            >
             <div class="flex items-center gap-2 shrink-0">
               <span class="text-white/90">{balance}</span>
               {#if $accountStore === accountId}
@@ -258,28 +334,19 @@
       </section>
     {/if}
 
-    {#if activeGame}
+    {#if activeGames.length > 0}
       <section>
-        <h3 class="text-base font-semibold mb-2">Currently Playing</h3>
-        <a
-          href="/game/{encodeURIComponent(JSON.stringify(activeGame.game_id))}"
-        >
-          <div class="card-accent flex items-center justify-between">
-            <div class="text-sm">
-              <span
-                class="inline-block w-3 h-3 rounded-full bg-white mr-1 align-middle"
-              ></span>
-              {activeGame.white.type === 'Human'
-                ? activeGame.white.value
-                : 'AI'}
-              <span class="text-white/40 mx-1">vs</span>
-              {activeGame.black?.type === 'Human'
-                ? activeGame.black.value
-                : 'AI'}
-            </div>
-            <span class="text-xs text-primary-green">Live</span>
-          </div>
-        </a>
+        <h3 class="text-base font-semibold mb-2">Active Games</h3>
+        <div class="space-y-2">
+          {#each activeGames as game}
+            <a
+              class="block"
+              href="/game/{encodeURIComponent(JSON.stringify(game.game_id))}"
+            >
+              <GameCard {game} />
+            </a>
+          {/each}
+        </div>
       </section>
     {/if}
 
@@ -325,7 +392,10 @@
       {:else}
         <div class="space-y-2">
           {#each games as game}
-            <a class="block" href="/game/{encodeURIComponent(JSON.stringify(game.game_id))}">
+            <a
+              class="block"
+              href="/game/{encodeURIComponent(JSON.stringify(game.game_id))}"
+            >
               <GameCard {game} />
             </a>
           {/each}
