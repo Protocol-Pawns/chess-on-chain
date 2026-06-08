@@ -4,12 +4,22 @@
     title: string;
     message: string;
     confirmLabel: string;
+    confirmClass?: string;
+    confirmDisabled?: boolean;
     onconfirm: () => void;
     onclose: () => void;
   }
 
-  let { open, title, message, confirmLabel, onconfirm, onclose }: Props =
-    $props();
+  let {
+    open,
+    title,
+    message,
+    confirmLabel,
+    confirmClass = 'btn text-sm text-white bg-primary-err hover:bg-primary-err/80',
+    confirmDisabled = false,
+    onconfirm,
+    onclose
+  }: Props = $props();
 </script>
 
 {#if open}
@@ -28,9 +38,13 @@
       <div class="flex gap-2 justify-end">
         <button class="btn-secondary text-sm" onclick={onclose}>Cancel</button>
         <button
-          class="btn text-sm text-white bg-primary-err hover:bg-primary-err/80"
+          class={confirmClass}
           onclick={onconfirm}
+          disabled={confirmDisabled}
         >
+          {#if confirmDisabled}
+            <span class="inline-block animate-spin mr-1.5">⏳</span>
+          {/if}
           {confirmLabel}
         </button>
       </div>

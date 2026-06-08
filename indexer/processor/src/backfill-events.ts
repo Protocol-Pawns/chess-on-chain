@@ -98,7 +98,8 @@ function extractEvents(detail: TxDetail): ExtractedEvent[] {
       if ('Failure' in eo.outcome.status) continue;
 
       const blockHeight = String(eo.block_height);
-      const blockTimestamp = String(eo.block_timestamp);
+      const blockTimestampNs = Number(eo.block_timestamp);
+      const blockTimestamp = String(Math.floor(blockTimestampNs / 1_000_000));
       const receiptId = eo.id;
 
       let eventIndex = 0;

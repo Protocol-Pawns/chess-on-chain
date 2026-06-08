@@ -1,7 +1,12 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { goto } from '$app/navigation';
-  import { api, type GlobalStats, type GameOverview } from '$lib/api/client';
+  import {
+    api,
+    type GlobalStats,
+    type GameOverview,
+    type Challenge
+  } from '$lib/api/client';
   import { contract } from '$lib/near/connector';
   import {
     isLoggedIn,
@@ -14,6 +19,7 @@
   import { loadGameFromContract, gameUrl, MAX_OPEN_GAMES } from '$lib/game';
   import type { GameId } from '$lib/game';
   import GameCard from '$lib/components/GameCard.svelte';
+  import ChallengeCard from '$lib/components/ChallengeCard.svelte';
   import Pagination from '$lib/components/Pagination.svelte';
   import PushSettings from '$lib/components/PushSettings.svelte';
   import PwaInstallCard from '$lib/components/PwaInstallCard.svelte';
@@ -32,6 +38,10 @@
   let showAiMenu = $state(false);
   let selectedDifficulty = $state<'Easy' | 'Medium' | 'Hard'>('Easy');
   let showAiConfirm = $state(false);
+  let pendingChallenges = $state<Challenge[]>([]);
+  let acceptTarget = $state<Challenge | null>(null);
+  let rejectTarget = $state<Challenge | null>(null);
+  let cancelTarget = $state<Challenge | null>(null);
 
   async function loadMyGames() {
     if (!$accountStore) {
@@ -88,6 +98,59 @@
     }
   }
 
+  async function loadPendingChallenges() {
+    if (!$accountStore) return;
+    try {
+      const all = await api.challenges($accountStore);
+      pendingChallenges = all.filter(c => c.status === 'pending');
+    } catch (e) {
+      console.error('Failed to load pending challenges:', e);
+    }
+  }
+
+  function doAccept(challenge: Challenge) {
+    acceptTarget = null;
+    showToast('info', 'Accepting challenge...');
+    const promise =
+      challenge.wager_token && challenge.wager_amount
+        ? contract.acceptChallengeWithWager(
+            challenge.wager_token,
+            challenge.id,
+            challenge.wager_amount
+          )
+        : contract.acceptChallenge(challenge.id);
+
+    promise
+      .then(result => {
+        const gameId = decodeSuccessValue<GameId>(result);
+        if (gameId) {
+          showToast('success', 'Challenge accepted! Redirecting...');
+          setTimeout(() => navigateToGame(gameId), 1000);
+        } else {
+          showToast('success', 'Challenge accepted!');
+          loadPendingChallenges();
+          loadMyGames();
+        }
+      })
+      .catch((err: unknown) => {
+        const msg = err instanceof Error ? err.message : String(err);
+        showToast('error', 'Failed to accept challenge', msg);
+      });
+  }
+
+  function doReject(challenge: Challenge) {
+    rejectTarget = null;
+    const isChallenger = $accountStore === challenge.challenger;
+    showTxToast(contract.rejectChallenge(challenge.id, isChallenger));
+    setTimeout(loadPendingChallenges, 4000);
+  }
+
+  function doCancel(challenge: Challenge) {
+    cancelTarget = null;
+    showTxToast(contract.rejectChallenge(challenge.id, true));
+    setTimeout(loadPendingChallenges, 4000);
+  }
+
   async function loadLobby() {
     try {
       const [s, fg] = await Promise.all([
@@ -139,6 +202,7 @@
   $effect(() => {
     if ($accountStore) {
       loadMyGames();
+      loadPendingChallenges();
     }
   });
 
@@ -251,6 +315,29 @@
     </div>
     <PwaInstallCard />
     <PushSettings />
+  {/if}
+
+  {#if $isRegistered && pendingChallenges.length > 0}
+    <section>
+      <h3 class="text-base font-semibold mb-2">
+        Pending Challenges
+        <span class="text-xs text-primary-warn ml-1"
+          >({pendingChallenges.length})</span
+        >
+      </h3>
+      <div class="space-y-2">
+        {#each pendingChallenges as challenge}
+          <ChallengeCard
+            {challenge}
+            currentAccount={$accountStore!}
+            gameCount={myGames.length}
+            onaccept={c => (acceptTarget = c)}
+            onreject={c => (rejectTarget = c)}
+            oncancel={c => (cancelTarget = c)}
+          />
+        {/each}
+      </div>
+    </section>
   {/if}
 
   {#if myGames.length > 0}
@@ -379,4 +466,41 @@
     createAiGame(selectedDifficulty);
   }}
   onclose={() => (showAiConfirm = false)}
+/>
+
+<ConfirmModal
+  open={acceptTarget !== null}
+  title="Accept Challenge?"
+  message={acceptTarget
+    ? `Accept the challenge from ${acceptTarget.challenger}?` +
+      (acceptTarget.wager_token && acceptTarget.wager_amount
+        ? ` This includes a wager of ${acceptTarget.wager_amount}.`
+        : '')
+    : ''}
+  confirmLabel="Accept"
+  confirmClass="btn-primary text-sm"
+  onconfirm={() => acceptTarget && doAccept(acceptTarget)}
+  onclose={() => (acceptTarget = null)}
+/>
+
+<ConfirmModal
+  open={rejectTarget !== null}
+  title="Reject Challenge?"
+  message={rejectTarget
+    ? `Reject the challenge from ${rejectTarget.challenger}?`
+    : ''}
+  confirmLabel="Reject"
+  onconfirm={() => rejectTarget && doReject(rejectTarget)}
+  onclose={() => (rejectTarget = null)}
+/>
+
+<ConfirmModal
+  open={cancelTarget !== null}
+  title="Cancel Challenge?"
+  message={cancelTarget
+    ? `Cancel your challenge to ${cancelTarget.challenged}?`
+    : ''}
+  confirmLabel="Cancel"
+  onconfirm={() => cancelTarget && doCancel(cancelTarget)}
+  onclose={() => (cancelTarget = null)}
 />

@@ -5,15 +5,19 @@
     api,
     type AccountStats,
     type GameOverview,
-    type BetStats
+    type BetStats,
+    type Challenge
   } from '$lib/api/client';
   import { fmtOneDecimal, truncateAddr } from '$lib/format';
   import { contract } from '$lib/near/connector';
   import { accountStore } from '$lib/near/account';
-  import { loadGameFromContract, MAX_OPEN_GAMES } from '$lib/game';
+  import { loadGameFromContract, MAX_OPEN_GAMES, gameUrl } from '$lib/game';
   import type { GameId } from '$lib/game';
-  import { showTxToast } from '$lib/toast';
+  import { showToast, showTxToast, decodeSuccessValue } from '$lib/toast';
+  import { goto } from '$app/navigation';
   import GameCard from '$lib/components/GameCard.svelte';
+  import ChallengeCard from '$lib/components/ChallengeCard.svelte';
+  import ConfirmModal from '$lib/components/ConfirmModal.svelte';
   import PppIcon from '$lib/components/PppIcon.svelte';
 
   const accountId = page.params.id ?? '';
@@ -29,6 +33,10 @@
   let betStats = $state<BetStats | null>(null);
   let tokenBalances = $state<Array<[string, string]>>([]);
   let withdrawing = $state<string | null>(null);
+  let pendingChallenges = $state<Challenge[]>([]);
+  let acceptTarget = $state<Challenge | null>(null);
+  let rejectTarget = $state<Challenge | null>(null);
+  let cancelTarget = $state<Challenge | null>(null);
 
   const ACHIEVEMENT_LABELS: Record<string, string> = {
     FirstWinHuman: 'First Win vs Human',
@@ -89,6 +97,58 @@
     }
   }
 
+  async function loadPendingChallenges() {
+    if ($accountStore !== accountId) return;
+    try {
+      const all = await api.challenges(accountId);
+      pendingChallenges = all.filter(c => c.status === 'pending');
+    } catch (e) {
+      console.error('Failed to load pending challenges:', e);
+    }
+  }
+
+  function doAccept(challenge: Challenge) {
+    acceptTarget = null;
+    showToast('info', 'Accepting challenge...');
+    const promise =
+      challenge.wager_token && challenge.wager_amount
+        ? contract.acceptChallengeWithWager(
+            challenge.wager_token,
+            challenge.id,
+            challenge.wager_amount
+          )
+        : contract.acceptChallenge(challenge.id);
+
+    promise
+      .then(result => {
+        const gameId = decodeSuccessValue<GameId>(result);
+        if (gameId) {
+          showToast('success', 'Challenge accepted! Redirecting...');
+          setTimeout(() => goto(gameUrl(gameId)), 1000);
+        } else {
+          showToast('success', 'Challenge accepted!');
+          loadPendingChallenges();
+        }
+      })
+      .catch((err: unknown) => {
+        const msg = err instanceof Error ? err.message : String(err);
+        showToast('error', 'Failed to accept challenge', msg);
+      });
+  }
+
+  function doReject(challenge: Challenge) {
+    rejectTarget = null;
+    const isChallenger = $accountStore === challenge.challenger;
+    showTxToast(contract.rejectChallenge(challenge.id, isChallenger));
+    setTimeout(loadPendingChallenges, 4000);
+  }
+
+  function doCancel(challenge: Challenge) {
+    cancelTarget = null;
+    showTxToast(contract.rejectChallenge(challenge.id, true));
+    setTimeout(loadPendingChallenges, 4000);
+  }
+
   onMount(async () => {
     try {
       const [s, accountData, ach, qc, bs] = await Promise.all([
@@ -131,6 +191,7 @@
           games = apiGames.filter(g => g.status === 'finished');
         }
       } catch {}
+      loadPendingChallenges();
     } catch (e) {
       console.error('Failed to load profile:', e);
     } finally {
@@ -334,6 +395,29 @@
       </section>
     {/if}
 
+    {#if pendingChallenges.length > 0}
+      <section>
+        <h3 class="text-base font-semibold mb-2">
+          Pending Challenges
+          <span class="text-xs text-primary-warn ml-1"
+            >({pendingChallenges.length})</span
+          >
+        </h3>
+        <div class="space-y-2">
+          {#each pendingChallenges as challenge}
+            <ChallengeCard
+              {challenge}
+              currentAccount={$accountStore!}
+              gameCount={activeGames.length}
+              onaccept={c => (acceptTarget = c)}
+              onreject={c => (rejectTarget = c)}
+              oncancel={c => (cancelTarget = c)}
+            />
+          {/each}
+        </div>
+      </section>
+    {/if}
+
     {#if activeGames.length > 0}
       <section>
         <h3 class="text-base font-semibold mb-2">
@@ -406,3 +490,40 @@
     </section>
   </div>
 {/if}
+
+<ConfirmModal
+  open={acceptTarget !== null}
+  title="Accept Challenge?"
+  message={acceptTarget
+    ? `Accept the challenge from ${acceptTarget.challenger}?` +
+      (acceptTarget.wager_token && acceptTarget.wager_amount
+        ? ` This includes a wager of ${acceptTarget.wager_amount}.`
+        : '')
+    : ''}
+  confirmLabel="Accept"
+  confirmClass="btn-primary text-sm"
+  onconfirm={() => acceptTarget && doAccept(acceptTarget)}
+  onclose={() => (acceptTarget = null)}
+/>
+
+<ConfirmModal
+  open={rejectTarget !== null}
+  title="Reject Challenge?"
+  message={rejectTarget
+    ? `Reject the challenge from ${rejectTarget.challenger}?`
+    : ''}
+  confirmLabel="Reject"
+  onconfirm={() => rejectTarget && doReject(rejectTarget)}
+  onclose={() => (rejectTarget = null)}
+/>
+
+<ConfirmModal
+  open={cancelTarget !== null}
+  title="Cancel Challenge?"
+  message={cancelTarget
+    ? `Cancel your challenge to ${cancelTarget.challenged}?`
+    : ''}
+  confirmLabel="Cancel"
+  onconfirm={() => cancelTarget && doCancel(cancelTarget)}
+  onclose={() => (cancelTarget = null)}
+/>

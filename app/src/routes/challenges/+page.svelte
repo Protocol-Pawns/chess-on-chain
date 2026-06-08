@@ -4,10 +4,13 @@
   import { accountStore, isLoggedIn } from '$lib/near/account';
   import { contract } from '$lib/near/connector';
   import { showTxToast, showToast, decodeSuccessValue } from '$lib/toast';
-  import { truncateAddr } from '$lib/format';
   import { gameUrl, MAX_OPEN_GAMES } from '$lib/game';
   import type { GameId } from '$lib/game';
   import WagerInput from '$lib/components/WagerInput.svelte';
+  import ChallengeCard from '$lib/components/ChallengeCard.svelte';
+  import ConfirmModal from '$lib/components/ConfirmModal.svelte';
+
+  const MAX_OPEN_CHALLENGES = 25;
 
   let challenges = $state<Challenge[]>([]);
   let loading = $state(true);
@@ -16,13 +19,27 @@
   let wagerToken = $state('');
   let wagerAmount = $state('');
   let gameCount = $state(0);
+  let ownChallengeCount = $state(0);
+  let targetChallengeCount = $state<number | null>(null);
+  let targetRegistered = $state<boolean | null>(null);
+  let checkingTarget = $state(false);
+  let acceptTarget = $state<Challenge | null>(null);
+  let rejectTarget = $state<Challenge | null>(null);
+  let cancelTarget = $state<Challenge | null>(null);
+  let showSendConfirm = $state(false);
 
   async function load() {
     if (!$accountStore) return;
     try {
-      challenges = await api.challenges($accountStore);
-      const gameIds = await contract.getGameIds($accountStore);
+      const [ch, gameIds, sent, received] = await Promise.all([
+        api.challenges($accountStore),
+        contract.getGameIds($accountStore),
+        contract.getChallenges($accountStore, true).catch(() => []),
+        contract.getChallenges($accountStore, false).catch(() => [])
+      ]);
+      challenges = ch;
       gameCount = gameIds.length;
+      ownChallengeCount = sent.length + received.length;
     } catch (e) {
       console.error('Failed to load challenges:', e);
     } finally {
@@ -30,23 +47,67 @@
     }
   }
 
+  let checkTimeout: ReturnType<typeof setTimeout> | null = null;
+
+  async function checkTargetLimit(target: string) {
+    if (checkTimeout) clearTimeout(checkTimeout);
+    if (!target.trim()) {
+      targetChallengeCount = null;
+      targetRegistered = null;
+      checkingTarget = false;
+      return;
+    }
+    const t = target.trim();
+    checkingTarget = true;
+    checkTimeout = setTimeout(async () => {
+      try {
+        const [sent, received, reg] = await Promise.all([
+          contract.getChallenges(t, true).catch(() => []),
+          contract.getChallenges(t, false).catch(() => []),
+          contract.storageBalanceOf(t)
+        ]);
+        targetChallengeCount = sent.length + received.length;
+        targetRegistered = reg !== null;
+      } catch {
+        targetChallengeCount = null;
+        targetRegistered = null;
+      } finally {
+        checkingTarget = false;
+      }
+    }, 600);
+  }
+
   function navigateToGame(gameId: GameId) {
     goto(gameUrl(gameId));
   }
 
   function sendChallenge() {
-    if (!$accountStore || !challengeTarget.trim()) return;
-    const target = challengeTarget.trim();
-    challengeTarget = '';
-    if (wagerEnabled && wagerToken && wagerAmount) {
-      showTxToast(contract.challengeWithWager(wagerToken, target, wagerAmount));
-    } else {
-      showTxToast(contract.challenge(target));
-    }
-    setTimeout(load, 4000);
+    if (!$accountStore || !challengeTarget.trim() || sendDisabled) return;
+    showSendConfirm = true;
   }
 
-  function acceptChallenge(challenge: Challenge) {
+  function doSend() {
+    showSendConfirm = false;
+    if (!$accountStore || !challengeTarget.trim()) return;
+    const target = challengeTarget.trim();
+    const needsRegistration = targetRegistered === false;
+    challengeTarget = '';
+    targetChallengeCount = null;
+    targetRegistered = null;
+    let promise;
+    if (needsRegistration) {
+      promise = contract.challengeWithRegistration(target);
+    } else if (wagerEnabled && wagerToken && wagerAmount) {
+      promise = contract.challengeWithWager(wagerToken, target, wagerAmount);
+    } else {
+      promise = contract.challenge(target);
+    }
+    showTxToast(promise);
+    promise.finally(() => setTimeout(load, 2000));
+  }
+
+  function doAccept(challenge: Challenge) {
+    acceptTarget = null;
     showToast('info', 'Accepting challenge...');
     const promise =
       challenge.wager_token && challenge.wager_amount
@@ -74,10 +135,39 @@
       });
   }
 
-  function rejectChallenge(id: string) {
-    showTxToast(contract.rejectChallenge(id));
+  function doReject(challenge: Challenge) {
+    rejectTarget = null;
+    const isChallenger = $accountStore === challenge.challenger;
+    showTxToast(contract.rejectChallenge(challenge.id, isChallenger));
     setTimeout(load, 4000);
   }
+
+  function doCancel(challenge: Challenge) {
+    cancelTarget = null;
+    showTxToast(contract.rejectChallenge(challenge.id, true));
+    setTimeout(load, 4000);
+  }
+
+  let sendDisabled = $derived(
+    !challengeTarget.trim() ||
+      (wagerEnabled && (!wagerAmount || !wagerToken)) ||
+      gameCount >= MAX_OPEN_GAMES ||
+      ownChallengeCount >= MAX_OPEN_CHALLENGES ||
+      (targetChallengeCount !== null &&
+        targetChallengeCount >= MAX_OPEN_CHALLENGES)
+  );
+
+  let sendDisabledReason = $derived.by(() => {
+    if (gameCount >= MAX_OPEN_GAMES) return 'Max games reached';
+    if (ownChallengeCount >= MAX_OPEN_CHALLENGES)
+      return 'Max challenges reached';
+    if (
+      targetChallengeCount !== null &&
+      targetChallengeCount >= MAX_OPEN_CHALLENGES
+    )
+      return 'Target has max challenges';
+    return '';
+  });
 
   $effect(() => {
     if ($accountStore) load();
@@ -116,17 +206,30 @@
           bind:value={challengeTarget}
           placeholder="wallet.near"
           class="flex-1 bg-transparent border border-white/15 rounded px-2 py-1.5 text-sm focus:outline-none focus:border-primary"
+          oninput={() => checkTargetLimit(challengeTarget)}
+          onkeydown={(e: KeyboardEvent) => {
+            if (e.key === 'Enter') sendChallenge();
+          }}
         />
         <button
           class="btn-primary text-sm"
           onclick={sendChallenge}
-          disabled={!challengeTarget.trim() ||
-            (wagerEnabled && (!wagerAmount || !wagerToken)) ||
-            gameCount >= MAX_OPEN_GAMES}
+          disabled={sendDisabled}
+          title={sendDisabledReason}
         >
           Challenge
         </button>
       </div>
+      {#if ownChallengeCount >= MAX_OPEN_CHALLENGES}
+        <p class="text-xs text-red-400">
+          You have reached the max open challenges ({ownChallengeCount}/{MAX_OPEN_CHALLENGES})
+        </p>
+      {/if}
+      {#if targetChallengeCount !== null && targetChallengeCount >= MAX_OPEN_CHALLENGES}
+        <p class="text-xs text-red-400">
+          This player has reached the max open challenges
+        </p>
+      {/if}
       <WagerInput
         bind:enabled={wagerEnabled}
         bind:tokenId={wagerToken}
@@ -146,49 +249,72 @@
       {:else}
         <div class="space-y-2">
           {#each challenges as challenge}
-            <div class="card flex items-center justify-between">
-              <div>
-                <div class="font-medium text-sm">
-                  {challenge.challenger === $accountStore ? '→' : '←'}
-                  {challenge.challenger === $accountStore
-                    ? truncateAddr(challenge.challenged)
-                    : truncateAddr(challenge.challenger)}
-                </div>
-                <div class="text-xs text-white/50">
-                  {challenge.status}
-                  {#if challenge.wager_token && challenge.wager_amount}
-                    <span class="text-yellow-400 ml-1">
-                      Wager: {challenge.wager_amount}
-                    </span>
-                  {/if}
-                </div>
-              </div>
-              <div class="flex gap-2">
-                {#if challenge.status === 'pending' && challenge.challenged === $accountStore}
-                  <button
-                    class="btn-primary text-xs"
-                    onclick={() => acceptChallenge(challenge)}
-                    disabled={gameCount >= MAX_OPEN_GAMES}
-                    title={gameCount >= MAX_OPEN_GAMES
-                      ? 'Max games reached'
-                      : ''}>Accept</button
-                  >
-                  <button
-                    class="btn-secondary text-xs"
-                    onclick={() => rejectChallenge(challenge.id)}>Reject</button
-                  >
-                {/if}
-                {#if challenge.status === 'accepted' && challenge.game_id}
-                  <a
-                    href="/game/{encodeURIComponent(challenge.game_id)}"
-                    class="btn-primary text-xs">View Game</a
-                  >
-                {/if}
-              </div>
-            </div>
+            <ChallengeCard
+              {challenge}
+              currentAccount={$accountStore!}
+              {gameCount}
+              onaccept={c => (acceptTarget = c)}
+              onreject={c => (rejectTarget = c)}
+              oncancel={c => (cancelTarget = c)}
+            />
           {/each}
         </div>
       {/if}
     </section>
   </div>
 {/if}
+
+<ConfirmModal
+  open={acceptTarget !== null}
+  title="Accept Challenge?"
+  message={acceptTarget
+    ? `Accept the challenge from ${acceptTarget.challenger}?` +
+      (acceptTarget.wager_token && acceptTarget.wager_amount
+        ? ` This includes a wager of ${acceptTarget.wager_amount}.`
+        : '')
+    : ''}
+  confirmLabel="Accept"
+  confirmClass="btn-primary text-sm"
+  onconfirm={() => acceptTarget && doAccept(acceptTarget)}
+  onclose={() => (acceptTarget = null)}
+/>
+
+<ConfirmModal
+  open={rejectTarget !== null}
+  title="Reject Challenge?"
+  message={rejectTarget
+    ? `Reject the challenge from ${rejectTarget.challenger}?`
+    : ''}
+  confirmLabel="Reject"
+  onconfirm={() => rejectTarget && doReject(rejectTarget)}
+  onclose={() => (rejectTarget = null)}
+/>
+
+<ConfirmModal
+  open={cancelTarget !== null}
+  title="Cancel Challenge?"
+  message={cancelTarget
+    ? `Cancel your challenge to ${cancelTarget.challenged}?`
+    : ''}
+  confirmLabel="Cancel"
+  onconfirm={() => cancelTarget && doCancel(cancelTarget)}
+  onclose={() => (cancelTarget = null)}
+/>
+
+<ConfirmModal
+  open={showSendConfirm}
+  title="Send Challenge?"
+  message={`Challenge ${challengeTarget.trim()} to a game?` +
+    (checkingTarget ? ' Checking player info...' : '') +
+    (targetRegistered === false
+      ? ' This player is not yet registered. An additional 0.05 N will be charged to register them.'
+      : '') +
+    (wagerEnabled && wagerToken && wagerAmount
+      ? ` This includes a wager of ${wagerAmount}.`
+      : '')}
+  confirmLabel="Send"
+  confirmClass="btn-primary text-sm"
+  confirmDisabled={checkingTarget || targetRegistered === null}
+  onconfirm={doSend}
+  onclose={() => (showSendConfirm = false)}
+/>

@@ -129,6 +129,29 @@ async function getAccountId(): Promise<string | null> {
   }
 }
 
+async function sendTransactions(
+  calls: Array<{
+    methodName: string;
+    args: Record<string, unknown>;
+    deposit?: string;
+  }>
+) {
+  const GAS_STR = '30000000000000';
+  const c = getConnector();
+  const wallet = await c.wallet();
+  return wallet.signAndSendTransactions({
+    transactions: calls.map(({ methodName, args, deposit = '0' }) => ({
+      receiverId: CONTRACT_ID,
+      actions: [
+        {
+          type: 'FunctionCall',
+          params: { methodName, args, gas: GAS_STR, deposit }
+        }
+      ]
+    }))
+  });
+}
+
 async function sendTokenTransaction(
   tokenId: string,
   methodName: string,
@@ -158,6 +181,14 @@ export const contract = {
     );
   },
 
+  storageDepositFor(accountId: string) {
+    return sendTransaction(
+      'storage_deposit',
+      { account_id: accountId, registration_only: true },
+      '50000000000000000000000'
+    );
+  },
+
   storageBalanceOf(accountId: string): Promise<string | null> {
     return viewFunction('storage_balance_of', { account_id: accountId });
   },
@@ -174,20 +205,44 @@ export const contract = {
     return sendTransaction('cancel', { game_id: gameId });
   },
 
+  challengeWithRegistration(challenged: string) {
+    return sendTransactions([
+      {
+        methodName: 'storage_deposit',
+        args: { account_id: challenged, registration_only: true },
+        deposit: '50000000000000000000000'
+      },
+      {
+        methodName: 'challenge',
+        args: { challenged_id: challenged }
+      }
+    ]);
+  },
+
   challenge(challenged: string) {
-    return sendTransaction('challenge', { challenged });
+    return sendTransaction('challenge', { challenged_id: challenged });
   },
 
   acceptChallenge(challengeId: string) {
     return sendTransaction('accept_challenge', { challenge_id: challengeId });
   },
 
-  rejectChallenge(challengeId: string) {
-    return sendTransaction('reject_challenge', { challenge_id: challengeId });
+  rejectChallenge(challengeId: string, isChallenger: boolean) {
+    return sendTransaction('reject_challenge', {
+      challenge_id: challengeId,
+      is_challenger: isChallenger
+    });
   },
 
   createAiGame(difficulty: 'Easy' | 'Medium' | 'Hard') {
     return sendTransaction('create_ai_game', { difficulty });
+  },
+
+  getChallenges(accountId: string, isChallenger: boolean): Promise<string[]> {
+    return viewFunction('get_challenges', {
+      account_id: accountId,
+      is_challenger: isChallenger
+    });
   },
 
   getGameIds(accountId: string): Promise<[number, string, string | null][]> {
