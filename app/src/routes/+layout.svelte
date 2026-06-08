@@ -99,7 +99,7 @@
           <a
             href={link.href}
             class="btn w-60 text-center {isActive(link.href)
-              ? 'bg-primary-transparent2'
+              ? 'bg-primary-transparent2 border border-primary-light text-primary-light'
               : 'hover:bg-primary-transparent'}"
             onclick={closeNav}
           >
