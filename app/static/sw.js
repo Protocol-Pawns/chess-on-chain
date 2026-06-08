@@ -55,7 +55,11 @@ self.addEventListener('activate', function (event) {
         return Promise.all(
           keys
             .filter(function (key) {
-              return key.startsWith('pp-') && key !== STATIC_CACHE && key !== DYNAMIC_CACHE;
+              return (
+                key.startsWith('pp-') &&
+                key !== STATIC_CACHE &&
+                key !== DYNAMIC_CACHE
+              );
             })
             .map(function (key) {
               return caches.delete(key);
@@ -102,6 +106,9 @@ self.addEventListener('fetch', function (event) {
     return;
   }
 
+  if (event.request.destination === '') return;
+  if (url.origin !== self.location.origin) return;
+
   if (isStaticAsset(url)) {
     event.respondWith(
       caches.match(event.request).then(function (cached) {
@@ -147,9 +154,7 @@ self.addEventListener('push', function (event) {
     badge: '/icons/icon-192.png',
     vibrate: [100, 50, 100],
     data: data.url ? { url: data.url } : undefined,
-    actions: data.url
-      ? [{ action: 'open', title: 'Open' }]
-      : undefined
+    actions: data.url ? [{ action: 'open', title: 'Open' }] : undefined
   };
   event.waitUntil(self.registration.showNotification(title, options));
 });
@@ -159,13 +164,15 @@ self.addEventListener('notificationclick', function (event) {
   var url = event.notification.data && event.notification.data.url;
   if (!url) return;
   event.waitUntil(
-    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(function (clientList) {
-      for (var i = 0; i < clientList.length; i++) {
-        if (clientList[i].url === url && 'focus' in clientList[i]) {
-          return clientList[i].focus();
+    self.clients
+      .matchAll({ type: 'window', includeUncontrolled: true })
+      .then(function (clientList) {
+        for (var i = 0; i < clientList.length; i++) {
+          if (clientList[i].url === url && 'focus' in clientList[i]) {
+            return clientList[i].focus();
+          }
         }
-      }
-      return self.clients.openWindow(url);
-    })
+        return self.clients.openWindow(url);
+      })
   );
 });
