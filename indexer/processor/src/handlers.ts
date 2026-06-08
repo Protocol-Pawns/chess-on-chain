@@ -82,8 +82,8 @@ const handlers: Record<string, EventHandler> = {
     const black = normalizePlayer(d.black as Record<string, unknown>);
 
     await sql`
-      INSERT INTO games (game_id, trigger_block_height, white_type, white_value, black_type, black_value, board, fen)
-      VALUES (${gid}, ${event.trigger_block_height}, ${white.type}, ${white.value}, ${black.type}, ${black.value}, ${JSON.stringify(board)}::jsonb, ${fen})
+      INSERT INTO games (game_id, trigger_block_height, white_type, white_value, black_type, black_value, board, fen, created_at)
+      VALUES (${gid}, ${event.trigger_block_height}, ${white.type}, ${white.value}, ${black.type}, ${black.value}, ${JSON.stringify(board)}::jsonb, ${fen}, ${toDate(event.trigger_block_timestamp)})
       ON CONFLICT (game_id) DO NOTHING
     `;
   },
