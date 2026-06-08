@@ -19,7 +19,8 @@
 
   function goPrev() {
     if (selectedMoveIndex === null) {
-      if (moves.length > 0) onSelectMove(moves.length - 1);
+      if (moves.length > 1) onSelectMove(moves.length - 2);
+      else if (moves.length > 0) onSelectMove(-1);
     } else if (selectedMoveIndex > -1) {
       onSelectMove(selectedMoveIndex - 1);
     }
@@ -47,8 +48,13 @@
 
   $effect(() => {
     if (!containerEl) return;
-    const idx = selectedMoveIndex;
-    if (idx === null || idx < 0) return;
+    const idx =
+      selectedMoveIndex !== null && selectedMoveIndex >= 0
+        ? selectedMoveIndex
+        : isViewingCurrent && moves.length > 0
+          ? moves.length - 1
+          : null;
+    if (idx === null) return;
     const el = containerEl.querySelector(
       `[data-move-idx="${idx}"]`
     ) as HTMLElement;
@@ -131,7 +137,7 @@
       <button
         class="p-1 rounded border border-white/20 hover:bg-white/10 disabled:opacity-30 disabled:cursor-default transition-colors"
         onclick={goLatest}
-        disabled={isViewingCurrent}
+        disabled={isViewingCurrent || selectedMoveIndex === moves.length - 1}
         title="Latest position"
         ><svg
           xmlns="http://www.w3.org/2000/svg"
@@ -163,7 +169,8 @@
           <button
             data-move-idx={i}
             class="flex gap-2 text-left rounded px-1 py-0.5 transition-colors w-1/2 {selectedMoveIndex ===
-            i
+              i ||
+            (isViewingCurrent && i === moves.length - 1)
               ? 'bg-white/10 ring-1 ring-white/30'
               : 'hover:bg-white/5'}"
             onclick={() => onSelectMove(i)}
