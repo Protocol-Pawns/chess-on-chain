@@ -12,14 +12,28 @@
   import { contract, getTxLogs } from '$lib/near/connector';
   import { accountStore } from '$lib/near/account';
   import { colorFromFEN } from '$lib/chess/board';
-  import { showTxToast, showToast } from '$lib/toast';
-  import { loadGameFromContract, normalizePlayer } from '$lib/game';
+  import { showToast } from '$lib/toast';
+  import { loadGameFromContract } from '$lib/game';
   import type { GameId, ContractGameData } from '$lib/game';
   import Board from '$lib/components/Board.svelte';
   import MoveHistory from '$lib/components/MoveHistory.svelte';
   import ConfirmModal from '$lib/components/ConfirmModal.svelte';
 
   import dayjs from 'dayjs';
+
+  function parseMoveNotation(
+    notation: string
+  ): { from: string; to: string } | null {
+    const parts = notation.split(' to ');
+    if (parts.length >= 2) {
+      const from = parts[0].trim();
+      const to = parts[1].trim().split(/\s/)[0];
+      if (/^[a-h][1-8]$/.test(from) && /^[a-h][1-8]$/.test(to)) {
+        return { from, to };
+      }
+    }
+    return null;
+  }
 
   let game = $state<Game | null>(null);
   let moves = $state<GameMove[]>([]);
@@ -32,7 +46,8 @@
   let showCancelModal = $state(false);
   let pendingLastMove = $state<{ from: string; to: string } | null>(null);
   let viewingMoveIndex = $state<number | null>(null);
-  const STARTING_FEN = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
+  const STARTING_FEN =
+    'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
 
   const gameIdStr = decodeURIComponent(page.params.id ?? '');
   const gameId: GameId = JSON.parse(gameIdStr);
@@ -40,10 +55,7 @@
   let lastMove = $derived(
     pendingLastMove ??
       (moves.length > 0
-        ? {
-            from: moves[moves.length - 1].move_notation.slice(0, 2),
-            to: moves[moves.length - 1].move_notation.slice(2, 4)
-          }
+        ? parseMoveNotation(moves[moves.length - 1].move_notation)
         : null)
   );
 
@@ -52,7 +64,11 @@
   let displayFen = $derived.by(() => {
     if (isViewingCurrent) return game?.fen ?? undefined;
     if (viewingMoveIndex === -1) return STARTING_FEN;
-    if (viewingMoveIndex != null && viewingMoveIndex >= 0 && viewingMoveIndex < moves.length)
+    if (
+      viewingMoveIndex != null &&
+      viewingMoveIndex >= 0 &&
+      viewingMoveIndex < moves.length
+    )
       return moves[viewingMoveIndex].fen;
     return game?.fen ?? undefined;
   });
@@ -65,9 +81,12 @@
   let displayLastMove = $derived.by(() => {
     if (isViewingCurrent) return lastMove;
     if (viewingMoveIndex === -1) return null;
-    if (viewingMoveIndex != null && viewingMoveIndex >= 0 && viewingMoveIndex < moves.length) {
-      const mv = moves[viewingMoveIndex].move_notation;
-      return { from: mv.slice(0, 2), to: mv.slice(2, 4) };
+    if (
+      viewingMoveIndex != null &&
+      viewingMoveIndex >= 0 &&
+      viewingMoveIndex < moves.length
+    ) {
+      return parseMoveNotation(moves[viewingMoveIndex].move_notation);
     }
     return null;
   });
@@ -137,12 +156,20 @@
       game = g;
       moves = m;
       contractTurnColor = null;
-      console.log('[game] load() moves count:', m.length, 'last move:', m.length > 0 ? m[m.length - 1].move_notation : 'none', 'pendingLastMove:', pendingLastMove);
+      console.log(
+        '[game] load() moves count:',
+        m.length,
+        'last move:',
+        m.length > 0 ? m[m.length - 1].move_notation : 'none',
+        'pendingLastMove:',
+        pendingLastMove
+      );
       if (m.length > 0 && pendingLastMove) {
-        const apiLast = m[m.length - 1].move_notation;
+        const parsed = parseMoveNotation(m[m.length - 1].move_notation);
         if (
-          apiLast.slice(0, 2) === pendingLastMove.from &&
-          apiLast.slice(2, 4) === pendingLastMove.to
+          parsed &&
+          parsed.from === pendingLastMove.from &&
+          parsed.to === pendingLastMove.to
         ) {
           pendingLastMove = null;
         }
@@ -398,7 +425,10 @@
   <div class="text-center py-12 text-primary-err">{error}</div>
 {:else if game}
   <div class="flex flex-col gap-4">
-    <button class="text-sm text-white/60 hover:text-white self-start" onclick={() => goto('/')}>
+    <button
+      class="text-sm text-white/60 hover:text-white self-start"
+      onclick={() => goto('/')}
+    >
       &larr; Back
     </button>
     <div class="card-accent">
@@ -412,7 +442,9 @@
           <span
             class="inline-block w-3 h-3 rounded-full bg-white mr-1 align-middle"
           ></span>
-          {game.white.type === 'Human' ? game.white.value : `AI (${game.white.value})`}
+          {game.white.type === 'Human'
+            ? game.white.value
+            : `AI (${game.white.value})`}
           {#if currentTurn === 'White'}
             <span class="text-xs ml-1 text-primary-green">&#9654;</span>
           {/if}
@@ -461,7 +493,10 @@
           board={displayBoard}
           fen={displayFen}
           onMove={handleMove}
-          disabled={game.status !== 'in_progress' || submitting || !isMyTurn || !isViewingCurrent}
+          disabled={game.status !== 'in_progress' ||
+            submitting ||
+            !isMyTurn ||
+            !isViewingCurrent}
           {flipped}
           lastMove={displayLastMove}
         />
