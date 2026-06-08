@@ -66,9 +66,7 @@
           </p>
           <ul class="text-xs text-white/50 mb-2.5 space-y-0.5">
             <li>Quick access from your home screen</li>
-            <li>Works offline once loaded</li>
             <li>Native app-like experience</li>
-            <li>Push notifications for your turns</li>
           </ul>
           <button
             class="btn-primary text-xs"
