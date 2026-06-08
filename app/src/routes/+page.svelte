@@ -11,7 +11,7 @@
     register
   } from '$lib/near/account';
   import { showToast, showTxToast, decodeSuccessValue } from '$lib/toast';
-  import { loadGameFromContract, gameUrl } from '$lib/game';
+  import { loadGameFromContract, gameUrl, MAX_OPEN_GAMES } from '$lib/game';
   import type { GameId } from '$lib/game';
   import GameCard from '$lib/components/GameCard.svelte';
   import PushSettings from '$lib/components/PushSettings.svelte';
@@ -191,6 +191,8 @@
         <button
           class="btn-primary text-sm"
           onclick={() => (showAiMenu = !showAiMenu)}
+          disabled={myGames.length >= MAX_OPEN_GAMES}
+          title={myGames.length >= MAX_OPEN_GAMES ? 'Max games reached' : ''}
         >
           Play vs AI
         </button>
@@ -234,7 +236,9 @@
 
   {#if myGames.length > 0}
     <section>
-      <h3 class="text-base font-semibold mb-2">My Games</h3>
+      <h3 class="text-base font-semibold mb-2">
+        My Games ({myGames.length}/{MAX_OPEN_GAMES})
+      </h3>
       <div
         class="space-y-2 overflow-hidden"
         style="transition: max-height 0.3s ease-out; max-height: {myGames.length *

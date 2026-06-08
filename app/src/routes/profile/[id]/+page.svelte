@@ -10,7 +10,7 @@
   import { fmtOneDecimal, truncateAddr } from '$lib/format';
   import { contract } from '$lib/near/connector';
   import { accountStore } from '$lib/near/account';
-  import { loadGameFromContract } from '$lib/game';
+  import { loadGameFromContract, MAX_OPEN_GAMES } from '$lib/game';
   import type { GameId } from '$lib/game';
   import { showTxToast } from '$lib/toast';
   import GameCard from '$lib/components/GameCard.svelte';
@@ -336,7 +336,9 @@
 
     {#if activeGames.length > 0}
       <section>
-        <h3 class="text-base font-semibold mb-2">Active Games</h3>
+        <h3 class="text-base font-semibold mb-2">
+          Active Games ({activeGames.length}/{MAX_OPEN_GAMES})
+        </h3>
         <div class="space-y-2">
           {#each activeGames as game}
             <a

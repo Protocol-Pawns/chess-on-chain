@@ -1,5 +1,7 @@
 import type { GameOverview } from '$lib/api/client';
 
+export const MAX_OPEN_GAMES = 5;
+
 export type GameId = [number, string, string | null];
 
 export function normalizePlayer(

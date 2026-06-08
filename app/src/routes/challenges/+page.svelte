@@ -5,7 +5,7 @@
   import { contract } from '$lib/near/connector';
   import { showTxToast, showToast, decodeSuccessValue } from '$lib/toast';
   import { truncateAddr } from '$lib/format';
-  import { gameUrl } from '$lib/game';
+  import { gameUrl, MAX_OPEN_GAMES } from '$lib/game';
   import type { GameId } from '$lib/game';
   import WagerInput from '$lib/components/WagerInput.svelte';
 
@@ -15,11 +15,14 @@
   let wagerEnabled = $state(false);
   let wagerToken = $state('');
   let wagerAmount = $state('');
+  let gameCount = $state(0);
 
   async function load() {
     if (!$accountStore) return;
     try {
       challenges = await api.challenges($accountStore);
+      const gameIds = await contract.getGameIds($accountStore);
+      gameCount = gameIds.length;
     } catch (e) {
       console.error('Failed to load challenges:', e);
     } finally {
@@ -118,7 +121,8 @@
           class="btn-primary text-sm"
           onclick={sendChallenge}
           disabled={!challengeTarget.trim() ||
-            (wagerEnabled && (!wagerAmount || !wagerToken))}
+            (wagerEnabled && (!wagerAmount || !wagerToken)) ||
+            gameCount >= MAX_OPEN_GAMES}
         >
           Challenge
         </button>
@@ -132,6 +136,11 @@
 
     <section>
       <h2 class="text-base font-semibold mb-2">Your Challenges</h2>
+      {#if gameCount >= MAX_OPEN_GAMES}
+        <p class="text-xs text-red-400 mb-2">
+          Max games reached ({gameCount}/{MAX_OPEN_GAMES})
+        </p>
+      {/if}
       {#if challenges.length === 0}
         <p class="text-white/50 text-sm">No challenges yet</p>
       {:else}
@@ -158,7 +167,11 @@
                 {#if challenge.status === 'pending' && challenge.challenged === $accountStore}
                   <button
                     class="btn-primary text-xs"
-                    onclick={() => acceptChallenge(challenge)}>Accept</button
+                    onclick={() => acceptChallenge(challenge)}
+                    disabled={gameCount >= MAX_OPEN_GAMES}
+                    title={gameCount >= MAX_OPEN_GAMES
+                      ? 'Max games reached'
+                      : ''}>Accept</button
                   >
                   <button
                     class="btn-secondary text-xs"
