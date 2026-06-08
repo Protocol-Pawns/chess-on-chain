@@ -8,7 +8,8 @@
     onclose: () => void;
   }
 
-  let { open, title, message, confirmLabel, onconfirm, onclose }: Props = $props();
+  let { open, title, message, confirmLabel, onconfirm, onclose }: Props =
+    $props();
 </script>
 
 {#if open}

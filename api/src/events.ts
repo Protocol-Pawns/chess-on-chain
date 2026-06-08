@@ -104,7 +104,11 @@ export type GameOverview = z.infer<typeof GameOverviewSchema>;
 
 export const PaginatedGamesSchema = z.object({
   items: GameOverviewSchema.array(),
-  next_cursor: z.string().nullable()
+  next_cursor: z.string().nullable(),
+  total_count: z.number().optional(),
+  total_pages: z.number().optional(),
+  page: z.number().optional(),
+  per_page: z.number().optional()
 });
 export type PaginatedGames = z.infer<typeof PaginatedGamesSchema>;
 
@@ -173,11 +177,7 @@ export const VapidPublicKeySchema = z.object({
   publicKey: z.string()
 });
 
-export const BetStatusSchema = z.enum([
-  'pending',
-  'locked',
-  'resolved'
-]);
+export const BetStatusSchema = z.enum(['pending', 'locked', 'resolved']);
 export type BetStatus = z.infer<typeof BetStatusSchema>;
 
 export const BetSchema = z.object({

@@ -4,6 +4,10 @@ const API_URL =
 export interface PaginatedResult<T> {
   items: T[];
   next_cursor: string | null;
+  total_count?: number;
+  total_pages?: number;
+  page?: number;
+  per_page?: number;
 }
 
 export interface GameOverview {
@@ -117,10 +121,21 @@ export const api = {
   game: (id: string) => request<Game>(`/game/${encodeURIComponent(id)}`),
   gameMoves: (id: string) =>
     request<GameMove[]>(`/game/${encodeURIComponent(id)}/moves`),
-  games: (status: 'active' | 'finished', cursor?: string, limit?: number) =>
-    request<PaginatedResult<GameOverview>>(
-      `/games?status=${status}${cursor ? `&cursor=${cursor}` : ''}${limit ? `&limit=${limit}` : ''}`
-    ),
+  games: (
+    status: 'active' | 'finished',
+    cursor?: string,
+    limit?: number,
+    page?: number,
+    excludeAi?: boolean
+  ) => {
+    const params = new URLSearchParams();
+    params.set('status', status);
+    if (cursor) params.set('cursor', cursor);
+    if (limit) params.set('limit', String(limit));
+    if (page) params.set('page', String(page));
+    if (excludeAi) params.set('exclude_ai', 'true');
+    return request<PaginatedResult<GameOverview>>(`/games?${params}`);
+  },
   activeGame: (accountId: string) =>
     request<Game>(`/account/${accountId}/active-game`),
   account: (accountId: string) =>

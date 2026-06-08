@@ -110,7 +110,8 @@ self.addEventListener('fetch', function (event) {
   if (url.origin !== self.location.origin) return;
 
   if (isStaticAsset(url)) {
-    var isCritical = url.pathname.endsWith('.css') || url.pathname.endsWith('.js');
+    var isCritical =
+      url.pathname.endsWith('.css') || url.pathname.endsWith('.js');
 
     if (isCritical) {
       event.respondWith(

@@ -232,7 +232,15 @@ describe('handlers', () => {
     it('places, locks, and resolves bets with payouts', async () => {
       await processEvent(makeCreateGame(GAME_ID));
       await processEvent(makePlaceBet('carol.near', players));
-      await processEvent(makePlaceBet('dave.near', players, 'usdc.testnet', '1000000', 'bob.near'));
+      await processEvent(
+        makePlaceBet(
+          'dave.near',
+          players,
+          'usdc.testnet',
+          '1000000',
+          'bob.near'
+        )
+      );
 
       let rows = await db`SELECT * FROM bets ORDER BY bettor`;
       expect(rows).toHaveLength(2);
@@ -247,9 +255,7 @@ describe('handlers', () => {
         );
       }
 
-      await processEvent(
-        makeResolveBets(players, GAME_ID)
-      );
+      await processEvent(makeResolveBets(players, GAME_ID));
       rows = await db`SELECT * FROM bets ORDER BY bettor`;
       for (const r of rows) {
         expect((r as Record<string, unknown>).status).toBe('resolved');

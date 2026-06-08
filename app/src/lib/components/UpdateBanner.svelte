@@ -19,10 +19,7 @@
     <div class="flex-1 min-w-0">
       <span class="text-sm text-primary">A new version is available.</span>
     </div>
-    <button
-      class="btn-primary text-xs shrink-0"
-      onclick={handleRefresh}
-    >
+    <button class="btn-primary text-xs shrink-0" onclick={handleRefresh}>
       Refresh
     </button>
     <button

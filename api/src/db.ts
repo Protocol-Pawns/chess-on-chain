@@ -11,6 +11,7 @@ import type {
   Game,
   GameMove,
   GameOutcome,
+  GameOverview,
   GlobalStats,
   Player
 } from './events';
@@ -204,29 +205,83 @@ export async function queryGames(
   );
 }
 
+export interface OffsetPaginatedResult<T> {
+  items: T[];
+  next_cursor: string | null;
+  total_count?: number;
+  total_pages?: number;
+  page?: number;
+  per_page?: number;
+}
+
 export async function getGames(
   db: Db,
   status: 'active' | 'finished',
   cursor: string | null,
   limit: number,
-  includeMoves: boolean
-) {
+  includeMoves: boolean,
+  page?: number,
+  excludeAi?: boolean
+): Promise<OffsetPaginatedResult<GameOverview>> {
   const actualLimit = clampLimit(limit);
   const statusFilter = status === 'active' ? 'in_progress' : 'finished';
   const orderBy = status === 'active' ? 'created_at' : 'finished_at';
+
+  const aiCondition = excludeAi
+    ? db`AND white_type != 'Ai' AND black_type != 'Ai'`
+    : db``;
+
+  if (page != null && page > 0) {
+    const offset = (page - 1) * actualLimit;
+
+    const countRows = await db`
+      SELECT COUNT(*) AS total FROM games
+      WHERE status = ${statusFilter} ${aiCondition}
+    `;
+    const totalCount = Number(
+      (countRows[0] as unknown as Record<string, string>).total
+    );
+    const totalPages = Math.max(1, Math.ceil(totalCount / actualLimit));
+
+    const rows = await db`
+      SELECT * FROM games
+      WHERE status = ${statusFilter} ${aiCondition}
+      ORDER BY ${db(orderBy)} DESC
+      LIMIT ${actualLimit} OFFSET ${offset}
+    `;
+
+    const items = rows.map((r: unknown) =>
+      rowToGameOverview(r as GameRow, includeMoves)
+    );
+    const hasMore = page < totalPages;
+    const lastRaw = rows[rows.length - 1] as GameRow | undefined;
+    const nextCursor =
+      hasMore && lastRaw
+        ? String(status === 'active' ? lastRaw.created_at : lastRaw.finished_at)
+        : null;
+
+    return {
+      items,
+      next_cursor: nextCursor,
+      total_count: totalCount,
+      total_pages: totalPages,
+      page,
+      per_page: actualLimit
+    };
+  }
 
   let rows;
   if (cursor) {
     rows = await db`
       SELECT * FROM games
-      WHERE status = ${statusFilter} AND ${db(orderBy)} < ${cursor}
+      WHERE status = ${statusFilter} ${aiCondition} AND ${db(orderBy)} < ${cursor}
       ORDER BY ${db(orderBy)} DESC
       LIMIT ${actualLimit + 1}
     `;
   } else {
     rows = await db`
       SELECT * FROM games
-      WHERE status = ${statusFilter}
+      WHERE status = ${statusFilter} ${aiCondition}
       ORDER BY ${db(orderBy)} DESC
       LIMIT ${actualLimit + 1}
     `;

@@ -122,7 +122,8 @@ app.openapi(queryGamesRoute, async c => {
 });
 
 app.openapi(getGamesRoute, async c => {
-  const { status, cursor, limit, include_moves } = c.req.valid('query');
+  const { status, cursor, limit, include_moves, page, exclude_ai } =
+    c.req.valid('query');
   const includeMoves = include_moves === '1' || include_moves === 'true';
   const db = c.get('DB');
   const result = await getGames(
@@ -130,7 +131,9 @@ app.openapi(getGamesRoute, async c => {
     status,
     cursor ?? null,
     Number(limit) || 25,
-    includeMoves
+    includeMoves,
+    page ? Number(page) : undefined,
+    exclude_ai
   );
   return c.json(result, 200);
 });
@@ -200,7 +203,13 @@ app.openapi(getBetsRoute, async c => {
   const accountId = c.req.param('account_id');
   const { status, cursor, limit } = c.req.valid('query');
   const db = c.get('DB');
-  const result = await getBets(db, accountId, status ?? null, cursor ?? null, Number(limit) || 25);
+  const result = await getBets(
+    db,
+    accountId,
+    status ?? null,
+    cursor ?? null,
+    Number(limit) || 25
+  );
   return c.json(result, 200);
 });
 
@@ -221,21 +230,34 @@ app.openapi(getBetStatsRoute, async c => {
 app.openapi(getBetLeaderboardRoute, async c => {
   const { cursor, limit } = c.req.valid('query');
   const db = c.get('DB');
-  const result = await getBetLeaderboard(db, cursor ?? null, Number(limit) || 25);
+  const result = await getBetLeaderboard(
+    db,
+    cursor ?? null,
+    Number(limit) || 25
+  );
   return c.json(result, 200);
 });
 
 app.openapi(getOpenChallengesRoute, async c => {
   const { cursor, limit } = c.req.valid('query');
   const db = c.get('DB');
-  const result = await getOpenChallenges(db, cursor ?? null, Number(limit) || 25);
+  const result = await getOpenChallenges(
+    db,
+    cursor ?? null,
+    Number(limit) || 25
+  );
   return c.json(result, 200);
 });
 
 app.openapi(getGlobalBetsRoute, async c => {
   const { status, cursor, limit } = c.req.valid('query');
   const db = c.get('DB');
-  const result = await getGlobalBets(db, status ?? null, cursor ?? null, Number(limit) || 25);
+  const result = await getGlobalBets(
+    db,
+    status ?? null,
+    cursor ?? null,
+    Number(limit) || 25
+  );
   return c.json(result, 200);
 });
 

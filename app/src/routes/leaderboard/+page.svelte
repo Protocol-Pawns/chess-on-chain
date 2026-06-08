@@ -8,6 +8,7 @@
     type BetLeaderboardEntry
   } from '$lib/api/client';
   import PppIcon from '$lib/components/PppIcon.svelte';
+  import Pagination from '$lib/components/Pagination.svelte';
 
   interface PppEntry {
     account_id: string;
@@ -22,9 +23,9 @@
   let statsMap = $state<Map<string, AccountStats>>(new Map());
   let betEntries = $state<BetLeaderboardEntry[]>([]);
   let betCursor = $state<string | null>(null);
-  let betNextCursor = $state<string | null>(null);
-  let betHasMore = $state(false);
+  let betCursors = $state<(string | null)[]>([null]);
   let betPage = $state(1);
+  let betTotalPages = $state(1);
   let betLoading = $state(false);
   let pppEntries = $state<PppEntry[]>([]);
   let pppLoading = $state(false);
@@ -67,7 +68,9 @@
   async function loadPPP() {
     pppLoading = true;
     try {
-      const res = await fetch('https://api.fastnear.com/v1/ft/app.chess-game.near/top');
+      const res = await fetch(
+        'https://api.fastnear.com/v1/ft/app.chess-game.near/top'
+      );
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const json = await res.json();
       pppEntries = (json.accounts ?? []) as PppEntry[];
@@ -81,22 +84,31 @@
   async function loadBets(reset = false) {
     betLoading = true;
     try {
-      const cursor = reset ? undefined : betNextCursor ?? undefined;
-      const result = await api.betLeaderboard(cursor, PER_PAGE);
       if (reset) {
-        betEntries = result.items;
-        betCursor = null;
+        betCursors = [null];
         betPage = 1;
-      } else {
-        betEntries = [...betEntries, ...result.items];
       }
-      betNextCursor = result.next_cursor;
-      betHasMore = result.next_cursor !== null;
+      const cursor = betCursors[betPage - 1] ?? undefined;
+      const result = await api.betLeaderboard(cursor, PER_PAGE);
+      betEntries = result.items;
+      const nextCursor = result.next_cursor;
+      if (nextCursor && betPage >= betCursors.length) {
+        betCursors = [...betCursors, nextCursor];
+      }
+      betTotalPages = nextCursor ? betPage + 1 : betPage;
+      betCursor = nextCursor;
     } catch (e) {
       console.error('Failed to load bet leaderboard:', e);
     } finally {
       betLoading = false;
     }
+  }
+
+  function goToBetPage(p: number) {
+    if (p < 1 || p > betTotalPages) return;
+    betPage = p;
+    loadBets();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
   function goTo(p: number) {
@@ -208,25 +220,7 @@
       </div>
 
       {#if data.total_pages > 1}
-        <div class="flex items-center justify-center gap-2 text-sm">
-          <button
-            class="btn text-xs"
-            onclick={() => goTo(page - 1)}
-            disabled={page <= 1}
-          >
-            &lt; Prev
-          </button>
-          <span class="text-white/50">
-            Page {page} of {data.total_pages}
-          </span>
-          <button
-            class="btn text-xs"
-            onclick={() => goTo(page + 1)}
-            disabled={page >= data.total_pages}
-          >
-            Next &gt;
-          </button>
-        </div>
+        <Pagination {page} totalPages={data.total_pages} onchange={goTo} />
       {/if}
 
       {#if data.entries.length === 0}
@@ -270,9 +264,15 @@
                     >{truncateAddr(entry.account_id)}</a
                   >
                 </td>
-                <td class="py-1.5 text-right text-white/70">{entry.total_wagered}</td>
-                <td class="py-1.5 text-right text-primary-green">{entry.total_won}</td>
-                <td class="py-1.5 text-right text-white/70">{entry.total_bets}</td>
+                <td class="py-1.5 text-right text-white/70"
+                  >{entry.total_wagered}</td
+                >
+                <td class="py-1.5 text-right text-primary-green"
+                  >{entry.total_won}</td
+                >
+                <td class="py-1.5 text-right text-white/70"
+                  >{entry.total_bets}</td
+                >
                 <td class="py-1.5 text-right text-white/70"
                   >{entry.total_bets > 0
                     ? fmtOneDecimal((entry.won_bets / entry.total_bets) * 100)
@@ -284,25 +284,16 @@
         </table>
       </div>
 
-      {#if betHasMore}
-        <div class="flex items-center justify-center">
-          <button
-            class="btn text-xs"
-            onclick={() => {
-              betPage++;
-              loadBets();
-            }}
-            disabled={betLoading}
-          >
-            {betLoading ? 'Loading...' : 'Load More'}
-          </button>
-        </div>
+      {#if betTotalPages > 1 || betPage > 1}
+        <Pagination
+          page={betPage}
+          totalPages={betTotalPages}
+          onchange={goToBetPage}
+        />
       {/if}
 
       {#if betEntries.length === 0}
-        <p class="text-white/50 text-sm text-center">
-          No bets placed yet.
-        </p>
+        <p class="text-white/50 text-sm text-center">No bets placed yet.</p>
       {/if}
     {/if}
   {:else}
@@ -347,9 +338,7 @@
       </div>
 
       {#if pppEntries.length === 0}
-        <p class="text-white/50 text-sm text-center">
-          No PPP holders yet.
-        </p>
+        <p class="text-white/50 text-sm text-center">No PPP holders yet.</p>
       {/if}
     {/if}
   {/if}

@@ -4,11 +4,7 @@
   import { showTxToast } from '$lib/toast';
   import { onMount } from 'svelte';
 
-  let {
-    playerWhite,
-    playerBlack,
-    disabled = false
-  } = $props();
+  let { playerWhite, playerBlack, disabled = false } = $props();
 
   let tokens = $state<string[]>([]);
   let selectedToken = $state('');

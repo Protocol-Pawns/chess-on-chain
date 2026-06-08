@@ -1,5 +1,6 @@
 <script lang="ts">
-  let { size = 16, class: cls = '' }: { size?: number; class?: string } = $props();
+  let { size = 16, class: cls = '' }: { size?: number; class?: string } =
+    $props();
 </script>
 
 <img

@@ -109,7 +109,12 @@ export const getGamesRoute = createRoute({
       status: z.enum(['active', 'finished']).optional().default('active'),
       cursor: z.string().optional(),
       limit: z.string().optional(),
-      include_moves: z.string().optional()
+      include_moves: z.string().optional(),
+      page: z.string().optional(),
+      exclude_ai: z
+        .enum(['true', '1'])
+        .optional()
+        .transform(v => v === 'true' || v === '1')
     })
   },
   responses: {

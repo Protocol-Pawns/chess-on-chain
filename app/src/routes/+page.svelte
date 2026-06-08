@@ -14,14 +14,19 @@
   import { loadGameFromContract, gameUrl, MAX_OPEN_GAMES } from '$lib/game';
   import type { GameId } from '$lib/game';
   import GameCard from '$lib/components/GameCard.svelte';
+  import Pagination from '$lib/components/Pagination.svelte';
   import PushSettings from '$lib/components/PushSettings.svelte';
   import PwaInstallCard from '$lib/components/PwaInstallCard.svelte';
   import ConfirmModal from '$lib/components/ConfirmModal.svelte';
 
+  const PER_PAGE = 10;
+
   let stats = $state<GlobalStats | null>(null);
   let myGames = $state<GameOverview[]>([]);
   let finishedGames = $state<GameOverview[]>([]);
-  let finishedCursor = $state<string | null>(null);
+  let finishedPage = $state(1);
+  let finishedTotalPages = $state(1);
+  let excludeAi = $state(false);
   let loadingMore = $state(false);
   let loading = $state(true);
   let showAiMenu = $state(false);
@@ -87,14 +92,42 @@
     try {
       const [s, fg] = await Promise.all([
         api.stats(),
-        api.games('finished', undefined, 20)
+        api.games('finished', undefined, PER_PAGE, 1, excludeAi)
       ]);
       stats = s;
       finishedGames = fg.items;
-      finishedCursor = fg.next_cursor;
+      finishedPage = fg.page ?? 1;
+      finishedTotalPages = fg.total_pages ?? 1;
     } catch (e) {
       console.error('Failed to load lobby data:', e);
     }
+  }
+
+  async function loadFinishedPage(p: number) {
+    if (loadingMore) return;
+    loadingMore = true;
+    try {
+      const res = await api.games(
+        'finished',
+        undefined,
+        PER_PAGE,
+        p,
+        excludeAi
+      );
+      finishedGames = res.items;
+      finishedPage = res.page ?? p;
+      finishedTotalPages = res.total_pages ?? 1;
+    } catch (e) {
+      console.error('Failed to load page:', e);
+    } finally {
+      loadingMore = false;
+    }
+  }
+
+  function toggleAiFilter() {
+    excludeAi = !excludeAi;
+    finishedPage = 1;
+    loadFinishedPage(1);
   }
 
   onMount(() => {
@@ -132,20 +165,6 @@
         const msg = err instanceof Error ? err.message : String(err);
         showToast('error', 'Failed to create game', msg);
       });
-  }
-
-  async function loadMoreFinished() {
-    if (!finishedCursor || loadingMore) return;
-    loadingMore = true;
-    try {
-      const res = await api.games('finished', finishedCursor, 20);
-      finishedGames = [...finishedGames, ...res.items];
-      finishedCursor = res.next_cursor;
-    } catch (e) {
-      console.error('Failed to load more:', e);
-    } finally {
-      loadingMore = false;
-    }
   }
 </script>
 
@@ -295,28 +314,55 @@
     {/if}
 
     <section class="space-y-6">
-      {#if finishedGames.length > 0}
+      {#if finishedGames.length > 0 || finishedTotalPages > 0}
         <div>
-          <h3 class="text-base font-semibold mb-2">Recent Games</h3>
-          <div class="space-y-2">
-            {#each finishedGames as game}
-              <a
-                class="block"
-                href="/game/{encodeURIComponent(JSON.stringify(game.game_id))}"
-              >
-                <GameCard {game} />
-              </a>
-            {/each}
-          </div>
-          {#if finishedCursor}
-            <button
-              class="btn-secondary text-sm w-full mt-3"
-              onclick={loadMoreFinished}
-              disabled={loadingMore}
+          <div class="flex items-center justify-between mb-2">
+            <h3 class="text-base font-semibold">Recent Games</h3>
+            <label
+              class="flex items-center gap-1.5 text-xs text-white/50 cursor-pointer select-none"
             >
-              {loadingMore ? 'Loading...' : 'Load More'}
-            </button>
+              <input
+                type="checkbox"
+                bind:checked={excludeAi}
+                onchange={toggleAiFilter}
+                class="accent-primary"
+              />
+              Hide AI games
+            </label>
+          </div>
+          {#if loadingMore && finishedGames.length === 0}
+            <div class="space-y-2 animate-pulse">
+              {#each Array(3) as _}
+                <div class="card">
+                  <div class="h-4 w-2/3 rounded bg-white/10 mb-1"></div>
+                  <div class="h-3 w-1/3 rounded bg-white/5"></div>
+                </div>
+              {/each}
+            </div>
+          {:else}
+            <div class="space-y-2">
+              {#each finishedGames as game}
+                <a
+                  class="block"
+                  href="/game/{encodeURIComponent(
+                    JSON.stringify(game.game_id)
+                  )}"
+                >
+                  <GameCard {game} />
+                </a>
+              {/each}
+            </div>
           {/if}
+          <div class="mt-3">
+            <Pagination
+              page={finishedPage}
+              totalPages={finishedTotalPages}
+              onchange={p => {
+                loadFinishedPage(p);
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+              }}
+            />
+          </div>
         </div>
       {/if}
     </section>

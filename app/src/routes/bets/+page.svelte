@@ -10,6 +10,7 @@
   import { contract } from '$lib/near/connector';
   import { showTxToast } from '$lib/toast';
   import BetCard from '$lib/components/BetCard.svelte';
+  import Pagination from '$lib/components/Pagination.svelte';
 
   const PER_PAGE = 10;
 
@@ -26,7 +27,10 @@
       string,
       {
         is_locked: boolean;
-        bets: Record<string, Array<[string, { amount: string; winner: string }]>>;
+        bets: Record<
+          string,
+          Array<[string, { amount: string; winner: string }]>
+        >;
       } | null
     >
   >({});
@@ -53,6 +57,8 @@
   let allBetsLoading = $state(false);
   let allBetsHasMore = $state(false);
   let allBetsCursor = $state<string | null>(null);
+  let allBetsCursors = $state<(string | null)[]>([null]);
+  let allBetsPage = $state(1);
   let allBetsStatusFilter = $state<'pending' | 'locked' | 'resolved' | ''>('');
 
   let newBetPlayer0 = $state('');
@@ -171,10 +177,7 @@
     );
   }
 
-  async function loadChallengeBetInfo(
-    key: string,
-    players: [string, string]
-  ) {
+  async function loadChallengeBetInfo(key: string, players: [string, string]) {
     try {
       const info = await contract.getBetInfo(players);
       challengeBetInfo[key] = info;
@@ -283,20 +286,23 @@
   async function loadAllBets(reset = false) {
     allBetsLoading = true;
     try {
-      const cursor = reset ? undefined : allBetsCursor ?? undefined;
+      if (reset) {
+        allBetsCursors = [null];
+        allBetsPage = 1;
+      }
+      const cursor = allBetsCursors[allBetsPage - 1] ?? undefined;
       const result = await api.globalBets(
         allBetsStatusFilter || undefined,
         cursor,
         PER_PAGE
       );
-      if (reset) {
-        allBets = result.items;
-        allBetsCursor = null;
-      } else {
-        allBets = [...allBets, ...result.items];
+      allBets = result.items;
+      const nextCursor = result.next_cursor;
+      if (nextCursor && allBetsPage >= allBetsCursors.length) {
+        allBetsCursors = [...allBetsCursors, nextCursor];
       }
-      allBetsHasMore = result.next_cursor !== null;
-      allBetsCursor = result.next_cursor;
+      allBetsHasMore = nextCursor !== null;
+      allBetsCursor = nextCursor;
     } catch (e) {
       console.error('Failed to load global bets:', e);
     } finally {
@@ -304,10 +310,16 @@
     }
   }
 
+  function goToAllBetsPage(p: number) {
+    const totalPages = allBetsHasMore ? allBetsPage + 1 : allBetsPage;
+    if (p < 1 || p > totalPages) return;
+    allBetsPage = p;
+    loadAllBets();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
   function filterAllBets(status: 'pending' | 'locked' | 'resolved' | '') {
     allBetsStatusFilter = status;
-    allBets = [];
-    allBetsCursor = null;
     loadAllBets(true);
   }
 
@@ -392,14 +404,14 @@
           <input
             type="text"
             value={newBetPlayer0}
-            oninput={(e) => (newBetPlayer0 = e.currentTarget.value)}
+            oninput={e => (newBetPlayer0 = e.currentTarget.value)}
             placeholder="Player 1 address"
             class="bg-transparent border border-white/15 rounded px-2 py-1 text-xs focus:outline-none focus:border-primary"
           />
           <input
             type="text"
             value={newBetPlayer1}
-            oninput={(e) => (newBetPlayer1 = e.currentTarget.value)}
+            oninput={e => (newBetPlayer1 = e.currentTarget.value)}
             placeholder="Player 2 address"
             class="bg-transparent border border-white/15 rounded px-2 py-1 text-xs focus:outline-none focus:border-primary"
           />
@@ -427,7 +439,7 @@
         <div class="flex gap-2">
           <select
             value={newBetToken}
-            onchange={(e) => (newBetToken = e.currentTarget.value)}
+            onchange={e => (newBetToken = e.currentTarget.value)}
             class="bg-transparent border border-white/15 rounded px-2 py-1 text-xs focus:outline-none focus:border-primary"
           >
             {#each challengeTokens as token}
@@ -437,7 +449,7 @@
           <input
             type="text"
             value={newBetAmount}
-            oninput={(e) => (newBetAmount = e.currentTarget.value)}
+            oninput={e => (newBetAmount = e.currentTarget.value)}
             placeholder="Amount"
             class="flex-1 bg-transparent border border-white/15 rounded px-2 py-1 text-xs focus:outline-none focus:border-primary"
           />
@@ -445,7 +457,12 @@
 
         <button
           class="btn-primary text-xs w-full"
-          disabled={newBetSubmitting || !newBetPlayer0.trim() || !newBetPlayer1.trim() || !newBetWinner || !newBetAmount || !newBetToken}
+          disabled={newBetSubmitting ||
+            !newBetPlayer0.trim() ||
+            !newBetPlayer1.trim() ||
+            !newBetWinner ||
+            !newBetAmount ||
+            !newBetToken}
           onclick={submitNewBet}
         >
           {newBetSubmitting ? 'Placing...' : 'Place Bet'}
@@ -482,7 +499,8 @@
                   <span class="text-white">{shortId(p1)}</span>
                 </div>
                 {#if isOwn}
-                  <span class="text-xs text-primary bg-primary-transparent2 px-2 py-0.5 rounded"
+                  <span
+                    class="text-xs text-primary bg-primary-transparent2 px-2 py-0.5 rounded"
                     >Your challenge</span
                   >
                 {/if}
@@ -491,14 +509,12 @@
               <div class="flex gap-3 text-xs text-white/60">
                 <div>
                   <span class="text-white/40">Bet on </span>
-                  <span class="text-yellow-400">{shortId(p0)}</span
-                  >:
+                  <span class="text-yellow-400">{shortId(p0)}</span>:
                   <span class="text-white">{totals.player0Total}</span>
                 </div>
                 <div>
                   <span class="text-white/40">Bet on </span>
-                  <span class="text-blue-400">{shortId(p1)}</span
-                  >:
+                  <span class="text-blue-400">{shortId(p1)}</span>:
                   <span class="text-white">{totals.player1Total}</span>
                 </div>
               </div>
@@ -508,7 +524,7 @@
                   <div class="flex gap-2">
                     <select
                       value={betForms[key].token}
-                      onchange={(e) => {
+                      onchange={e => {
                         betForms[key].token = e.currentTarget.value;
                       }}
                       class="bg-transparent border border-white/15 rounded px-2 py-1 text-xs focus:outline-none focus:border-primary"
@@ -520,7 +536,7 @@
                     <input
                       type="text"
                       value={betForms[key].amount}
-                      oninput={(e) => {
+                      oninput={e => {
                         betForms[key].amount = e.currentTarget.value;
                       }}
                       placeholder="Amount"
@@ -545,14 +561,19 @@
                   </div>
                   <button
                     class="btn-primary text-xs w-full"
-                    disabled={!betForms[key].amount || !betForms[key].winner || !betForms[key].token || betForms[key].submitting}
+                    disabled={!betForms[key].amount ||
+                      !betForms[key].winner ||
+                      !betForms[key].token ||
+                      betForms[key].submitting}
                     onclick={() => placeBet(c)}
                   >
                     {betForms[key].submitting ? 'Placing...' : 'Place Bet'}
                   </button>
                 </div>
               {:else if isOwn}
-                <p class="text-xs text-white/40">You cannot bet on your own game</p>
+                <p class="text-xs text-white/40">
+                  You cannot bet on your own game
+                </p>
               {/if}
             </div>
           {/each}
@@ -564,25 +585,27 @@
       {#if betStats && !statsLoading}
         <div class="grid grid-cols-4 gap-3">
           <div class="text-center bg-primary-transparent2 rounded p-2">
-            <div class="text-lg font-bold text-primary">{betStats.total_bets}</div>
+            <div class="text-lg font-bold text-primary">
+              {betStats.total_bets}
+            </div>
             <div class="text-xs text-white/50">Total</div>
           </div>
           <div class="text-center bg-primary-transparent2 rounded p-2">
-            <div class="text-lg font-bold text-primary-warn"
-              >{betStats.total_wagered}</div
-            >
+            <div class="text-lg font-bold text-primary-warn">
+              {betStats.total_wagered}
+            </div>
             <div class="text-xs text-white/50">Wagered</div>
           </div>
           <div class="text-center bg-primary-transparent2 rounded p-2">
-            <div class="text-lg font-bold text-primary-green"
-              >{betStats.won_bets}</div
-            >
+            <div class="text-lg font-bold text-primary-green">
+              {betStats.won_bets}
+            </div>
             <div class="text-xs text-white/50">Won</div>
           </div>
           <div class="text-center bg-primary-transparent2 rounded p-2">
-            <div class="text-lg font-bold text-primary-green"
-              >{betStats.total_won}</div
-            >
+            <div class="text-lg font-bold text-primary-green">
+              {betStats.total_won}
+            </div>
             <div class="text-xs text-white/50">Earned</div>
           </div>
         </div>
@@ -593,7 +616,9 @@
           <h3 class="text-sm font-semibold">Token Balances</h3>
           {#each tokenBalances as [tokenId, balance]}
             <div class="flex items-center justify-between text-sm">
-              <span class="text-white/70 truncate mr-2">{shortToken(tokenId)}</span>
+              <span class="text-white/70 truncate mr-2"
+                >{shortToken(tokenId)}</span
+              >
               <div class="flex items-center gap-2 shrink-0">
                 <span class="text-white/90">{balance}</span>
                 <button
@@ -660,29 +685,14 @@
       {/if}
 
       {#if !myBetsLoading && (myBetsPage > 1 || myBetsHasMore)}
-        <div class="flex items-center justify-center gap-2 text-sm">
-          <button
-            class="btn text-xs"
-            onclick={() => {
-              loadMyBets(myBetsPage - 1);
-              window.scrollTo({ top: 0, behavior: 'smooth' });
-            }}
-            disabled={myBetsPage <= 1}
-          >
-            &lt; Prev
-          </button>
-          <span class="text-white/50">Page {myBetsPage}</span>
-          <button
-            class="btn text-xs"
-            onclick={() => {
-              loadMyBets(myBetsPage + 1);
-              window.scrollTo({ top: 0, behavior: 'smooth' });
-            }}
-            disabled={!myBetsHasMore}
-          >
-            Next &gt;
-          </button>
-        </div>
+        <Pagination
+          page={myBetsPage}
+          totalPages={myBetsHasMore ? myBetsPage + 1 : myBetsPage}
+          onchange={p => {
+            loadMyBets(p);
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+          }}
+        />
       {/if}
     {:else if tab === 'all-bets'}
       <h2 class="text-base font-semibold">All Bets</h2>
@@ -740,7 +750,8 @@
                   <span class="text-primary">{shortId(bet.winner)}</span>
                 </div>
                 <div class="text-xs text-white/50">
-                  {bet.amount} {shortToken(bet.token_id)}
+                  {bet.amount}
+                  {shortToken(bet.token_id)}
                 </div>
               </div>
               <div class="text-right">
@@ -761,16 +772,12 @@
           {/each}
         </div>
 
-        {#if allBetsHasMore}
-          <div class="flex justify-center">
-            <button
-              class="btn-secondary text-xs"
-              disabled={allBetsLoading}
-              onclick={() => loadAllBets()}
-            >
-              {allBetsLoading ? 'Loading...' : 'Load More'}
-            </button>
-          </div>
+        {#if allBetsHasMore || allBetsPage > 1}
+          <Pagination
+            page={allBetsPage}
+            totalPages={allBetsHasMore ? allBetsPage + 1 : allBetsPage}
+            onchange={goToAllBetsPage}
+          />
         {/if}
       {/if}
     {/if}

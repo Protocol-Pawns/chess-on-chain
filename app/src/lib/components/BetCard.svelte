@@ -21,7 +21,8 @@
       {shortId(bet.winner)}
     </div>
     <div class="text-xs text-white/50">
-      {bet.amount} {shortId(bet.token_id)}
+      {bet.amount}
+      {shortId(bet.token_id)}
     </div>
   </div>
   <div class="text-right">
