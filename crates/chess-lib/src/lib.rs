@@ -39,7 +39,7 @@ pub const MAX_OPEN_CHALLENGES: u32 = 25;
 pub const MAX_OPEN_BETS: u32 = 10;
 
 #[cfg(not(feature = "integration-test"))]
-pub const MAX_BETS_PER_GAME: u32 = 1000;
+pub const MAX_BETS_PER_GAME: u32 = 250;
 #[cfg(feature = "integration-test")]
 pub const MAX_BETS_PER_GAME: u32 = 5;
 

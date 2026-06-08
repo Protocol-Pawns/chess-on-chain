@@ -3,6 +3,9 @@ mod points;
 mod util;
 mod wager;
 
+#[cfg(feature = "gas-test")]
+mod gas;
+
 use base64::Engine;
 use chess_common::ContractEvent;
 use chess_engine::Color;
