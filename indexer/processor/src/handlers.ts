@@ -44,7 +44,8 @@ function normalizeOutcome(o: Record<string, unknown>): {
 }
 
 function toDate(ts: string): Date {
-  return new Date(Number(ts));
+  const n = Number(ts);
+  return new Date(n > 1e15 ? n / 1_000_000 : n);
 }
 
 async function insertAccountFinishedGames(sql: Queryable, gameId: string) {
