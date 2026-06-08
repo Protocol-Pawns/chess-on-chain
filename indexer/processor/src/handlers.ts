@@ -43,11 +43,6 @@ function normalizeOutcome(o: Record<string, unknown>): {
   return { result: key, color: val as string };
 }
 
-function toDate(ts: string): Date {
-  const n = Number(ts);
-  return new Date(n > 1e15 ? n / 1_000_000 : n);
-}
-
 async function insertAccountFinishedGames(sql: Queryable, gameId: string) {
   const rows = await sql`
     SELECT white_type, white_value, black_type, black_value
@@ -83,7 +78,7 @@ const handlers: Record<string, EventHandler> = {
 
     await sql`
       INSERT INTO games (game_id, trigger_block_height, white_type, white_value, black_type, black_value, board, fen, created_at)
-      VALUES (${gid}, ${event.trigger_block_height}, ${white.type}, ${white.value}, ${black.type}, ${black.value}, ${JSON.stringify(board)}::jsonb, ${fen}, ${toDate(event.trigger_block_timestamp)})
+      VALUES (${gid}, ${event.trigger_block_height}, ${white.type}, ${white.value}, ${black.type}, ${black.value}, ${JSON.stringify(board)}::jsonb, ${fen}, ${event.trigger_block_timestamp})
       ON CONFLICT (game_id) DO NOTHING
     `;
   },
@@ -131,7 +126,7 @@ const handlers: Record<string, EventHandler> = {
         UPDATE games SET
           outcome = ${outcomeJson}::jsonb,
           status = 'finished',
-          finished_at = ${toDate(event.trigger_block_timestamp)}
+          finished_at = ${event.trigger_block_timestamp}
         WHERE game_id = ${gid}
       `;
       await insertAccountFinishedGames(sql, gid);
@@ -153,7 +148,7 @@ const handlers: Record<string, EventHandler> = {
         outcome = ${JSON.stringify(outcome)}::jsonb,
         resigner = ${d.resigner},
         status = 'finished',
-        finished_at = ${toDate(event.trigger_block_timestamp)}
+        finished_at = ${event.trigger_block_timestamp}
       WHERE game_id = ${gid}
     `;
     await insertAccountFinishedGames(sql, gid);
@@ -172,8 +167,8 @@ const handlers: Record<string, EventHandler> = {
     const wager = d.wager;
 
     await sql`
-      INSERT INTO challenges (id, challenger, challenged, wager_token, wager_amount)
-      VALUES (${d.id}, ${d.challenger}, ${d.challenged}, ${wager?.[0] ?? null}, ${wager?.[1] ?? null})
+      INSERT INTO challenges (id, challenger, challenged, wager_token, wager_amount, created_at)
+      VALUES (${d.id}, ${d.challenger}, ${d.challenged}, ${wager?.[0] ?? null}, ${wager?.[1] ?? null}, ${event.trigger_block_timestamp})
       ON CONFLICT (id) DO NOTHING
     `;
   },
@@ -185,7 +180,7 @@ const handlers: Record<string, EventHandler> = {
       UPDATE challenges SET
         status = 'accepted',
         game_id = ${gameId(d)},
-        resolved_at = ${toDate(event.trigger_block_timestamp)}
+        resolved_at = ${event.trigger_block_timestamp}
       WHERE id = ${d.challenge_id}
     `;
   },
@@ -196,7 +191,7 @@ const handlers: Record<string, EventHandler> = {
     await sql`
       UPDATE challenges SET
         status = 'rejected',
-        resolved_at = ${toDate(event.trigger_block_timestamp)}
+        resolved_at = ${event.trigger_block_timestamp}
       WHERE id = ${d.challenge_id}
     `;
   },
@@ -206,8 +201,8 @@ const handlers: Record<string, EventHandler> = {
     const betId = `${d.bettor}_${d.players[0]}_${d.players[1]}_${d.token_id}`;
 
     await sql`
-      INSERT INTO bets (id, bettor, player_0, player_1, token_id, amount, winner)
-      VALUES (${betId}, ${d.bettor}, ${d.players[0]}, ${d.players[1]}, ${d.token_id}, ${d.amount}, ${d.winner})
+      INSERT INTO bets (id, bettor, player_0, player_1, token_id, amount, winner, created_at)
+      VALUES (${betId}, ${d.bettor}, ${d.players[0]}, ${d.players[1]}, ${d.token_id}, ${d.amount}, ${d.winner}, ${event.trigger_block_timestamp})
       ON CONFLICT (id) DO UPDATE SET
         amount = EXCLUDED.amount
     `;
@@ -234,7 +229,7 @@ const handlers: Record<string, EventHandler> = {
       UPDATE bets SET
         status = 'locked',
         game_id = ${gid},
-        locked_at = ${toDate(event.trigger_block_timestamp)}
+        locked_at = ${event.trigger_block_timestamp}
       WHERE player_0 = ${d.players[0]}
         AND player_1 = ${d.players[1]}
         AND status = 'pending'
@@ -249,7 +244,7 @@ const handlers: Record<string, EventHandler> = {
     await sql`
       UPDATE bets SET
         status = 'resolved',
-        resolved_at = ${toDate(event.trigger_block_timestamp)}
+        resolved_at = ${event.trigger_block_timestamp}
       WHERE game_id = ${gid}
         AND status = 'locked'
     `;

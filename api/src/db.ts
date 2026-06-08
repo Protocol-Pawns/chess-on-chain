@@ -41,8 +41,8 @@ interface GameRow {
   outcome: GameOutcome | null;
   resigner: Color | null;
   status: string;
-  created_at: string;
-  finished_at: string | null;
+  created_at: string | number;
+  finished_at: string | number | null;
 }
 
 interface GameMoveRow {
@@ -61,8 +61,8 @@ interface ChallengeRow {
   wager_amount: string | null;
   status: string;
   game_id: string | null;
-  created_at: string;
-  resolved_at: string | null;
+  created_at: string | number;
+  resolved_at: string | number | null;
 }
 
 function parsePlayer(type: string, value: string | null): Player {
@@ -75,9 +75,17 @@ function parseJson<T>(value: T): T {
   return typeof value === 'string' ? JSON.parse(value) : value;
 }
 
+function nsToIso(ts: string | number | null): string | null {
+  if (ts == null) return null;
+  const n = Number(ts);
+  return new Date(n > 1e15 ? n / 1_000_000 : n).toISOString();
+}
+
 function rowToGame(row: GameRow): Game {
   const board = parseJson<string[]>(row.board);
-  const moves = parseJson<Array<{ color: string; mv: string; board: string[]; fen?: string }>>(row.moves);
+  const moves = parseJson<
+    Array<{ color: string; mv: string; board: string[]; fen?: string }>
+  >(row.moves);
   const outcome = parseJson<GameOutcome | null>(row.outcome);
   return {
     game_id: JSON.parse(row.game_id),
@@ -94,8 +102,8 @@ function rowToGame(row: GameRow): Game {
     status: row.status as Game['status'],
     outcome,
     resigner: row.resigner,
-    created_at: row.created_at,
-    finished_at: row.finished_at
+    created_at: nsToIso(row.created_at) ?? '',
+    finished_at: nsToIso(row.finished_at)
   };
 }
 
@@ -124,8 +132,8 @@ function rowToChallenge(row: ChallengeRow): Challenge {
     wager_amount: row.wager_amount,
     status: row.status as Challenge['status'],
     game_id: row.game_id,
-    created_at: row.created_at,
-    resolved_at: row.resolved_at
+    created_at: nsToIso(row.created_at) ?? '',
+    resolved_at: nsToIso(row.resolved_at)
   };
 }
 
@@ -225,16 +233,14 @@ export async function getGames(
   }
 
   const hasMore = rows.length > actualLimit;
-  const items = (hasMore ? rows.slice(0, -1) : rows).map((r: unknown) =>
+  const rawItems = hasMore ? rows.slice(0, -1) : rows;
+  const items = rawItems.map((r: unknown) =>
     rowToGameOverview(r as GameRow, includeMoves)
   );
-  const lastItem = items[items.length - 1] as
-    | { created_at?: string; finished_at?: string }
-    | undefined;
+  const lastRaw = rawItems[rawItems.length - 1] as GameRow | undefined;
   const nextCursor =
-    hasMore && lastItem
-      ? ((status === 'active' ? lastItem.created_at : lastItem.finished_at) ??
-        null)
+    hasMore && lastRaw
+      ? String(status === 'active' ? lastRaw.created_at : lastRaw.finished_at)
       : null;
 
   return { items, next_cursor: nextCursor };
@@ -414,9 +420,9 @@ interface BetRow {
   winner: string;
   status: string;
   payout: string | null;
-  created_at: string;
-  locked_at: string | null;
-  resolved_at: string | null;
+  created_at: string | number;
+  locked_at: string | number | null;
+  resolved_at: string | number | null;
 }
 
 function rowToBet(row: BetRow): Bet {
@@ -431,9 +437,9 @@ function rowToBet(row: BetRow): Bet {
     winner: row.winner,
     status: row.status as Bet['status'],
     payout: row.payout,
-    created_at: row.created_at,
-    locked_at: row.locked_at,
-    resolved_at: row.resolved_at
+    created_at: nsToIso(row.created_at) ?? '',
+    locked_at: nsToIso(row.locked_at),
+    resolved_at: nsToIso(row.resolved_at)
   };
 }
 
@@ -477,11 +483,10 @@ export async function getBets(
   }
 
   const hasMore = rows.length > actualLimit;
-  const items = (hasMore ? rows.slice(0, -1) : rows).map((r: unknown) =>
-    rowToBet(r as BetRow)
-  );
-  const lastItem = items[items.length - 1] as { created_at?: string } | undefined;
-  const nextCursor = hasMore && lastItem ? lastItem.created_at ?? null : null;
+  const rawItems = hasMore ? rows.slice(0, -1) : rows;
+  const items = rawItems.map((r: unknown) => rowToBet(r as BetRow));
+  const lastRaw = rawItems[rawItems.length - 1] as BetRow | undefined;
+  const nextCursor = hasMore && lastRaw ? String(lastRaw.created_at) : null;
 
   return { items, next_cursor: nextCursor };
 }
@@ -565,7 +570,9 @@ export async function getBetLeaderboard(
       won_bets: Number(row.won_bets)
     } satisfies BetLeaderboardEntry;
   });
-  const lastItem = items[items.length - 1] as { account_id: string } | undefined;
+  const lastItem = items[items.length - 1] as
+    | { account_id: string }
+    | undefined;
   const nextCursor = hasMore && lastItem ? lastItem.account_id : null;
 
   return { items, next_cursor: nextCursor };
@@ -595,11 +602,10 @@ export async function getOpenChallenges(
   }
 
   const hasMore = rows.length > actualLimit;
-  const items = (hasMore ? rows.slice(0, -1) : rows).map((r: unknown) =>
-    rowToChallenge(r as ChallengeRow)
-  );
-  const lastItem = items[items.length - 1] as { created_at?: string } | undefined;
-  const nextCursor = hasMore && lastItem ? lastItem.created_at ?? null : null;
+  const rawItems = hasMore ? rows.slice(0, -1) : rows;
+  const items = rawItems.map((r: unknown) => rowToChallenge(r as ChallengeRow));
+  const lastRaw = rawItems[rawItems.length - 1] as ChallengeRow | undefined;
+  const nextCursor = hasMore && lastRaw ? String(lastRaw.created_at) : null;
 
   return { items, next_cursor: nextCursor };
 }
@@ -642,11 +648,10 @@ export async function getGlobalBets(
   }
 
   const hasMore = rows.length > actualLimit;
-  const items = (hasMore ? rows.slice(0, -1) : rows).map((r: unknown) =>
-    rowToBet(r as BetRow)
-  );
-  const lastItem = items[items.length - 1] as { created_at?: string } | undefined;
-  const nextCursor = hasMore && lastItem ? lastItem.created_at ?? null : null;
+  const rawItems = hasMore ? rows.slice(0, -1) : rows;
+  const items = rawItems.map((r: unknown) => rowToBet(r as BetRow));
+  const lastRaw = rawItems[rawItems.length - 1] as BetRow | undefined;
+  const nextCursor = hasMore && lastRaw ? String(lastRaw.created_at) : null;
 
   return { items, next_cursor: nextCursor };
 }

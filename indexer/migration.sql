@@ -7,8 +7,7 @@ CREATE TABLE IF NOT EXISTS chess_events (
   event_type TEXT NOT NULL,
   event_data TEXT NOT NULL,
   processed BOOLEAN NOT NULL DEFAULT FALSE,
-  notified BOOLEAN NOT NULL DEFAULT FALSE,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  notified BOOLEAN NOT NULL DEFAULT FALSE
 );
 
 CREATE INDEX IF NOT EXISTS idx_chess_events_type ON chess_events (event_type);
@@ -28,8 +27,8 @@ CREATE TABLE IF NOT EXISTS games (
   outcome JSONB,
   resigner TEXT,
   status TEXT NOT NULL DEFAULT 'in_progress',
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  finished_at TIMESTAMPTZ
+  created_at BIGINT NOT NULL,
+  finished_at BIGINT
 );
 
 CREATE INDEX IF NOT EXISTS idx_games_created ON games (created_at DESC);
@@ -45,8 +44,7 @@ CREATE TABLE IF NOT EXISTS game_moves (
   fen TEXT NOT NULL,
   outcome JSONB,
   trigger_block_height BIGINT NOT NULL,
-  trigger_block_timestamp BIGINT NOT NULL,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  trigger_block_timestamp BIGINT NOT NULL
 );
 
 CREATE UNIQUE INDEX IF NOT EXISTS idx_game_moves_game_move ON game_moves (game_id, move_number);
@@ -60,8 +58,8 @@ CREATE TABLE IF NOT EXISTS challenges (
   wager_amount TEXT,
   status TEXT NOT NULL DEFAULT 'pending',
   game_id TEXT,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  resolved_at TIMESTAMPTZ
+  created_at BIGINT NOT NULL,
+  resolved_at BIGINT
 );
 
 CREATE INDEX IF NOT EXISTS idx_challenges_challenger ON challenges (challenger);
@@ -87,9 +85,9 @@ CREATE TABLE IF NOT EXISTS bets (
   winner TEXT NOT NULL,
   status TEXT NOT NULL DEFAULT 'pending',
   payout TEXT,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  locked_at TIMESTAMPTZ,
-  resolved_at TIMESTAMPTZ
+  created_at BIGINT NOT NULL,
+  locked_at BIGINT,
+  resolved_at BIGINT
 );
 
 CREATE INDEX IF NOT EXISTS idx_bets_bettor ON bets (bettor);
