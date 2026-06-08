@@ -169,7 +169,13 @@ const handlers: Record<string, EventHandler> = {
     await sql`
       INSERT INTO challenges (id, challenger, challenged, wager_token, wager_amount, created_at)
       VALUES (${d.id}, ${d.challenger}, ${d.challenged}, ${wager?.[0] ?? null}, ${wager?.[1] ?? null}, ${event.trigger_block_timestamp})
-      ON CONFLICT (id) DO NOTHING
+      ON CONFLICT (id) DO UPDATE SET
+        status = 'pending',
+        wager_token = EXCLUDED.wager_token,
+        wager_amount = EXCLUDED.wager_amount,
+        created_at = EXCLUDED.created_at,
+        game_id = NULL,
+        resolved_at = NULL
     `;
   },
 
