@@ -466,7 +466,8 @@ export async function markEventsNotified(db: Db, ids: string[]): Promise<void> {
 }
 
 interface BetRow {
-  id: string;
+  id: number;
+  bet_key: string;
   bettor: string;
   player_0: string;
   player_1: string;
@@ -483,7 +484,7 @@ interface BetRow {
 
 function rowToBet(row: BetRow): Bet {
   return {
-    id: row.id,
+    id: row.bet_key,
     bettor: row.bettor,
     player_0: row.player_0,
     player_1: row.player_1,

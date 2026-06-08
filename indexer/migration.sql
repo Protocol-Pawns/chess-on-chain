@@ -77,7 +77,8 @@ CREATE TABLE IF NOT EXISTS account_finished_games (
 CREATE INDEX IF NOT EXISTS idx_account_games ON account_finished_games (account_id);
 
 CREATE TABLE IF NOT EXISTS bets (
-  id TEXT PRIMARY KEY,
+  id SERIAL PRIMARY KEY,
+  bet_key TEXT NOT NULL,
   bettor TEXT NOT NULL,
   player_0 TEXT NOT NULL,
   player_1 TEXT NOT NULL,
@@ -92,6 +93,7 @@ CREATE TABLE IF NOT EXISTS bets (
   resolved_at BIGINT
 );
 
+CREATE INDEX IF NOT EXISTS idx_bets_bet_key ON bets (bet_key);
 CREATE INDEX IF NOT EXISTS idx_bets_bettor ON bets (bettor);
 CREATE INDEX IF NOT EXISTS idx_bets_game ON bets (game_id);
 CREATE INDEX IF NOT EXISTS idx_bets_status ON bets (status);

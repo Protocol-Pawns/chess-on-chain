@@ -198,13 +198,12 @@ const handlers: Record<string, EventHandler> = {
 
   async place_bet(sql, event) {
     const d = event.event_data;
-    const betId = `${d.bettor}_${d.players[0]}_${d.players[1]}_${d.token_id}`;
+    const betKey = `${d.bettor}_${d.players[0]}_${d.players[1]}_${d.token_id}`;
 
     await sql`
-      INSERT INTO bets (id, bettor, player_0, player_1, token_id, amount, winner, created_at)
-      VALUES (${betId}, ${d.bettor}, ${d.players[0]}, ${d.players[1]}, ${d.token_id}, ${d.amount}, ${d.winner}, ${event.trigger_block_timestamp})
-      ON CONFLICT (id) DO UPDATE SET
-        amount = EXCLUDED.amount
+      INSERT INTO bets (bet_key, bettor, player_0, player_1, token_id, amount, winner, created_at)
+      VALUES (${betKey}, ${d.bettor}, ${d.players[0]}, ${d.players[1]}, ${d.token_id}, ${d.amount}, ${d.winner}, ${event.trigger_block_timestamp})
+      ON CONFLICT DO NOTHING
     `;
   },
 
@@ -251,16 +250,17 @@ const handlers: Record<string, EventHandler> = {
 
     const outcome = normalizeOutcome(d.outcome as Record<string, unknown>);
     const bets = await sql`
-      SELECT bettor, token_id, amount, winner FROM bets
+      SELECT id, bettor, token_id, amount, winner FROM bets
       WHERE game_id = ${gid} AND status = 'resolved'
     `;
 
     const byToken = new Map<
       string,
-      Array<{ bettor: string; amount: string; winner: string }>
+      Array<{ id: number; bettor: string; amount: string; winner: string }>
     >();
     for (const b of bets) {
       const row = b as {
+        id: number;
         bettor: string;
         amount: string;
         winner: string;
@@ -274,17 +274,12 @@ const handlers: Record<string, EventHandler> = {
       arr.push(row);
     }
 
-    const payouts: Array<{ bettor: string; token_id: string; amount: string }> =
-      [];
+    const payouts: Array<{ id: number; amount: string }> = [];
 
     if (outcome.result === 'Stalemate') {
-      for (const [tokenId, tokenBets] of byToken) {
+      for (const [, tokenBets] of byToken) {
         for (const b of tokenBets) {
-          payouts.push({
-            bettor: b.bettor,
-            token_id: tokenId,
-            amount: b.amount
-          });
+          payouts.push({ id: b.id, amount: b.amount });
         }
       }
     } else if (outcome.result === 'Victory' && outcome.color) {
@@ -295,7 +290,7 @@ const handlers: Record<string, EventHandler> = {
         const winnerId =
           outcome.color === 'White' ? game.white_value : game.black_value;
 
-        for (const [tokenId, tokenBets] of byToken) {
+        for (const [, tokenBets] of byToken) {
           const winners = tokenBets.filter(b => b.winner === winnerId);
           const losers = tokenBets.filter(b => b.winner !== winnerId);
           const totalWinner = winners.reduce(
@@ -317,8 +312,7 @@ const handlers: Record<string, EventHandler> = {
               if (winAmount > amt) winAmount = amt;
               totalWinAmount += winAmount;
               payouts.push({
-                bettor: b.bettor,
-                token_id: tokenId,
+                id: b.id,
                 amount: String(winAmount + amt)
               });
             }
@@ -330,8 +324,7 @@ const handlers: Record<string, EventHandler> = {
               const refundAmount =
                 (totalRefund * BigInt(b.amount)) / totalLoser;
               payouts.push({
-                bettor: b.bettor,
-                token_id: tokenId,
+                id: b.id,
                 amount: String(refundAmount)
               });
             }
@@ -343,10 +336,7 @@ const handlers: Record<string, EventHandler> = {
     for (const p of payouts) {
       await sql`
         UPDATE bets SET payout = ${p.amount}
-        WHERE game_id = ${gid}
-          AND bettor = ${p.bettor}
-          AND token_id = ${p.token_id}
-          AND status = 'resolved'
+        WHERE id = ${p.id}
       `;
     }
   }
