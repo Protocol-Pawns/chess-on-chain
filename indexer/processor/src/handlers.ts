@@ -140,7 +140,12 @@ const handlers: Record<string, EventHandler> = {
   async resign_game(sql, event) {
     const d = event.event_data;
     const gid = gameId(d);
-    const outcome = normalizeOutcome(d.outcome as Record<string, unknown>);
+    const outcome = d.outcome
+      ? normalizeOutcome(d.outcome as Record<string, unknown>)
+      : {
+          result: 'Victory',
+          color: d.resigner === 'White' ? 'Black' : 'White'
+        };
 
     await sql`
       UPDATE games SET
