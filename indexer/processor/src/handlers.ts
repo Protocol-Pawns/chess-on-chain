@@ -90,7 +90,11 @@ const handlers: Record<string, EventHandler> = {
   async play_move(sql, event) {
     const d = event.event_data;
     const gid = gameId(d);
-    const board = d.board as string[];
+    const board = d.board as string[] | undefined;
+    if (!board) {
+      console.warn(`skipping play_move without board (${event.id})`);
+      return;
+    }
     const color = d.color as string;
     const outcome = d.outcome
       ? normalizeOutcome(d.outcome as Record<string, unknown>)
