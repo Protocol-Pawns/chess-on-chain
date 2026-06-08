@@ -21,6 +21,28 @@ function gameId(data: Record<string, any>): string {
   return JSON.stringify(data.game_id);
 }
 
+function normalizePlayer(p: Record<string, unknown>): {
+  type: string;
+  value: string;
+} {
+  if ('type' in p && 'value' in p) {
+    return { type: p.type as string, value: p.value as string };
+  }
+  const [[type, value]] = Object.entries(p);
+  return { type, value: value as string };
+}
+
+function normalizeOutcome(o: Record<string, unknown>): {
+  result: string;
+  color?: string;
+} {
+  if ('result' in o)
+    return { result: o.result as string, color: o.color as string | undefined };
+  const [[key, val]] = Object.entries(o);
+  if (key === 'Stalemate') return { result: 'Stalemate' };
+  return { result: key, color: val as string };
+}
+
 function toDate(ts: string): Date {
   return new Date(Number(ts));
 }
@@ -55,10 +77,12 @@ const handlers: Record<string, EventHandler> = {
     const gid = gameId(d);
     const board = d.board as string[];
     const fen = asciiBoardToFen(board) + ' w - - 0 1';
+    const white = normalizePlayer(d.white as Record<string, unknown>);
+    const black = normalizePlayer(d.black as Record<string, unknown>);
 
     await sql`
       INSERT INTO games (game_id, trigger_block_height, white_type, white_value, black_type, black_value, board, fen)
-      VALUES (${gid}, ${event.trigger_block_height}, ${d.white.type}, ${d.white.value}, ${d.black.type}, ${d.black.value}, ${JSON.stringify(board)}::jsonb, ${fen})
+      VALUES (${gid}, ${event.trigger_block_height}, ${white.type}, ${white.value}, ${black.type}, ${black.value}, ${JSON.stringify(board)}::jsonb, ${fen})
       ON CONFLICT (game_id) DO NOTHING
     `;
   },
@@ -68,7 +92,9 @@ const handlers: Record<string, EventHandler> = {
     const gid = gameId(d);
     const board = d.board as string[];
     const color = d.color as string;
-    const outcome = d.outcome ?? null;
+    const outcome = d.outcome
+      ? normalizeOutcome(d.outcome as Record<string, unknown>)
+      : null;
     const outcomeJson = JSON.stringify(outcome);
     const fenBase = asciiBoardToFen(board);
     const activeColor = color === 'White' ? 'b' : 'w';
@@ -110,10 +136,11 @@ const handlers: Record<string, EventHandler> = {
   async resign_game(sql, event) {
     const d = event.event_data;
     const gid = gameId(d);
+    const outcome = normalizeOutcome(d.outcome as Record<string, unknown>);
 
     await sql`
       UPDATE games SET
-        outcome = ${JSON.stringify(d.outcome)}::jsonb,
+        outcome = ${JSON.stringify(outcome)}::jsonb,
         resigner = ${d.resigner},
         status = 'finished',
         finished_at = ${toDate(event.trigger_block_timestamp)}
@@ -217,7 +244,7 @@ const handlers: Record<string, EventHandler> = {
         AND status = 'locked'
     `;
 
-    const outcome = d.outcome as { result: string; color?: string };
+    const outcome = normalizeOutcome(d.outcome as Record<string, unknown>);
     const bets = await sql`
       SELECT bettor, token_id, amount, winner FROM bets
       WHERE game_id = ${gid} AND status = 'resolved'

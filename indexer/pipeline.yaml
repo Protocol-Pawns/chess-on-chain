@@ -1,4 +1,4 @@
-name: chess-on-chain-events-v3
+name: chess-on-chain-events
 apiVersion: 3
 resource_size: s
 description: Indexes chess game events from the Protocol Pawns NEAR smart contract
@@ -8,7 +8,7 @@ sources:
     type: dataset
     dataset_name: near.execution_outcomes
     version: 1.1.0
-    start_at: earliest
+    start_at: latest
 
 transforms:
   chess_contract_outcomes:

@@ -6,6 +6,7 @@
   "scripts": {
     "start": "tsx src/main.ts",
     "backfill": "tsx src/backfill.ts",
+    "backfill:events": "tsx src/backfill-events.ts",
     "test": "vitest run"
   },
   "dependencies": {
