@@ -110,20 +110,40 @@ self.addEventListener('fetch', function (event) {
   if (url.origin !== self.location.origin) return;
 
   if (isStaticAsset(url)) {
-    event.respondWith(
-      caches.match(event.request).then(function (cached) {
-        if (cached) return cached;
-        return fetch(event.request).then(function (response) {
-          if (response.ok) {
-            var clone = response.clone();
-            caches.open(STATIC_CACHE).then(function (cache) {
-              cache.put(event.request, clone);
-            });
-          }
-          return response;
-        });
-      })
-    );
+    var isCritical = url.pathname.endsWith('.css') || url.pathname.endsWith('.js');
+
+    if (isCritical) {
+      event.respondWith(
+        fetch(event.request)
+          .then(function (response) {
+            if (response.ok) {
+              var clone = response.clone();
+              caches.open(STATIC_CACHE).then(function (cache) {
+                cache.put(event.request, clone);
+              });
+            }
+            return response;
+          })
+          .catch(function () {
+            return caches.match(event.request);
+          })
+      );
+    } else {
+      event.respondWith(
+        caches.match(event.request).then(function (cached) {
+          if (cached) return cached;
+          return fetch(event.request).then(function (response) {
+            if (response.ok) {
+              var clone = response.clone();
+              caches.open(STATIC_CACHE).then(function (cache) {
+                cache.put(event.request, clone);
+              });
+            }
+            return response;
+          });
+        })
+      );
+    }
     return;
   }
 
