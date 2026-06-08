@@ -167,15 +167,9 @@ const handlers: Record<string, EventHandler> = {
     const wager = d.wager;
 
     await sql`
-      INSERT INTO challenges (id, challenger, challenged, wager_token, wager_amount, created_at)
+      INSERT INTO challenges (challenge_id, challenger, challenged, wager_token, wager_amount, created_at)
       VALUES (${d.id}, ${d.challenger}, ${d.challenged}, ${wager?.[0] ?? null}, ${wager?.[1] ?? null}, ${event.trigger_block_timestamp})
-      ON CONFLICT (id) DO UPDATE SET
-        status = 'pending',
-        wager_token = EXCLUDED.wager_token,
-        wager_amount = EXCLUDED.wager_amount,
-        created_at = EXCLUDED.created_at,
-        game_id = NULL,
-        resolved_at = NULL
+      ON CONFLICT DO NOTHING
     `;
   },
 
@@ -187,7 +181,7 @@ const handlers: Record<string, EventHandler> = {
         status = 'accepted',
         game_id = ${gameId(d)},
         resolved_at = ${event.trigger_block_timestamp}
-      WHERE id = ${d.challenge_id}
+      WHERE challenge_id = ${d.challenge_id} AND status = 'pending'
     `;
   },
 
@@ -198,7 +192,7 @@ const handlers: Record<string, EventHandler> = {
       UPDATE challenges SET
         status = 'rejected',
         resolved_at = ${event.trigger_block_timestamp}
-      WHERE id = ${d.challenge_id}
+      WHERE challenge_id = ${d.challenge_id} AND status = 'pending'
     `;
   },
 

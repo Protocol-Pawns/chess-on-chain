@@ -51,7 +51,8 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_game_moves_game_move ON game_moves (game_i
 CREATE INDEX IF NOT EXISTS idx_game_moves_game ON game_moves (game_id);
 
 CREATE TABLE IF NOT EXISTS challenges (
-  id TEXT PRIMARY KEY,
+  id SERIAL PRIMARY KEY,
+  challenge_id TEXT NOT NULL,
   challenger TEXT NOT NULL,
   challenged TEXT NOT NULL,
   wager_token TEXT,
@@ -62,6 +63,7 @@ CREATE TABLE IF NOT EXISTS challenges (
   resolved_at BIGINT
 );
 
+CREATE INDEX IF NOT EXISTS idx_challenges_challenge_id ON challenges (challenge_id);
 CREATE INDEX IF NOT EXISTS idx_challenges_challenger ON challenges (challenger);
 CREATE INDEX IF NOT EXISTS idx_challenges_challenged ON challenges (challenged);
 CREATE INDEX IF NOT EXISTS idx_challenges_status ON challenges (status);

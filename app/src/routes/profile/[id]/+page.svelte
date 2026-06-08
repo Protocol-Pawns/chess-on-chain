@@ -122,13 +122,22 @@
     promise
       .then(result => {
         const gameId = decodeSuccessValue<GameId>(result);
+        const idx = pendingChallenges.findIndex(c => c.id === challenge.id);
+        if (idx !== -1) {
+          pendingChallenges[idx] = {
+            ...pendingChallenges[idx],
+            status: 'accepted',
+            game_id: gameId ? JSON.stringify(gameId) : null
+          };
+          pendingChallenges = pendingChallenges;
+        }
         if (gameId) {
           showToast('success', 'Challenge accepted! Redirecting...');
           setTimeout(() => goto(gameUrl(gameId)), 1000);
         } else {
           showToast('success', 'Challenge accepted!');
-          loadPendingChallenges();
         }
+        setTimeout(loadPendingChallenges, 10000);
       })
       .catch((err: unknown) => {
         const msg = err instanceof Error ? err.message : String(err);
@@ -139,14 +148,36 @@
   function doReject(challenge: Challenge) {
     rejectTarget = null;
     const isChallenger = $accountStore === challenge.challenger;
-    showTxToast(contract.rejectChallenge(challenge.id, isChallenger));
-    setTimeout(loadPendingChallenges, 4000);
+    const p = contract.rejectChallenge(challenge.id, isChallenger);
+    showTxToast(p);
+    p.then(() => {
+      const idx = pendingChallenges.findIndex(c => c.id === challenge.id);
+      if (idx !== -1) {
+        pendingChallenges[idx] = {
+          ...pendingChallenges[idx],
+          status: 'rejected'
+        };
+        pendingChallenges = pendingChallenges;
+      }
+      setTimeout(loadPendingChallenges, 10000);
+    }).catch(() => {});
   }
 
   function doCancel(challenge: Challenge) {
     cancelTarget = null;
-    showTxToast(contract.rejectChallenge(challenge.id, true));
-    setTimeout(loadPendingChallenges, 4000);
+    const p = contract.rejectChallenge(challenge.id, true);
+    showTxToast(p);
+    p.then(() => {
+      const idx = pendingChallenges.findIndex(c => c.id === challenge.id);
+      if (idx !== -1) {
+        pendingChallenges[idx] = {
+          ...pendingChallenges[idx],
+          status: 'rejected'
+        };
+        pendingChallenges = pendingChallenges;
+      }
+      setTimeout(loadPendingChallenges, 10000);
+    }).catch(() => {});
   }
 
   onMount(async () => {

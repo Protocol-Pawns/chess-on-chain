@@ -91,6 +91,8 @@
     if (!$accountStore || !challengeTarget.trim()) return;
     const target = challengeTarget.trim();
     const needsRegistration = targetRegistered === false;
+    const savedWagerToken = wagerEnabled ? wagerToken : null;
+    const savedWagerAmount = wagerEnabled && wagerAmount ? wagerAmount : null;
     challengeTarget = '';
     targetChallengeCount = null;
     targetRegistered = null;
@@ -103,7 +105,24 @@
       promise = contract.challenge(target);
     }
     showTxToast(promise);
-    promise.finally(() => setTimeout(load, 2000));
+    promise
+      .then(() => {
+        const optimistic: Challenge = {
+          id: `${$accountStore}-vs-${target}`,
+          challenger: $accountStore,
+          challenged: target,
+          wager_token: savedWagerToken,
+          wager_amount: savedWagerAmount,
+          status: 'pending',
+          game_id: null,
+          created_at: new Date().toISOString(),
+          resolved_at: null
+        };
+        challenges = [optimistic, ...challenges];
+        ownChallengeCount += 1;
+        setTimeout(load, 10000);
+      })
+      .catch(() => {});
   }
 
   function doAccept(challenge: Challenge) {
@@ -121,13 +140,23 @@
     promise
       .then(result => {
         const gameId = decodeSuccessValue<GameId>(result);
+        const idx = challenges.findIndex(c => c.id === challenge.id);
+        if (idx !== -1) {
+          challenges[idx] = {
+            ...challenges[idx],
+            status: 'accepted',
+            game_id: gameId ? JSON.stringify(gameId) : null
+          };
+          challenges = challenges;
+          ownChallengeCount = Math.max(0, ownChallengeCount - 1);
+        }
         if (gameId) {
           showToast('success', 'Challenge accepted! Redirecting...');
           setTimeout(() => navigateToGame(gameId), 1000);
         } else {
           showToast('success', 'Challenge accepted!');
-          load();
         }
+        setTimeout(load, 10000);
       })
       .catch((err: unknown) => {
         const msg = err instanceof Error ? err.message : String(err);
@@ -138,14 +167,32 @@
   function doReject(challenge: Challenge) {
     rejectTarget = null;
     const isChallenger = $accountStore === challenge.challenger;
-    showTxToast(contract.rejectChallenge(challenge.id, isChallenger));
-    setTimeout(load, 4000);
+    const p = contract.rejectChallenge(challenge.id, isChallenger);
+    showTxToast(p);
+    p.then(() => {
+      const idx = challenges.findIndex(c => c.id === challenge.id);
+      if (idx !== -1) {
+        challenges[idx] = { ...challenges[idx], status: 'rejected' };
+        challenges = challenges;
+        ownChallengeCount = Math.max(0, ownChallengeCount - 1);
+      }
+      setTimeout(load, 10000);
+    }).catch(() => {});
   }
 
   function doCancel(challenge: Challenge) {
     cancelTarget = null;
-    showTxToast(contract.rejectChallenge(challenge.id, true));
-    setTimeout(load, 4000);
+    const p = contract.rejectChallenge(challenge.id, true);
+    showTxToast(p);
+    p.then(() => {
+      const idx = challenges.findIndex(c => c.id === challenge.id);
+      if (idx !== -1) {
+        challenges[idx] = { ...challenges[idx], status: 'rejected' };
+        challenges = challenges;
+        ownChallengeCount = Math.max(0, ownChallengeCount - 1);
+      }
+      setTimeout(load, 10000);
+    }).catch(() => {});
   }
 
   let sendDisabled = $derived(

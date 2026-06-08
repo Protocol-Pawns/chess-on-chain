@@ -55,7 +55,8 @@ interface GameMoveRow {
 }
 
 interface ChallengeRow {
-  id: string;
+  id: number;
+  challenge_id: string;
   challenger: string;
   challenged: string;
   wager_token: string | null;
@@ -126,7 +127,7 @@ function rowToGameMove(row: GameMoveRow): GameMove {
 
 function rowToChallenge(row: ChallengeRow): Challenge {
   return {
-    id: row.id,
+    id: row.challenge_id,
     challenger: row.challenger,
     challenged: row.challenged,
     wager_token: row.wager_token,

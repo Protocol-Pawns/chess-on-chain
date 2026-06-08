@@ -243,9 +243,13 @@ export async function processNotifications(
   const challenges = new Map<string, ChallengeLookup>();
   if (challengeIds.length > 0) {
     const rows = (await db`
-      SELECT id, challenger, challenged FROM challenges WHERE id = ANY(${challengeIds})
-    `) as Array<{ id: string; challenger: string; challenged: string }>;
-    for (const r of rows) challenges.set(r.id, r);
+      SELECT challenge_id, challenger, challenged FROM challenges WHERE challenge_id = ANY(${challengeIds}) AND status = 'pending'
+    `) as Array<{
+      challenge_id: string;
+      challenger: string;
+      challenged: string;
+    }>;
+    for (const r of rows) challenges.set(r.challenge_id, r);
   }
 
   const games = new Map<string, GameLookup>();
