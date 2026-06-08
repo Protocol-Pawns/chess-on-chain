@@ -2,6 +2,7 @@
   import dayjs from 'dayjs';
   import { colorFromFEN } from '$lib/chess/board';
   import { truncateAddr } from '$lib/format';
+  import { accountStore } from '$lib/near/account';
   import type { GameOverview } from '$lib/api/client';
 
   let { game }: { game: GameOverview } = $props();
@@ -9,9 +10,20 @@
   let turn = $derived(
     game.status === 'in_progress' && game.fen ? colorFromFEN(game.fen) : null
   );
+
+  let isMyTurn = $derived.by(() => {
+    if (!turn || !$accountStore) return false;
+    const myColor =
+      game.white.value === $accountStore
+        ? 'White'
+        : game.black?.value === $accountStore
+          ? 'Black'
+          : null;
+    return turn === myColor;
+  });
 </script>
 
-<div class="card-hover">
+<div class={isMyTurn ? 'card-accent' : 'card-hover'}>
   <div class="flex justify-between items-start mb-1">
     <div class="text-sm space-y-0.5">
       <div class="font-medium">
@@ -48,6 +60,12 @@
           {game.outcome.result === 'Victory'
             ? `${game.outcome.color} wins`
             : 'Draw'}
+        </span>
+      {:else if isMyTurn}
+        <span
+          class="inline-block text-xs font-bold px-2 py-0.5 rounded bg-primary-bgOk text-primary-green animate-pulse"
+        >
+          Your turn!
         </span>
       {:else if turn}
         {turn}'s turn

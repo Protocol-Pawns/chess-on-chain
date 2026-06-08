@@ -43,7 +43,7 @@ export default defineConfig({
       'btn text-white hover:bg-primary-transparent bg-transparent border border-white/10',
     card: 'rounded border border-white/10 bg-white/[0.03] p-3',
     'card-hover': 'card hover:bg-white/5 hover:border-white/20 cursor-pointer',
-    'card-accent': 'rounded border border-primary bg-primary-transparent p-3',
+    'card-accent': 'rounded border-2 border-primary-green bg-primary-green/10 p-3 hover:bg-primary-green/20 shadow-[0_0_12px_rgba(42,168,118,0.25)] cursor-pointer',
     dropdown:
       'absolute rounded border border-white/15 bg-[#1a1a2e] p-1.5 shadow-xl z-50'
   }
