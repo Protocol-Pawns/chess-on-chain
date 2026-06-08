@@ -1,14 +1,13 @@
 <script lang="ts">
   import dayjs from 'dayjs';
   import { colorFromFEN } from '$lib/chess/board';
+  import { truncateAddr } from '$lib/format';
   import type { GameOverview } from '$lib/api/client';
 
   let { game }: { game: GameOverview } = $props();
 
   let turn = $derived(
-    game.status === 'in_progress' && game.fen
-      ? colorFromFEN(game.fen)
-      : null
+    game.status === 'in_progress' && game.fen ? colorFromFEN(game.fen) : null
   );
 </script>
 
@@ -19,14 +18,14 @@
         <span
           class="inline-block w-3 h-3 rounded-full bg-white mr-1 align-middle"
         ></span>
-        {game.white.type === 'Human' ? game.white.value : 'AI'}
+        {game.white.type === 'Human' ? truncateAddr(game.white.value) : 'AI'}
       </div>
       <div>
         <span
           class="inline-block w-3 h-3 rounded-full bg-gray-700 border border-gray-500 mr-1 align-middle"
         ></span>
         {game.black?.type === 'Human'
-          ? game.black.value
+          ? truncateAddr(game.black.value ?? '')
           : game.black?.type?.toLowerCase() === 'ai'
             ? `AI (${game.black.value})`
             : 'Waiting...'}

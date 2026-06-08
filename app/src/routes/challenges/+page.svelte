@@ -4,6 +4,7 @@
   import { accountStore, isLoggedIn } from '$lib/near/account';
   import { contract } from '$lib/near/connector';
   import { showTxToast, showToast, decodeSuccessValue } from '$lib/toast';
+  import { truncateAddr } from '$lib/format';
   import { gameUrl } from '$lib/game';
   import type { GameId } from '$lib/game';
   import WagerInput from '$lib/components/WagerInput.svelte';
@@ -141,8 +142,8 @@
                 <div class="font-medium text-sm">
                   {challenge.challenger === $accountStore ? '→' : '←'}
                   {challenge.challenger === $accountStore
-                    ? challenge.challenged
-                    : challenge.challenger}
+                    ? truncateAddr(challenge.challenged)
+                    : truncateAddr(challenge.challenger)}
                 </div>
                 <div class="text-xs text-white/50">
                   {challenge.status}
