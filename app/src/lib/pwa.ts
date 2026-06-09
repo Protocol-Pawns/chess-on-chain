@@ -21,14 +21,17 @@ export function registerServiceWorker() {
   if (typeof window === 'undefined') return;
   if (!('serviceWorker' in navigator)) return;
 
+  const hadController = !!navigator.serviceWorker.controller;
+
   navigator.serviceWorker
-    .register('/sw.js')
+    .register('/sw.js', { updateViaCache: 'none' })
     .then(function (reg) {
       reg.addEventListener('updatefound', function () {
         const newWorker = reg.installing;
         if (!newWorker) return;
         newWorker.addEventListener('statechange', function () {
           if (
+            hadController &&
             newWorker!.state === 'activated' &&
             navigator.serviceWorker.controller
           ) {
@@ -42,7 +45,7 @@ export function registerServiceWorker() {
     });
 
   navigator.serviceWorker.addEventListener('message', function (event) {
-    if (event.data?.type === 'SW_UPDATE_READY') {
+    if (hadController && event.data?.type === 'SW_UPDATE_READY') {
       swUpdateAvailable.set(true);
     }
   });

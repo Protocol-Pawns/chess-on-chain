@@ -1,4 +1,4 @@
-var CACHE_VERSION = 'pp-v1';
+var CACHE_VERSION = 'pp-v2';
 var STATIC_CACHE = CACHE_VERSION + '-static';
 var DYNAMIC_CACHE = CACHE_VERSION + '-dynamic';
 
@@ -48,6 +48,8 @@ self.addEventListener('install', function (event) {
 });
 
 self.addEventListener('activate', function (event) {
+  var isUpdate = !!self.registration.active;
+
   event.waitUntil(
     caches
       .keys()
@@ -70,9 +72,11 @@ self.addEventListener('activate', function (event) {
         return self.clients.claim();
       })
       .then(function () {
+        if (!isUpdate) return;
         return self.clients.matchAll({ type: 'window' });
       })
       .then(function (clientList) {
+        if (!clientList) return;
         clientList.forEach(function (client) {
           client.postMessage({ type: 'SW_UPDATE_READY' });
         });
