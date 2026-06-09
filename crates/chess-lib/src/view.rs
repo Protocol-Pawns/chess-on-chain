@@ -158,6 +158,17 @@ impl Chess {
             .collect()
     }
 
+    pub fn get_ppp_balances_by_ids(&self, account_ids: Vec<AccountId>) -> Vec<(AccountId, U128)> {
+        account_ids
+            .iter()
+            .filter_map(|account_id| {
+                self.accounts
+                    .get(account_id)
+                    .map(|account| (account_id.clone(), account.get_points().into()))
+            })
+            .collect()
+    }
+
     pub fn get_accounts(&self, skip: Option<usize>, limit: Option<usize>) -> Vec<AccountId> {
         self.accounts
             .keys()

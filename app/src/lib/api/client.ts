@@ -57,6 +57,25 @@ export interface EloLeaderboardPage {
   entries: EloLeaderboardEntry[];
 }
 
+export interface RankingEntry {
+  rank: number;
+  account_id: string;
+  elo: number | null;
+  ppp: string;
+  wins: number;
+  losses: number;
+  draws: number;
+  total_games: number;
+}
+
+export interface RankingPage {
+  total: number;
+  page: number;
+  per_page: number;
+  total_pages: number;
+  entries: RankingEntry[];
+}
+
 export interface GlobalStats {
   total_games: number;
   active_games: number;
@@ -172,10 +191,12 @@ export const api = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ gameIds })
     }),
-  leaderboardElo: (page = 1, perPage = 25) =>
-    request<EloLeaderboardPage>(
-      `/leaderboard/elo?page=${page}&per_page=${perPage}`
+  leaderboardElo: (page = 1, perPage = 25, dir: 'desc' | 'asc' = 'desc') =>
+    request<RankingPage>(
+      `/leaderboard/elo?page=${page}&per_page=${perPage}&dir=${dir}`
     ),
+  leaderboardPpp: (page = 1, perPage = 25) =>
+    request<RankingPage>(`/leaderboard/ppp?page=${page}&per_page=${perPage}`),
   vapidPublicKey: () => request<{ publicKey: string }>('/vapid-public-key'),
   subscribePush: (
     accountId: string,

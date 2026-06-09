@@ -1,79 +1,43 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { fmtOneDecimal, truncateAddr } from '$lib/format';
+  import { fmtOneDecimal, fmtPPP, truncateAddr } from '$lib/format';
   import {
     api,
-    type EloLeaderboardPage,
-    type AccountStats,
+    type RankingPage,
     type BetLeaderboardEntry
   } from '$lib/api/client';
-  import PppIcon from '$lib/components/PppIcon.svelte';
   import Pagination from '$lib/components/Pagination.svelte';
 
-  interface PppEntry {
-    account_id: string;
-    balance: string;
-  }
+  type SortBy = 'elo' | 'ppp';
+  type SortDir = 'desc' | 'asc';
 
   let loading = $state(true);
-  let tab = $state<'elo' | 'bets' | 'ppp'>('elo');
+  let tab = $state<'rankings' | 'bets'>('rankings');
+  let sortBy = $state<SortBy>('elo');
+  let eloDir = $state<SortDir>('desc');
   let page = $state(1);
   const PER_PAGE = 25;
-  let data: EloLeaderboardPage | null = $state(null);
-  let statsMap = $state<Map<string, AccountStats>>(new Map());
+  let data: RankingPage | null = $state(null);
   let betEntries = $state<BetLeaderboardEntry[]>([]);
   let betCursor = $state<string | null>(null);
   let betCursors = $state<(string | null)[]>([null]);
   let betPage = $state(1);
   let betTotalPages = $state(1);
   let betLoading = $state(false);
-  let pppEntries = $state<PppEntry[]>([]);
-  let pppLoading = $state(false);
 
-  const pppFmt = new Intl.NumberFormat('en-US', {
-    maximumFractionDigits: 6
-  });
-
-  function fmtPpp(rawBalance: string): string {
-    return pppFmt.format(Number(rawBalance) / 1_000_000);
-  }
-
-  async function loadElo(p: number) {
+  async function loadRankings(p: number, sort: SortBy) {
     loading = true;
     try {
-      const result = await api.leaderboardElo(p, PER_PAGE);
-      data = result;
-      page = result.page;
-
-      if (result.entries.length > 0) {
-        const ids = result.entries.map(e => e.account_id);
-        const stats = await api.accountStatsBatch(ids);
-        const map = new Map<string, AccountStats>();
-        for (const s of stats) map.set(s.account_id, s);
-        statsMap = map;
+      if (sort === 'ppp') {
+        data = await api.leaderboardPpp(p, PER_PAGE);
       } else {
-        statsMap = new Map();
+        data = await api.leaderboardElo(p, PER_PAGE, eloDir);
       }
+      page = data.page;
     } catch (e) {
-      console.error('Failed to load leaderboard:', e);
+      console.error('Failed to load rankings:', e);
     } finally {
       loading = false;
-    }
-  }
-
-  async function loadPPP() {
-    pppLoading = true;
-    try {
-      const res = await fetch(
-        'https://api.fastnear.com/v1/ft/app.chess-game.near/top'
-      );
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const json = await res.json();
-      pppEntries = (json.accounts ?? []) as PppEntry[];
-    } catch (e) {
-      console.error('Failed to load PPP leaderboard:', e);
-    } finally {
-      pppLoading = false;
     }
   }
 
@@ -109,18 +73,30 @@
 
   function goTo(p: number) {
     if (p < 1 || !data || p > data.total_pages) return;
-    loadElo(p);
+    loadRankings(p, sortBy);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
-  function switchTab(t: 'elo' | 'bets' | 'ppp') {
-    tab = t;
-    if (t === 'elo' && !data) loadElo(1);
-    if (t === 'bets' && betEntries.length === 0) loadBets(true);
-    if (t === 'ppp' && pppEntries.length === 0) loadPPP();
+  function toggleSort(s: SortBy) {
+    if (sortBy === 'elo' && s === 'elo') {
+      eloDir = eloDir === 'desc' ? 'asc' : 'desc';
+      page = 1;
+      loadRankings(1, s);
+      return;
+    }
+    sortBy = s;
+    if (s === 'elo') eloDir = 'desc';
+    page = 1;
+    loadRankings(1, s);
   }
 
-  onMount(() => loadElo(1));
+  function switchTab(t: 'rankings' | 'bets') {
+    tab = t;
+    if (t === 'rankings' && !data) loadRankings(1, sortBy);
+    if (t === 'bets' && betEntries.length === 0) loadBets(true);
+  }
+
+  onMount(() => loadRankings(1, sortBy));
 </script>
 
 <div class="flex flex-col gap-4">
@@ -129,10 +105,10 @@
   <div class="flex gap-2 justify-center">
     <button
       class="btn text-xs"
-      class:btn-primary={tab === 'elo'}
-      onclick={() => switchTab('elo')}
+      class:btn-primary={tab === 'rankings'}
+      onclick={() => switchTab('rankings')}
     >
-      ELO
+      Rankings
     </button>
     <button
       class="btn text-xs"
@@ -141,22 +117,20 @@
     >
       Betting
     </button>
-    <button
-      class="btn text-xs"
-      class:btn-primary={tab === 'ppp'}
-      onclick={() => switchTab('ppp')}
-    >
-      <PppIcon size={20} /> PPP
-    </button>
   </div>
 
-  {#if tab === 'elo'}
+  {#if tab === 'rankings'}
     {#if loading}
       <div class="space-y-1.5 animate-pulse">
         {#each Array(10) as _}
           <div class="card flex items-center gap-3 py-2">
             <div class="h-4 w-6 rounded bg-white/10"></div>
             <div class="h-4 w-28 rounded bg-white/10 flex-1"></div>
+            <div class="h-4 w-10 rounded bg-white/5"></div>
+            <div class="h-4 w-10 rounded bg-white/5"></div>
+            <div class="h-4 w-6 rounded bg-white/5"></div>
+            <div class="h-4 w-6 rounded bg-white/5"></div>
+            <div class="h-4 w-6 rounded bg-white/5"></div>
             <div class="h-4 w-10 rounded bg-white/5"></div>
           </div>
         {/each}
@@ -168,7 +142,26 @@
             <tr class="text-white/50 text-xs">
               <th class="pb-2 text-left">#</th>
               <th class="pb-2 text-left">Player</th>
-              <th class="pb-2 text-right">ELO</th>
+              <th
+                class="pb-2 text-right cursor-pointer select-none"
+                onclick={() => toggleSort('elo')}
+              >
+                ELO
+                {#if sortBy === 'elo'}
+                  <span class="ml-0.5 text-[10px]"
+                    >{eloDir === 'desc' ? '▼' : '▲'}</span
+                  >
+                {/if}
+              </th>
+              <th
+                class="pb-2 text-right cursor-pointer select-none"
+                onclick={() => toggleSort('ppp')}
+              >
+                PPP
+                {#if sortBy === 'ppp'}
+                  <span class="ml-0.5 text-[10px]">▼</span>
+                {/if}
+              </th>
               <th class="pb-2 text-right">W</th>
               <th class="pb-2 text-right">L</th>
               <th class="pb-2 text-right">D</th>
@@ -177,7 +170,6 @@
           </thead>
           <tbody>
             {#each data.entries as entry}
-              {@const stats = statsMap.get(entry.account_id)}
               <tr class="border-t border-white/10">
                 <td class="py-1.5 text-white/40">{entry.rank}</td>
                 <td class="py-1.5">
@@ -188,27 +180,23 @@
                   >
                 </td>
                 <td class="py-1.5 text-right text-primary-warn font-semibold"
-                  >{entry.elo}</td
+                  >{entry.elo ?? '-'}</td
                 >
-                {#if stats}
-                  <td class="py-1.5 text-right text-primary-green"
-                    >{stats.wins}</td
-                  >
-                  <td class="py-1.5 text-right text-primary-err"
-                    >{stats.losses}</td
-                  >
-                  <td class="py-1.5 text-right text-white/50">{stats.draws}</td>
-                  <td class="py-1.5 text-right text-white/70"
-                    >{stats.total_games > 0
-                      ? fmtOneDecimal((stats.wins / stats.total_games) * 100)
-                      : 0}%</td
-                  >
-                {:else}
-                  <td class="py-1.5 text-right text-white/30">-</td>
-                  <td class="py-1.5 text-right text-white/30">-</td>
-                  <td class="py-1.5 text-right text-white/30">-</td>
-                  <td class="py-1.5 text-right text-white/30">-</td>
-                {/if}
+                <td class="py-1.5 text-right text-primary font-semibold"
+                  >{fmtPPP(entry.ppp)}</td
+                >
+                <td class="py-1.5 text-right text-primary-green"
+                  >{entry.wins}</td
+                >
+                <td class="py-1.5 text-right text-primary-err"
+                  >{entry.losses}</td
+                >
+                <td class="py-1.5 text-right text-white/50">{entry.draws}</td>
+                <td class="py-1.5 text-right text-white/70"
+                  >{entry.total_games > 0
+                    ? fmtOneDecimal((entry.wins / entry.total_games) * 100)
+                    : 0}%</td
+                >
               </tr>
             {/each}
           </tbody>
@@ -223,9 +211,13 @@
         <p class="text-white/50 text-sm text-center">
           No players yet. Be the first!
         </p>
+      {:else}
+        <p class="text-white/30 text-[10px] text-center">
+          W / L / D stats reflect human vs human games only
+        </p>
       {/if}
     {/if}
-  {:else if tab === 'bets'}
+  {:else}
     {#if betLoading && betEntries.length === 0}
       <div class="space-y-1.5 animate-pulse">
         {#each Array(10) as _}
@@ -290,51 +282,6 @@
 
       {#if betEntries.length === 0}
         <p class="text-white/50 text-sm text-center">No bets placed yet.</p>
-      {/if}
-    {/if}
-  {:else}
-    {#if pppLoading && pppEntries.length === 0}
-      <div class="space-y-1.5 animate-pulse">
-        {#each Array(10) as _}
-          <div class="card flex items-center gap-3 py-2">
-            <div class="h-4 w-6 rounded bg-white/10"></div>
-            <div class="h-4 w-28 rounded bg-white/10 flex-1"></div>
-            <div class="h-4 w-10 rounded bg-white/5"></div>
-          </div>
-        {/each}
-      </div>
-    {:else}
-      <div class="card">
-        <table class="w-full text-sm">
-          <thead>
-            <tr class="text-white/50 text-xs">
-              <th class="pb-2 text-left">#</th>
-              <th class="pb-2 text-left">Player</th>
-              <th class="pb-2 text-right"><PppIcon size={20} /></th>
-            </tr>
-          </thead>
-          <tbody>
-            {#each pppEntries as entry, i}
-              <tr class="border-t border-white/10">
-                <td class="py-1.5 text-white/40">{i + 1}</td>
-                <td class="py-1.5">
-                  <a
-                    href="/profile/{entry.account_id}"
-                    class="text-primary hover:underline text-xs"
-                    >{truncateAddr(entry.account_id)}</a
-                  >
-                </td>
-                <td class="py-1.5 text-right text-primary font-semibold"
-                  >{fmtPpp(entry.balance)}</td
-                >
-              </tr>
-            {/each}
-          </tbody>
-        </table>
-      </div>
-
-      {#if pppEntries.length === 0}
-        <p class="text-white/50 text-sm text-center">No PPP holders yet.</p>
       {/if}
     {/if}
   {/if}

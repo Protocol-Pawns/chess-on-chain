@@ -244,3 +244,22 @@ export const EloLeaderboardPageSchema = z.object({
   total_pages: z.number(),
   entries: EloLeaderboardEntrySchema.array()
 });
+
+export const RankingEntrySchema = z.object({
+  rank: z.number(),
+  account_id: z.string(),
+  elo: z.number().nullable(),
+  ppp: z.string(),
+  wins: z.number(),
+  losses: z.number(),
+  draws: z.number(),
+  total_games: z.number()
+});
+
+export const RankingPageSchema = z.object({
+  total: z.number(),
+  page: z.number(),
+  per_page: z.number(),
+  total_pages: z.number(),
+  entries: RankingEntrySchema.array()
+});

@@ -334,45 +334,79 @@ export async function getAccount(db: Db, accountId: string): Promise<Account> {
   };
 }
 
+type OutcomeRow = {
+  outcome: Record<string, string> | string | null;
+  status: string;
+  white_type: string;
+  black_type: string | null;
+  white_value: string;
+  black_value: string | null;
+};
+
+function parseOutcome(
+  raw: Record<string, string> | string | null
+): Record<string, string> | null {
+  if (!raw) return null;
+  if (typeof raw === 'string') {
+    try {
+      return JSON.parse(raw);
+    } catch {
+      return null;
+    }
+  }
+  return raw;
+}
+
+function tallyGame(
+  accountId: string,
+  row: OutcomeRow
+): { win: boolean; loss: boolean; draw: boolean } | null {
+  if (row.status !== 'finished') return null;
+  if (row.white_type !== 'Human' || row.black_type !== 'Human') return null;
+  const outcome = parseOutcome(row.outcome);
+  if (!outcome) return { win: false, loss: false, draw: false };
+
+  if (outcome.result === 'Stalemate')
+    return { win: false, loss: false, draw: true };
+
+  const wonAsWhite =
+    outcome.result === 'Victory' &&
+    outcome.color === 'White' &&
+    row.white_value === accountId;
+  const wonAsBlack =
+    outcome.result === 'Victory' &&
+    outcome.color === 'Black' &&
+    row.black_value === accountId;
+
+  if (wonAsWhite || wonAsBlack) return { win: true, loss: false, draw: false };
+  return { win: false, loss: true, draw: false };
+}
+
 export async function getAccountStats(
   db: Db,
   accountId: string
 ): Promise<AccountStats> {
   const rows = await db`
-    SELECT
-      COUNT(*) FILTER (
-        WHERE g.outcome IS NOT NULL
-          AND g.status = 'finished'
-          AND (
-            (g.white_value = ${accountId} AND g.outcome->>'result' = 'Victory' AND g.outcome->>'color' = 'White')
-            OR (g.black_value = ${accountId} AND g.outcome->>'result' = 'Victory' AND g.outcome->>'color' = 'Black')
-          )
-      ) AS wins,
-      COUNT(*) FILTER (
-        WHERE g.outcome IS NOT NULL
-          AND g.status = 'finished'
-          AND (
-            (g.white_value = ${accountId} AND g.outcome->>'result' = 'Victory' AND g.outcome->>'color' = 'Black')
-            OR (g.black_value = ${accountId} AND g.outcome->>'result' = 'Victory' AND g.outcome->>'color' = 'White')
-          )
-      ) AS losses,
-      COUNT(*) FILTER (
-        WHERE g.outcome IS NOT NULL
-          AND g.status = 'finished'
-          AND g.outcome->>'result' = 'Stalemate'
-      ) AS draws,
-      COUNT(*) FILTER (WHERE g.status = 'finished') AS total_games
-    FROM games g
-    WHERE g.white_value = ${accountId} OR g.black_value = ${accountId}
+    SELECT outcome, status, white_type, black_type, white_value, black_value
+    FROM games
+    WHERE white_value = ${accountId} OR black_value = ${accountId}
   `;
-  const r = rows[0] as unknown as Record<string, string>;
-  return {
-    account_id: accountId,
-    wins: Number(r.wins),
-    losses: Number(r.losses),
-    draws: Number(r.draws),
-    total_games: Number(r.total_games)
-  };
+
+  let wins = 0;
+  let losses = 0;
+  let draws = 0;
+  let total_games = 0;
+
+  for (const row of rows as unknown as OutcomeRow[]) {
+    const result = tallyGame(accountId, row);
+    if (!result) continue;
+    total_games++;
+    if (result.win) wins++;
+    if (result.loss) losses++;
+    if (result.draw) draws++;
+  }
+
+  return { account_id: accountId, wins, losses, draws, total_games };
 }
 
 export async function getAccountStatsBatch(
@@ -381,57 +415,38 @@ export async function getAccountStatsBatch(
 ): Promise<AccountStats[]> {
   if (accountIds.length === 0) return [];
 
+  const idSet = new Set(accountIds);
   const rows = await db`
-    SELECT
-      aid AS account_id,
-      COUNT(*) FILTER (
-        WHERE g.outcome IS NOT NULL
-          AND g.status = 'finished'
-          AND (
-            (g.white_value = aid AND g.outcome->>'result' = 'Victory' AND g.outcome->>'color' = 'White')
-            OR (g.black_value = aid AND g.outcome->>'result' = 'Victory' AND g.outcome->>'color' = 'Black')
-          )
-      ) AS wins,
-      COUNT(*) FILTER (
-        WHERE g.outcome IS NOT NULL
-          AND g.status = 'finished'
-          AND (
-            (g.white_value = aid AND g.outcome->>'result' = 'Victory' AND g.outcome->>'color' = 'Black')
-            OR (g.black_value = aid AND g.outcome->>'result' = 'Victory' AND g.outcome->>'color' = 'White')
-          )
-      ) AS losses,
-      COUNT(*) FILTER (
-        WHERE g.outcome IS NOT NULL
-          AND g.status = 'finished'
-          AND g.outcome->>'result' = 'Stalemate'
-      ) AS draws,
-      COUNT(*) FILTER (WHERE g.status = 'finished') AS total_games
-    FROM unnest(${accountIds}::text[]) AS aid
-    LEFT JOIN games g ON g.white_value = aid OR g.black_value = aid
-    GROUP BY aid
+    SELECT outcome, status, white_type, black_type, white_value, black_value
+    FROM games
+    WHERE white_value = ANY(${accountIds}::text[]) OR black_value = ANY(${accountIds}::text[])
   `;
 
-  const result = new Map<string, AccountStats>();
-  for (const row of rows as unknown as Record<string, string>[]) {
-    result.set(row.account_id, {
-      account_id: row.account_id,
-      wins: Number(row.wins),
-      losses: Number(row.losses),
-      draws: Number(row.draws),
-      total_games: Number(row.total_games)
-    });
+  const statsMap = new Map<
+    string,
+    { wins: number; losses: number; draws: number; total_games: number }
+  >();
+  for (const id of accountIds) {
+    statsMap.set(id, { wins: 0, losses: 0, draws: 0, total_games: 0 });
   }
 
-  return accountIds.map(
-    id =>
-      result.get(id) ?? {
-        account_id: id,
-        wins: 0,
-        losses: 0,
-        draws: 0,
-        total_games: 0
-      }
-  );
+  for (const row of rows as unknown as OutcomeRow[]) {
+    for (const accountId of [row.white_value, row.black_value]) {
+      if (!accountId || !idSet.has(accountId)) continue;
+      const result = tallyGame(accountId, row);
+      if (!result) continue;
+      const stats = statsMap.get(accountId)!;
+      stats.total_games++;
+      if (result.win) stats.wins++;
+      if (result.loss) stats.losses++;
+      if (result.draw) stats.draws++;
+    }
+  }
+
+  return accountIds.map(id => ({
+    account_id: id,
+    ...statsMap.get(id)!
+  }));
 }
 
 export async function getChallenges(

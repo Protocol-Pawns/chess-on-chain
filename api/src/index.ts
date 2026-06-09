@@ -26,7 +26,11 @@ import {
   removePushSubscription
 } from './db';
 import type { Db } from './db';
-import { getLeaderboardPage, fetchAndCacheLeaderboard } from './leaderboard';
+import {
+  getEloRankingPage,
+  getPppRankingPage,
+  fetchAndCacheLeaderboard
+} from './leaderboard';
 import { processNotifications } from './notify';
 import { importVapidKey } from './push';
 import {
@@ -46,6 +50,7 @@ import {
   getGlobalStatsRoute,
   getInfoRoute,
   getLeaderboardEloRoute,
+  getLeaderboardPppRoute,
   getOpenChallengesRoute,
   getVapidPublicKeyRoute,
   queryGamesRoute,
@@ -184,11 +189,28 @@ app.openapi(getChallengesRoute, async c => {
 });
 
 app.openapi(getLeaderboardEloRoute, async c => {
-  const { page, per_page } = c.req.valid('query');
-  const result = await getLeaderboardPage(
+  const { page, per_page, dir } = c.req.valid('query');
+  const db = c.get('DB');
+  const result = await getEloRankingPage(
     c.env.LEADERBOARD_CACHE,
     c.env.RPC_URL,
     c.env.CONTRACT_ID,
+    db,
+    Number(page) || 1,
+    Number(per_page) || 25,
+    dir
+  );
+  return c.json(result, 200);
+});
+
+app.openapi(getLeaderboardPppRoute, async c => {
+  const { page, per_page } = c.req.valid('query');
+  const db = c.get('DB');
+  const result = await getPppRankingPage(
+    c.env.LEADERBOARD_CACHE,
+    c.env.RPC_URL,
+    c.env.CONTRACT_ID,
+    db,
     Number(page) || 1,
     Number(per_page) || 25
   );

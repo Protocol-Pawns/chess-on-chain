@@ -8,7 +8,6 @@ import {
   BetSchema,
   BetStatsSchema,
   ChallengeSchema,
-  EloLeaderboardPageSchema,
   GameIdSchema,
   GameMoveSchema,
   GameOverviewSchema,
@@ -19,6 +18,7 @@ import {
   PaginatedChallengesSchema,
   PaginatedGamesSchema,
   PushSubscriptionSchema,
+  RankingPageSchema,
   VapidPublicKeySchema
 } from './events';
 
@@ -223,15 +223,37 @@ export const getLeaderboardEloRoute = createRoute({
   request: {
     query: z.object({
       page: z.string().optional().default('1'),
+      per_page: z.string().optional().default('25'),
+      dir: z.enum(['desc', 'asc']).optional().default('desc')
+    })
+  },
+  responses: {
+    200: {
+      content: {
+        'application/json': { schema: RankingPageSchema }
+      },
+      description:
+        'Returns ELO-ranked leaderboard with pagination, enriched with PPP and stats'
+    }
+  }
+});
+
+export const getLeaderboardPppRoute = createRoute({
+  method: 'get',
+  path: '/leaderboard/ppp',
+  request: {
+    query: z.object({
+      page: z.string().optional().default('1'),
       per_page: z.string().optional().default('25')
     })
   },
   responses: {
     200: {
       content: {
-        'application/json': { schema: EloLeaderboardPageSchema }
+        'application/json': { schema: RankingPageSchema }
       },
-      description: 'Returns ELO-ranked leaderboard with pagination'
+      description:
+        'Returns PPP-ranked leaderboard (max 100 from FastNear), enriched with ELO and stats'
     }
   }
 });
