@@ -32,7 +32,7 @@
   let finishedGames = $state<GameOverview[]>([]);
   let finishedPage = $state(1);
   let finishedTotalPages = $state(1);
-  let excludeAi = $state(false);
+  let excludeAi = $state(true);
   let loadingMore = $state(false);
   let loading = $state(true);
   let showAiMenu = $state(false);
@@ -219,7 +219,6 @@
   }
 
   function toggleAiFilter() {
-    excludeAi = !excludeAi;
     finishedPage = 1;
     loadFinishedPage(1);
   }
