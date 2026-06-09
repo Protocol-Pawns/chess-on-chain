@@ -144,6 +144,12 @@ export const api = {
     ),
   accountStats: (accountId: string) =>
     request<AccountStats>(`/account/${accountId}/stats`),
+  accountStatsBatch: (accountIds: string[]) =>
+    request<AccountStats[]>('/account/stats/batch', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ account_ids: accountIds })
+    }),
   challenges: (
     accountId: string,
     page?: number,

@@ -7,6 +7,7 @@ import {
   addPushSubscription,
   getAccount,
   getAccountStats,
+  getAccountStatsBatch,
   getActiveGame,
   getBetLeaderboard,
   getBets,
@@ -31,6 +32,7 @@ import { importVapidKey } from './push';
 import {
   getAccountRoute,
   getAccountStatsRoute,
+  batchAccountStatsRoute,
   getActiveGameRoute,
   getBetsRoute,
   getBetLeaderboardRoute,
@@ -157,6 +159,13 @@ app.openapi(getAccountStatsRoute, async c => {
   const accountId = c.req.param('account_id');
   const db = c.get('DB');
   const stats = await getAccountStats(db, accountId);
+  return c.json(stats, 200);
+});
+
+app.openapi(batchAccountStatsRoute, async c => {
+  const { account_ids } = c.req.valid('json');
+  const db = c.get('DB');
+  const stats = await getAccountStatsBatch(db, account_ids);
   return c.json(stats, 200);
 });
 

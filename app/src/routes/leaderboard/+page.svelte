@@ -45,19 +45,15 @@
       data = result;
       page = result.page;
 
-      const statsResults = await Promise.all(
-        result.entries.map(e =>
-          api
-            .accountStats(e.account_id)
-            .then(s => [e.account_id, s] as const)
-            .catch(() => null)
-        )
-      );
-      const map = new Map<string, AccountStats>();
-      for (const r of statsResults) {
-        if (r) map.set(r[0], r[1]);
+      if (result.entries.length > 0) {
+        const ids = result.entries.map(e => e.account_id);
+        const stats = await api.accountStatsBatch(ids);
+        const map = new Map<string, AccountStats>();
+        for (const s of stats) map.set(s.account_id, s);
+        statsMap = map;
+      } else {
+        statsMap = new Map();
       }
-      statsMap = map;
     } catch (e) {
       console.error('Failed to load leaderboard:', e);
     } finally {

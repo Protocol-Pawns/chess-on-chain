@@ -375,6 +375,65 @@ export async function getAccountStats(
   };
 }
 
+export async function getAccountStatsBatch(
+  db: Db,
+  accountIds: string[]
+): Promise<AccountStats[]> {
+  if (accountIds.length === 0) return [];
+
+  const rows = await db`
+    SELECT
+      aid AS account_id,
+      COUNT(*) FILTER (
+        WHERE g.outcome IS NOT NULL
+          AND g.status = 'finished'
+          AND (
+            (g.white_value = aid AND g.outcome->>'result' = 'Victory' AND g.outcome->>'color' = 'White')
+            OR (g.black_value = aid AND g.outcome->>'result' = 'Victory' AND g.outcome->>'color' = 'Black')
+          )
+      ) AS wins,
+      COUNT(*) FILTER (
+        WHERE g.outcome IS NOT NULL
+          AND g.status = 'finished'
+          AND (
+            (g.white_value = aid AND g.outcome->>'result' = 'Victory' AND g.outcome->>'color' = 'Black')
+            OR (g.black_value = aid AND g.outcome->>'result' = 'Victory' AND g.outcome->>'color' = 'White')
+          )
+      ) AS losses,
+      COUNT(*) FILTER (
+        WHERE g.outcome IS NOT NULL
+          AND g.status = 'finished'
+          AND g.outcome->>'result' = 'Stalemate'
+      ) AS draws,
+      COUNT(*) FILTER (WHERE g.status = 'finished') AS total_games
+    FROM unnest(${accountIds}::text[]) AS aid
+    LEFT JOIN games g ON g.white_value = aid OR g.black_value = aid
+    GROUP BY aid
+  `;
+
+  const result = new Map<string, AccountStats>();
+  for (const row of rows as unknown as Record<string, string>[]) {
+    result.set(row.account_id, {
+      account_id: row.account_id,
+      wins: Number(row.wins),
+      losses: Number(row.losses),
+      draws: Number(row.draws),
+      total_games: Number(row.total_games)
+    });
+  }
+
+  return accountIds.map(
+    id =>
+      result.get(id) ?? {
+        account_id: id,
+        wins: 0,
+        losses: 0,
+        draws: 0,
+        total_games: 0
+      }
+  );
+}
+
 export async function getChallenges(
   db: Db,
   accountId: string,

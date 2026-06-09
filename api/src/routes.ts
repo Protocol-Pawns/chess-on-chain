@@ -171,6 +171,26 @@ export const getAccountStatsRoute = createRoute({
   }
 });
 
+export const batchAccountStatsRoute = createRoute({
+  method: 'post',
+  path: '/account/stats/batch',
+  request: {
+    body: {
+      content: {
+        'application/json': {
+          schema: z.object({ account_ids: z.string().array() })
+        }
+      }
+    }
+  },
+  responses: {
+    200: {
+      content: { 'application/json': { schema: AccountStatsSchema.array() } },
+      description: 'Returns win/loss/draw statistics for multiple accounts'
+    }
+  }
+});
+
 export const getChallengesRoute = createRoute({
   method: 'get',
   path: '/account/{account_id}/challenges',
