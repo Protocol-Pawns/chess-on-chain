@@ -24,6 +24,7 @@
 
   let stats = $state<AccountStats | null>(null);
   let games = $state<GameOverview[]>([]);
+  let excludeAi = $state(true);
   let activeGames = $state<GameOverview[]>([]);
   let elo = $state<number | null>(null);
   let points = $state<string | null>(null);
@@ -64,6 +65,12 @@
     const frac = val % BigInt(1000000);
     return `${whole}.${frac.toString().padStart(6, '0').slice(0, 2)}`;
   }
+
+  let filteredGames = $derived(
+    excludeAi
+      ? games.filter(g => g.white.type === 'Human' && g.black?.type === 'Human')
+      : games
+  );
 
   function shortToken(id: string): string {
     if (id.length <= 24) return id;
@@ -201,16 +208,30 @@
 
       const [tb] = await Promise.all([loadTokens()]);
       try {
-        const gameIds: GameId[] = await contract.getGameIds(accountId);
-        if (gameIds.length > 0) {
+        const [contractGameIds, accountData] = await Promise.all([
+          contract.getGameIds(accountId).catch((): GameId[] => []),
+          api
+            .account(accountId)
+            .catch(() => ({ finishedGameIds: [] as GameId[] }))
+        ]);
+        const seen = new Set<string>();
+        const allGameIds: GameId[] = [];
+        for (const id of [...contractGameIds, ...accountData.finishedGameIds]) {
+          const key = JSON.stringify(id);
+          if (!seen.has(key)) {
+            seen.add(key);
+            allGameIds.push(id);
+          }
+        }
+        if (allGameIds.length > 0) {
           let apiGames: GameOverview[] = [];
           try {
-            apiGames = await api.query(gameIds);
+            apiGames = await api.query(allGameIds);
           } catch {}
           const foundIds = new Set(
             apiGames.map(g => JSON.stringify(g.game_id))
           );
-          const missingIds = gameIds.filter(
+          const missingIds = allGameIds.filter(
             id => !foundIds.has(JSON.stringify(id))
           );
           if (missingIds.length > 0) {
@@ -220,7 +241,13 @@
             apiGames = [...apiGames, ...contractGames];
           }
           activeGames = apiGames.filter(g => g.status !== 'finished');
-          games = apiGames.filter(g => g.status === 'finished');
+          games = apiGames
+            .filter(g => g.status === 'finished')
+            .sort(
+              (a, b) =>
+                new Date(b.finished_at ?? b.created_at ?? 0).getTime() -
+                new Date(a.finished_at ?? a.created_at ?? 0).getTime()
+            );
         }
       } catch {}
       loadPendingChallenges();
@@ -504,12 +531,22 @@
     {/if}
 
     <section>
-      <h3 class="text-base font-semibold mb-2">Finished Games</h3>
-      {#if games.length === 0}
+      <div class="flex items-center justify-between mb-2">
+        <h3 class="text-base font-semibold">Finished Games</h3>
+        {#if games.length > 0}
+          <label
+            class="flex items-center gap-1.5 text-xs text-white/50 cursor-pointer select-none"
+          >
+            <input type="checkbox" bind:checked={excludeAi} />
+            Hide AI games
+          </label>
+        {/if}
+      </div>
+      {#if filteredGames.length === 0}
         <p class="text-white/50 text-sm">No games yet</p>
       {:else}
         <div class="space-y-2">
-          {#each games as game}
+          {#each filteredGames as game}
             <a
               class="block"
               href="/game/{encodeURIComponent(JSON.stringify(game.game_id))}"
