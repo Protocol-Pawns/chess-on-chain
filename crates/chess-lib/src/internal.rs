@@ -1,7 +1,7 @@
 use crate::{
     calculate_elo, create_challenge_id, Account, Achievement, BetId, Challenge, ChallengeId, Chess,
     ChessEvent, ContractError, Difficulty, EloConfig, EloOutcome, Game, GameId, GameOutcome,
-    Player, Wager, FT_TRANSFER_GAS, ONE_YOCTO, WAGER_PAYOUT_CALLBACK_GAS,
+    Player, Quest, Wager, FT_TRANSFER_GAS, ONE_YOCTO, WAGER_PAYOUT_CALLBACK_GAS,
 };
 use chess_engine::Color;
 use near_contract_standards::fungible_token::core::ext_ft_core;
@@ -147,6 +147,13 @@ impl Chess {
                         .as_account_mut(self)
                         .unwrap()
                         .apply_achievement(achievement);
+                    self.points_total_supply += points;
+                }
+                if looser.is_human() {
+                    let points = winner
+                        .as_account_mut(self)
+                        .unwrap()
+                        .apply_quest(Quest::WeeklyWin);
                     self.points_total_supply += points;
                 }
             }

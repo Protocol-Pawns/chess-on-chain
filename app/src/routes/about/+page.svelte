@@ -32,7 +32,7 @@
 
   const QUEST_LABELS: Record<string, string> = {
     DailyPlayMove: 'Play a Move',
-    WeeklyWinHuman: 'Win vs Human'
+    WeeklyWin: 'Win vs Human'
   };
 
   const ACHIEVEMENT_LABELS: Record<string, string> = {

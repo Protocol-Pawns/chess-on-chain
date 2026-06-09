@@ -30,6 +30,7 @@
   let points = $state<string | null>(null);
   let achievements: Array<[number, string]> = $state([]);
   let questCooldowns: Array<[number, string]> = $state([]);
+  let questList: Array<{ name: string; points: string; points_on_cd: string; cooldown: number }> = $state([]);
   let loading = $state(true);
   let betStats = $state<BetStats | null>(null);
   let tokenBalances = $state<Array<[string, string]>>([]);
@@ -48,7 +49,7 @@
 
   const QUEST_LABELS: Record<string, string> = {
     DailyPlayMove: 'Daily Move',
-    WeeklyWinHuman: 'Weekly Win'
+    WeeklyWin: 'Weekly Win'
   };
 
   function formatCooldown(timestampMs: number): string {
@@ -190,11 +191,12 @@
 
   onMount(async () => {
     try {
-      const [s, accountData, ach, qc, bs] = await Promise.all([
+      const [s, accountData, ach, qc, ql, bs] = await Promise.all([
         api.accountStats(accountId),
         contract.getAccount(accountId).catch(() => null),
         contract.getAchievements(accountId).catch(() => []),
         contract.getQuestCooldowns(accountId).catch(() => []),
+        contract.getQuestList().catch(() => []),
         api.betStats(accountId).catch(() => null)
       ]);
       stats = s;
@@ -204,6 +206,7 @@
       }
       achievements = ach;
       questCooldowns = qc;
+      questList = ql;
       betStats = bs;
 
       const [tb] = await Promise.all([loadTokens()]);
@@ -495,19 +498,21 @@
       </section>
     {/if}
 
-    {#if questCooldowns.length > 0}
+    {#if questList.length > 0}
       <section class="card">
         <h3 class="text-base font-semibold mb-2">Quest Status</h3>
         <div class="space-y-1.5">
-          {#each questCooldowns as [ts, quest]}
+          {#each questList as quest}
+            {@const cooldown = questCooldowns.find(([, q]) => q === quest.name)}
+            {@const status = cooldown ? formatCooldown(cooldown[0]) : 'Ready'}
             <div class="flex justify-between items-center text-sm">
-              <span class="text-white/70">{QUEST_LABELS[quest] ?? quest}</span>
+              <span class="text-white/70">{QUEST_LABELS[quest.name] ?? quest.name}</span>
               <span
-                class="text-xs {formatCooldown(ts) === 'Ready'
+                class="text-xs {status === 'Ready'
                   ? 'text-primary-green'
                   : 'text-white/50'}"
               >
-                {formatCooldown(ts)}
+                {status}
               </span>
             </div>
           {/each}
