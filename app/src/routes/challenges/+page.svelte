@@ -326,11 +326,7 @@
         <label
           class="flex items-center gap-1.5 text-xs text-white/50 cursor-pointer select-none"
         >
-          <input
-            type="checkbox"
-            bind:checked={hideRejected}
-            class="accent-primary"
-          />
+          <input type="checkbox" bind:checked={hideRejected} />
           Hide rejected
         </label>
       </div>

@@ -33,12 +33,7 @@
 
 <div class="space-y-2">
   <label class="flex items-center gap-2 text-sm cursor-pointer select-none">
-    <input
-      type="checkbox"
-      checked={show}
-      onchange={toggle}
-      class="accent-primary"
-    />
+    <input type="checkbox" checked={show} onchange={toggle} />
     Add Wager
   </label>
 

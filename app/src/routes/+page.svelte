@@ -442,7 +442,6 @@
                 type="checkbox"
                 bind:checked={excludeAi}
                 onchange={toggleAiFilter}
-                class="accent-primary"
               />
               Hide AI games
             </label>

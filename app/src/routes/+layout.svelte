@@ -197,4 +197,40 @@
   :global(*::-webkit-scrollbar-thumb:hover) {
     background: #777;
   }
+
+  :global(input[type='checkbox']) {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 1rem;
+    height: 1rem;
+    border: 1.5px solid rgba(255, 255, 255, 0.2);
+    border-radius: 0.25rem;
+    background: transparent;
+    cursor: pointer;
+    flex-shrink: 0;
+    position: relative;
+    transition:
+      background 0.15s,
+      border-color 0.15s;
+    vertical-align: middle;
+  }
+
+  :global(input[type='checkbox']:checked) {
+    background: #aed581;
+    border-color: #aed581;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='%23fff'%3E%3Cpath d='M12.207 4.793a1 1 0 0 1 0 1.414l-5 5a1 1 0 0 1-1.414 0l-2.5-2.5a1 1 0 0 1 1.414-1.414L6.5 9.086l4.293-4.293a1 1 0 0 1 1.414 0z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: center;
+    background-size: 0.75rem;
+  }
+
+  :global(input[type='checkbox']:focus-visible) {
+    outline: 2px solid #aed581;
+    outline-offset: 1px;
+  }
+
+  :global(input[type='checkbox']:disabled) {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
 </style>
