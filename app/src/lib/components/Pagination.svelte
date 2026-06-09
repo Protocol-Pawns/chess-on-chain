@@ -32,7 +32,7 @@
 {#if totalPages > 1}
   <div class="flex items-center justify-center gap-1 text-sm">
     <button
-      class="btn text-xs px-2"
+      class="btn text-xs px-4"
       onclick={() => onchange(page - 1)}
       disabled={page <= 1}
     >
@@ -58,7 +58,7 @@
     {/each}
 
     <button
-      class="btn text-xs px-2"
+      class="btn text-xs px-4"
       onclick={() => onchange(page + 1)}
       disabled={page >= totalPages}
     >

@@ -81,14 +81,14 @@
     <h3 class="text-base font-semibold">Moves</h3>
     <div class="flex items-center gap-0.5">
       <button
-        class="p-1 rounded border border-white/20 hover:bg-white/10 disabled:opacity-30 disabled:cursor-default transition-colors"
+        class="px-3 py-1 rounded border border-white/20 hover:bg-white/10 disabled:opacity-30 disabled:cursor-default transition-colors"
         onclick={() => onSelectMove(-1)}
         disabled={selectedMoveIndex === -1 || moves.length === 0}
         title="Start"
         ><svg
           xmlns="http://www.w3.org/2000/svg"
-          width="16"
-          height="16"
+          width="18"
+          height="18"
           viewBox="0 0 24 24"
           fill="none"
           stroke="currentColor"
@@ -101,14 +101,14 @@
         ></button
       >
       <button
-        class="p-1 rounded border border-white/20 hover:bg-white/10 disabled:opacity-30 disabled:cursor-default transition-colors"
+        class="px-3 py-1 rounded border border-white/20 hover:bg-white/10 disabled:opacity-30 disabled:cursor-default transition-colors"
         onclick={goPrev}
         disabled={!canGoPrev}
         title="Previous move"
         ><svg
           xmlns="http://www.w3.org/2000/svg"
-          width="16"
-          height="16"
+          width="18"
+          height="18"
           viewBox="0 0 24 24"
           fill="none"
           stroke="currentColor"
@@ -118,14 +118,14 @@
         ></button
       >
       <button
-        class="p-1 rounded border border-white/20 hover:bg-white/10 disabled:opacity-30 disabled:cursor-default transition-colors"
+        class="px-3 py-1 rounded border border-white/20 hover:bg-white/10 disabled:opacity-30 disabled:cursor-default transition-colors"
         onclick={goNext}
         disabled={!canGoNext}
         title="Next move"
         ><svg
           xmlns="http://www.w3.org/2000/svg"
-          width="16"
-          height="16"
+          width="18"
+          height="18"
           viewBox="0 0 24 24"
           fill="none"
           stroke="currentColor"
@@ -135,14 +135,14 @@
         ></button
       >
       <button
-        class="p-1 rounded border border-white/20 hover:bg-white/10 disabled:opacity-30 disabled:cursor-default transition-colors"
+        class="px-3 py-1 rounded border border-white/20 hover:bg-white/10 disabled:opacity-30 disabled:cursor-default transition-colors"
         onclick={goLatest}
         disabled={isViewingCurrent || selectedMoveIndex === moves.length - 1}
         title="Latest position"
         ><svg
           xmlns="http://www.w3.org/2000/svg"
-          width="16"
-          height="16"
+          width="18"
+          height="18"
           viewBox="0 0 24 24"
           fill="none"
           stroke="currentColor"
