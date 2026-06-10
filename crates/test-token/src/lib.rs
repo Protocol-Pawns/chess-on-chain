@@ -1,5 +1,3 @@
-#![allow(deprecated)]
-
 use near_contract_standards::{
     fungible_token::{
         metadata::{FungibleTokenMetadata, FungibleTokenMetadataProvider},

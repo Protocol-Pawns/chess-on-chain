@@ -28,7 +28,10 @@ use strum::{AsRefStr, EnumIter};
 #[borsh(crate = "near_sdk::borsh")]
 pub enum Quest {
     DailyPlayMove,
+    DailyGame,
     WeeklyWin,
+    WeeklyBettor,
+    WeeklyChallenger,
 }
 
 #[cfg(not(feature = "integration-test"))]
@@ -43,8 +46,14 @@ impl Quest {
         match (self, on_cooldown) {
             (Quest::DailyPlayMove, true) => 1_000,
             (Quest::DailyPlayMove, false) => 100_000,
+            (Quest::DailyGame, true) => 1_500,
+            (Quest::DailyGame, false) => 150_000,
             (Quest::WeeklyWin, true) => 200_000,
             (Quest::WeeklyWin, false) => 2_000_000,
+            (Quest::WeeklyBettor, true) => 100_000,
+            (Quest::WeeklyBettor, false) => 1_000_000,
+            (Quest::WeeklyChallenger, true) => 50_000,
+            (Quest::WeeklyChallenger, false) => 500_000,
         }
     }
 
@@ -52,12 +61,18 @@ impl Quest {
         #[cfg(not(feature = "integration-test"))]
         match self {
             Quest::DailyPlayMove => DAILY_COOLDOWN,
+            Quest::DailyGame => DAILY_COOLDOWN,
             Quest::WeeklyWin => WEEKLY_COOLDOWN,
+            Quest::WeeklyBettor => WEEKLY_COOLDOWN,
+            Quest::WeeklyChallenger => WEEKLY_COOLDOWN,
         }
         #[cfg(feature = "integration-test")]
         match self {
             Quest::DailyPlayMove => 1_000 * 18,
+            Quest::DailyGame => 1_000 * 18,
             Quest::WeeklyWin => 1_000 * 18 * 7,
+            Quest::WeeklyBettor => 1_000 * 18 * 7,
+            Quest::WeeklyChallenger => 1_000 * 18 * 7,
         }
     }
 }
@@ -86,6 +101,7 @@ impl From<Quest> for QuestInfo {
     Debug,
     PartialEq,
     Eq,
+    Clone,
     BorshDeserialize,
     BorshSerialize,
     Deserialize,
@@ -101,6 +117,30 @@ pub enum Achievement {
     FirstWinAiEasy,
     FirstWinAiMedium,
     FirstWinAiHard,
+    Wins10,
+    Wins50,
+    Wins100,
+    Wins500,
+    WinStreak3,
+    WinStreak5,
+    WinStreak10,
+    WinStreak25,
+    FirstBet,
+    FirstBetWin,
+    BetsWon10,
+    BetsWon100,
+    FirstWager,
+    FirstWagerWin,
+    WagerWins10,
+    WagerWins100,
+    Elo1100,
+    Elo1200,
+    Elo1300,
+    Elo1400,
+    Elo1500,
+    FirstChallenge,
+    Challenges10,
+    Challenges100,
 }
 
 impl Achievement {
@@ -110,6 +150,30 @@ impl Achievement {
             Achievement::FirstWinAiEasy => 1_000_000,
             Achievement::FirstWinAiMedium => 2_500_000,
             Achievement::FirstWinAiHard => 5_000_000,
+            Achievement::Wins10 => 10_000_000,
+            Achievement::Wins50 => 25_000_000,
+            Achievement::Wins100 => 50_000_000,
+            Achievement::Wins500 => 125_000_000,
+            Achievement::WinStreak3 => 5_000_000,
+            Achievement::WinStreak5 => 12_500_000,
+            Achievement::WinStreak10 => 25_000_000,
+            Achievement::WinStreak25 => 75_000_000,
+            Achievement::FirstBet => 5_000_000,
+            Achievement::FirstBetWin => 10_000_000,
+            Achievement::BetsWon10 => 15_000_000,
+            Achievement::BetsWon100 => 50_000_000,
+            Achievement::FirstWager => 5_000_000,
+            Achievement::FirstWagerWin => 15_000_000,
+            Achievement::WagerWins10 => 25_000_000,
+            Achievement::WagerWins100 => 75_000_000,
+            Achievement::Elo1100 => 5_000_000,
+            Achievement::Elo1200 => 10_000_000,
+            Achievement::Elo1300 => 15_000_000,
+            Achievement::Elo1400 => 20_000_000,
+            Achievement::Elo1500 => 25_000_000,
+            Achievement::FirstChallenge => 2_500_000,
+            Achievement::Challenges10 => 10_000_000,
+            Achievement::Challenges100 => 25_000_000,
         }
     }
 }

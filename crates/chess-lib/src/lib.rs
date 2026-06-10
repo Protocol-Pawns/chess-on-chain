@@ -24,12 +24,13 @@ pub use storage::*;
 
 use chess_engine::{Color, Move};
 use near_contract_standards::fungible_token::core::ext_ft_core;
-#[allow(deprecated)]
 use near_sdk::{
     assert_one_yocto,
-    borsh::{self, BorshDeserialize, BorshSerialize},
-    env, near_bindgen, require,
-    store::{IterableMap, Lazy, UnorderedMap},
+    borsh::{BorshDeserialize, BorshSerialize},
+    env,
+    json_types::U128,
+    near_bindgen, require,
+    store::{IterableMap, Lazy},
     AccountId, BorshStorageKey, Gas, NearToken, PanicOnDefault, PromiseOrValue, PromiseResult,
 };
 use std::collections::HashSet;
@@ -103,30 +104,6 @@ pub struct Chess {
 
 impl near_sdk::state::ContractState for Chess {}
 
-#[derive(BorshDeserialize)]
-#[borsh(crate = "near_sdk::borsh")]
-#[allow(deprecated)]
-pub struct OldChess {
-    pub social_db: AccountId,
-    pub nada_bot_id: AccountId,
-    pub accounts: UnorderedMap<AccountId, Account>,
-    pub games: UnorderedMap<GameId, Game>,
-    pub challenges: UnorderedMap<ChallengeId, Challenge>,
-    pub treasury: UnorderedMap<AccountId, u128>,
-    pub fees: Lazy<OldFees>,
-    pub token_whitelist: Lazy<Vec<AccountId>>,
-    pub bets: UnorderedMap<BetId, OldBets>,
-    pub is_running: bool,
-    pub points_total_supply: u128,
-}
-
-#[derive(BorshDeserialize, BorshSerialize)]
-#[borsh(crate = "near_sdk::borsh")]
-pub struct OldFees {
-    pub treasury: u16,
-    pub royalties: Vec<(AccountId, u16)>,
-}
-
 /// A valid move will be parsed from a string.
 ///
 /// Possible [valid formats](https://docs.rs/chess-engine/latest/chess_engine/enum.Move.html#method.parse) include:
@@ -161,72 +138,15 @@ impl Chess {
     }
 
     #[private]
-    #[init(ignore_state)]
-    pub fn migrate(owner_id: AccountId) -> Self {
-        let mut old: OldChess = env::state_read().unwrap();
-
-        let account_ids: Vec<AccountId> = old.accounts.keys().cloned().collect();
-        let mut account_data = Vec::with_capacity(account_ids.len());
-        for account_id in &account_ids {
-            let account = old.accounts.remove(account_id).unwrap();
-            account_data.push((account_id.clone(), account.migrate()));
-        }
-        old.accounts.flush();
-        let mut accounts = IterableMap::new(StorageKey::VAccounts);
-        for (id, account) in account_data {
-            accounts.insert(id, account);
+    pub fn migrate(&mut self) {
+        for id in self.accounts.keys().cloned().collect::<Vec<_>>() {
+            let account = self.accounts.remove(&id).unwrap();
+            self.accounts.insert(id, account.migrate());
         }
 
-        let game_ids: Vec<GameId> = old.games.keys().cloned().collect();
-        let mut games = IterableMap::new(StorageKey::Games);
-        for id in &game_ids {
-            let game = old.games.remove(id).unwrap();
-            games.insert(id.clone(), game);
-        }
-        old.games.flush();
-
-        let challenge_ids: Vec<ChallengeId> = old.challenges.keys().cloned().collect();
-        let mut challenges = IterableMap::new(StorageKey::Challenges);
-        for id in &challenge_ids {
-            let challenge = old.challenges.remove(id).unwrap();
-            challenges.insert(id.clone(), challenge);
-        }
-        old.challenges.flush();
-
-        let treasury_ids: Vec<AccountId> = old.treasury.keys().cloned().collect();
-        let mut treasury = IterableMap::new(StorageKey::Treasury);
-        for id in &treasury_ids {
-            let amount = old.treasury.remove(id).unwrap();
-            treasury.insert(id.clone(), amount);
-        }
-        old.treasury.flush();
-
-        let bet_ids: Vec<BetId> = old.bets.keys().cloned().collect();
-        let mut bets = IterableMap::new(StorageKey::Bets);
-        for id in &bet_ids {
-            let old_bet = old.bets.remove(id).unwrap();
-            let storage_key: Vec<u8> = [
-                borsh::to_vec(&StorageKey::V9BetsInner).unwrap().as_slice(),
-                &id.get_storage_key(),
-            ]
-            .concat();
-            let bet = Bets::migrate_from(old_bet, storage_key);
-            bets.insert(id.clone(), bet);
-        }
-        old.bets.flush();
-
-        Self {
-            owner_id,
-            accounts,
-            games,
-            challenges,
-            treasury,
-            fees: Lazy::new(StorageKey::Fees, old.fees.get().treasury),
-            token_whitelist: old.token_whitelist,
-            bets,
-            bettor_active_bets: IterableMap::new(StorageKey::BettorActiveBets),
-            is_running: old.is_running,
-            points_total_supply: old.points_total_supply,
+        for id in self.games.keys().cloned().collect::<Vec<_>>() {
+            let game = self.games.remove(&id).unwrap();
+            self.games.insert(id, game.migrate());
         }
     }
 
@@ -450,6 +370,16 @@ impl Chess {
         }
     }
 
+    #[handle_result]
+    pub fn claim_points(&mut self) -> Result<U128, ContractError> {
+        let account_id = env::signer_account_id();
+        let account = self
+            .accounts
+            .get_mut(&account_id)
+            .ok_or(ContractError::AccountNotRegistered(account_id))?;
+        Ok(account.claim_points().into())
+    }
+
     /// Plays a move.
     ///
     /// Only works, if it is your turn. Panics otherwise.
@@ -471,7 +401,7 @@ impl Chess {
             .accounts
             .get_mut(&account_id)
             .ok_or(ContractError::AccountNotRegistered(account_id.clone()))?;
-        let points = account.apply_quest(Quest::DailyPlayMove);
+        let points = account.apply_quest(Quest::DailyPlayMove, false);
         self.points_total_supply += points;
 
         if !game.is_turn(&account_id) {
@@ -481,7 +411,7 @@ impl Chess {
         let move_result = game.play_move(mv)?;
 
         let (outcome, board) = if let Some((outcome, board_state)) = move_result.0 {
-            self.internal_handle_outcome(game_id, &outcome);
+            self.internal_handle_outcome(game_id, &outcome, false);
             (Some(outcome), board_state)
         } else {
             (None, self.games.get(&game_id).unwrap().get_board_state())
@@ -518,7 +448,7 @@ impl Chess {
             (GameOutcome::Victory(Color::Black), Color::White)
         };
 
-        self.internal_handle_outcome(game_id.clone(), &outcome);
+        self.internal_handle_outcome(game_id.clone(), &outcome, true);
 
         let event = ChessEvent::ResignGame {
             game_id,

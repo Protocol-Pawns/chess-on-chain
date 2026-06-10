@@ -44,6 +44,26 @@ impl Chess {
         let event = ChessEvent::Challenge(challenge);
         event.emit();
 
+        let mut minted: u128 = 0;
+        {
+            let challenger = self.accounts.get_mut(&challenger_id).unwrap();
+            challenger.record_challenge_sent();
+            minted += challenger.apply_quest(Quest::WeeklyChallenger, false);
+            let challenges_sent = challenger.get_challenges_sent();
+            if challenges_sent == 1 {
+                minted += challenger.apply_achievement(Achievement::FirstChallenge, false);
+            }
+            for (threshold, achievement) in [
+                (10, Achievement::Challenges10),
+                (100, Achievement::Challenges100),
+            ] {
+                if challenges_sent == threshold {
+                    minted += challenger.apply_achievement(achievement, false);
+                }
+            }
+        }
+        self.points_total_supply += minted;
+
         Ok(())
     }
 
@@ -118,8 +138,14 @@ impl Chess {
         Ok((game_id, refund))
     }
 
-    pub(crate) fn internal_handle_outcome(&mut self, game_id: GameId, outcome: &GameOutcome) {
+    pub(crate) fn internal_handle_outcome(
+        &mut self,
+        game_id: GameId,
+        outcome: &GameOutcome,
+        resigned: bool,
+    ) {
         let game = self.games.remove(&game_id).unwrap();
+        let move_count = game.get_move_count();
         if let Some(account) = game.get_white().as_account_mut(self) {
             account.remove_game_id(&game_id);
         }
@@ -127,9 +153,13 @@ impl Chess {
             account.remove_game_id(&game_id);
         }
 
-        if game.get_black().is_human() {
+        let is_human_game = game.get_black().is_human();
+
+        if is_human_game {
             self.internal_calculate_elo(&game, outcome);
         }
+
+        let mut minted: u128 = 0;
 
         if let GameOutcome::Victory(color) = outcome {
             let (winner, looser) = match color {
@@ -143,32 +173,111 @@ impl Chess {
                     Player::Ai(Difficulty::Medium) => Some(Achievement::FirstWinAiMedium),
                     Player::Ai(Difficulty::Hard) => Some(Achievement::FirstWinAiHard),
                 } {
-                    let points = winner
+                    minted += winner
                         .as_account_mut(self)
                         .unwrap()
-                        .apply_achievement(achievement);
-                    self.points_total_supply += points;
+                        .apply_achievement(achievement, false);
                 }
                 if looser.is_human() {
-                    let points = winner
+                    minted += winner
                         .as_account_mut(self)
                         .unwrap()
-                        .apply_quest(Quest::WeeklyWin);
-                    self.points_total_supply += points;
+                        .apply_quest(Quest::WeeklyWin, false);
+
+                    let winner_id = winner.get_account_id().unwrap().clone();
+                    let winner_account = self.accounts.get_mut(&winner_id).unwrap();
+                    winner_account.record_win();
+                    let wins = winner_account.get_wins();
+                    let streak = winner_account.get_win_streak();
+                    for (threshold, achievement) in [
+                        (10, Achievement::Wins10),
+                        (50, Achievement::Wins50),
+                        (100, Achievement::Wins100),
+                        (500, Achievement::Wins500),
+                    ] {
+                        if wins == threshold {
+                            minted += winner_account.apply_achievement(achievement, false);
+                        }
+                    }
+                    for (threshold, achievement) in [
+                        (3, Achievement::WinStreak3),
+                        (5, Achievement::WinStreak5),
+                        (10, Achievement::WinStreak10),
+                        (25, Achievement::WinStreak25),
+                    ] {
+                        if streak == threshold {
+                            minted += winner_account.apply_achievement(achievement, false);
+                        }
+                    }
+
+                    if let Some(looser_id) = looser.get_account_id() {
+                        if let Some(looser_account) = self.accounts.get_mut(&looser_id) {
+                            looser_account.record_loss();
+                        }
+                    }
                 }
             }
         }
 
+        let daily_game_eligible = !resigned || move_count >= 5;
+        if daily_game_eligible {
+            if let Some(white_id) = game.get_white().get_account_id() {
+                minted += self
+                    .accounts
+                    .get_mut(&white_id)
+                    .unwrap()
+                    .apply_quest(Quest::DailyGame, false);
+            }
+            if let Some(black_id) = game.get_black().get_account_id() {
+                minted += self
+                    .accounts
+                    .get_mut(&black_id)
+                    .unwrap()
+                    .apply_quest(Quest::DailyGame, false);
+            }
+        }
+
         if let Some((token_id, amount)) = game.get_wager().clone() {
+            if let Some(white_id) = game.get_white().get_account_id() {
+                let account = self.accounts.get_mut(&white_id).unwrap();
+                account.record_wager_played();
+                if account.get_wagers_played() == 1 {
+                    minted += account.apply_achievement(Achievement::FirstWager, false);
+                }
+            }
+            if let Some(black_id) = game.get_black().get_account_id() {
+                let account = self.accounts.get_mut(&black_id).unwrap();
+                account.record_wager_played();
+                if account.get_wagers_played() == 1 {
+                    minted += account.apply_achievement(Achievement::FirstWager, false);
+                }
+            }
+
             match outcome {
                 GameOutcome::Victory(color) => {
-                    let total_pool = 2 * amount.0;
-                    let fees = self.deduct_fees(&token_id, total_pool);
-                    let wager_amount = total_pool - fees;
                     let winner_id = match color {
                         Color::White => game.get_white().get_account_id().unwrap().clone(),
                         Color::Black => game.get_black().get_account_id().unwrap().clone(),
                     };
+                    let winner_account = self.accounts.get_mut(&winner_id).unwrap();
+                    winner_account.record_wager_win();
+                    let wager_wins = winner_account.get_wager_wins();
+                    if wager_wins == 1 {
+                        minted +=
+                            winner_account.apply_achievement(Achievement::FirstWagerWin, false);
+                    }
+                    for (threshold, achievement) in [
+                        (10, Achievement::WagerWins10),
+                        (100, Achievement::WagerWins100),
+                    ] {
+                        if wager_wins == threshold {
+                            minted += winner_account.apply_achievement(achievement, false);
+                        }
+                    }
+
+                    let total_pool = 2 * amount.0;
+                    let fees = self.deduct_fees(&token_id, total_pool);
+                    let wager_amount = total_pool - fees;
                     ext_ft_core::ext(token_id.clone())
                         .with_attached_deposit(ONE_YOCTO)
                         .with_static_gas(FT_TRANSFER_GAS)
@@ -233,9 +342,10 @@ impl Chess {
                 GameOutcome::Victory(color) => {
                     let winner_id = match color {
                         Color::White => game.get_white().get_account_id().unwrap(),
-
                         Color::Black => game.get_black().get_account_id().unwrap(),
                     };
+
+                    let mut bet_winners: HashSet<AccountId> = HashSet::new();
 
                     for (token_id, bets) in all_bets.bets.iter() {
                         let mut total_winner = 0;
@@ -252,7 +362,6 @@ impl Chess {
 
                         let mut total_win_amount = 0;
 
-                        // pay out winners
                         for (account_id, bet) in bets.iter() {
                             if winner_id == bet.winner {
                                 let mut win_amount = U128::from(total_looser)
@@ -267,10 +376,13 @@ impl Chess {
                                     .get_mut(account_id)
                                     .unwrap()
                                     .add_token(token_id, payout);
+
+                                if win_amount > 0 {
+                                    bet_winners.insert(account_id.clone());
+                                }
                             }
                         }
 
-                        // refund loosers, if `total_win_amount` is less than what loosers lost
                         let total_refund_amount = total_looser - total_win_amount;
                         if total_refund_amount > 0 {
                             for (account_id, bet) in bets.iter() {
@@ -285,6 +397,22 @@ impl Chess {
                                         .unwrap()
                                         .add_token(token_id, refund_amount);
                                 }
+                            }
+                        }
+                    }
+
+                    for account_id in &bet_winners {
+                        let account = self.accounts.get_mut(account_id).unwrap();
+                        account.record_bet_won();
+                        let bets_won = account.get_bets_won();
+                        if bets_won == 1 {
+                            minted += account.apply_achievement(Achievement::FirstBetWin, true);
+                        }
+                        for (threshold, achievement) in
+                            [(10, Achievement::BetsWon10), (100, Achievement::BetsWon100)]
+                        {
+                            if bets_won == threshold {
+                                minted += account.apply_achievement(achievement, true);
                             }
                         }
                     }
@@ -309,18 +437,24 @@ impl Chess {
             };
             event.emit();
         }
+
+        self.points_total_supply += minted;
     }
 
     pub(crate) fn internal_calculate_elo(&mut self, game: &Game, outcome: &GameOutcome) {
-        if let (Some(Some(elo_white)), Some(Some(elo_black)), GameOutcome::Victory(color)) = (
-            game.get_white()
-                .as_account_mut(self)
-                .map(|account| account.get_elo()),
-            game.get_black()
-                .as_account_mut(self)
-                .map(|account| account.get_elo()),
-            outcome,
-        ) {
+        let white_id = game.get_white().get_account_id();
+        let black_id = game.get_black().get_account_id();
+
+        let elo_white = white_id
+            .as_ref()
+            .and_then(|id| self.accounts.get(id).and_then(|a| a.get_elo()));
+        let elo_black = black_id
+            .as_ref()
+            .and_then(|id| self.accounts.get(id).and_then(|a| a.get_elo()));
+
+        if let (Some(elo_white), Some(elo_black), GameOutcome::Victory(color)) =
+            (elo_white, elo_black, outcome)
+        {
             let (new_elo_white, new_elo_black) = calculate_elo(
                 elo_white,
                 elo_black,
@@ -330,14 +464,37 @@ impl Chess {
                 },
                 &EloConfig::new(),
             );
-            game.get_white()
-                .as_account_mut(self)
-                .unwrap()
-                .set_elo(new_elo_white);
-            game.get_black()
-                .as_account_mut(self)
-                .unwrap()
-                .set_elo(new_elo_black);
+
+            let mut minted: u128 = 0;
+            let elo_thresholds: &[(f64, Achievement)] = &[
+                (1100.0, Achievement::Elo1100),
+                (1200.0, Achievement::Elo1200),
+                (1300.0, Achievement::Elo1300),
+                (1400.0, Achievement::Elo1400),
+                (1500.0, Achievement::Elo1500),
+            ];
+
+            if let Some(ref wid) = white_id {
+                let account = self.accounts.get_mut(wid).unwrap();
+                account.set_elo(new_elo_white);
+                for (threshold, achievement) in elo_thresholds {
+                    if new_elo_white >= *threshold {
+                        minted += account.apply_achievement(achievement.clone(), false);
+                    }
+                }
+            }
+
+            if let Some(ref bid) = black_id {
+                let account = self.accounts.get_mut(bid).unwrap();
+                account.set_elo(new_elo_black);
+                for (threshold, achievement) in elo_thresholds {
+                    if new_elo_black >= *threshold {
+                        minted += account.apply_achievement(achievement.clone(), false);
+                    }
+                }
+            }
+
+            self.points_total_supply += minted;
         }
     }
 

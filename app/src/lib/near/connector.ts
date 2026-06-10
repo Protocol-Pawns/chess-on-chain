@@ -234,6 +234,10 @@ export const contract = {
     });
   },
 
+  claimPoints() {
+    return tryLocalSign('claim_points', {}, '0');
+  },
+
   createAiGame(difficulty: 'Easy' | 'Medium' | 'Hard') {
     return sendTransaction('create_ai_game', { difficulty });
   },
@@ -267,6 +271,7 @@ export const contract = {
     near_amount: string;
     is_agent: boolean;
     points: string;
+    pending_points: string;
     elo: number | null;
   }> {
     return viewFunction('get_account', { account_id: accountId });

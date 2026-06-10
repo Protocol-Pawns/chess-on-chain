@@ -15,28 +15,13 @@ use chess_lib::{
 };
 use futures::future::try_join_all;
 use near_workspaces::types::{KeyType, SecretKey};
+use std::collections::HashSet;
 use tokio::fs;
 use util::*;
 
 #[tokio::test]
 async fn test_migrate() -> anyhow::Result<()> {
     let worker = near_workspaces::sandbox().await?;
-
-    let key = SecretKey::from_random(KeyType::ED25519);
-    let nada_bot_contract = worker
-        .create_tla_and_deploy(
-            "nada-bot.registrar".parse()?,
-            key,
-            &fs::read("../../res/nada_bot_stub.wasm").await?,
-        )
-        .await?
-        .into_result()?;
-    nada_bot_contract
-        .call("new")
-        .max_gas()
-        .transact()
-        .await?
-        .into_result()?;
 
     let key = SecretKey::from_random(KeyType::ED25519);
     let contract = worker
@@ -49,7 +34,7 @@ async fn test_migrate() -> anyhow::Result<()> {
         .into_result()?;
     contract
         .call("new")
-        .args_json(("social.near", nada_bot_contract.id()))
+        .args_json((&contract.id(),))
         .max_gas()
         .transact()
         .await?
@@ -59,11 +44,6 @@ async fn test_migrate() -> anyhow::Result<()> {
     let player_b = worker.dev_create_account().await?;
     let player_c = worker.dev_create_account().await?;
 
-    tokio::try_join!(
-        call::add_human(&nada_bot_contract, &player_a, player_a.id()),
-        call::add_human(&nada_bot_contract, &player_b, player_b.id()),
-        call::add_human(&nada_bot_contract, &player_c, player_c.id()),
-    )?;
     tokio::try_join!(
         call::storage_deposit(&contract, &player_a, None, None),
         call::storage_deposit(&contract, &player_b, None, None),
@@ -87,7 +67,7 @@ async fn test_migrate() -> anyhow::Result<()> {
         .deploy(&fs::read("../../res/chess_testing.wasm").await?)
         .await?
         .into_result()?;
-    call::migrate(&contract, contract.as_account(), contract.id()).await?;
+    call::migrate(&contract, contract.as_account()).await?;
 
     let game_ids = view::get_game_ids(&contract, player_a.id()).await?;
     assert_eq!(game_ids, vec![game_id.clone()]);
@@ -840,7 +820,7 @@ async fn test_mainnet_migration() -> anyhow::Result<()> {
 
     let account_ids: Vec<String> = contract
         .call("get_accounts")
-        .args_json((None::<usize>, None::<usize>))
+        .args_json((None::<usize>, Some(1000usize)))
         .max_gas()
         .view()
         .await?
@@ -852,7 +832,7 @@ async fn test_mainnet_migration() -> anyhow::Result<()> {
         .await?
         .into_result()?;
 
-    call::migrate(&contract, contract.as_account(), contract.id()).await?;
+    call::migrate(&contract, contract.as_account()).await?;
 
     let account = view::get_account(&contract, &"marior.near".parse()?).await?;
     assert!(account.elo.is_some());
@@ -860,12 +840,15 @@ async fn test_mainnet_migration() -> anyhow::Result<()> {
 
     let account_ids_after: Vec<String> = contract
         .call("get_accounts")
-        .args_json((None::<usize>, None::<usize>))
+        .args_json((None::<usize>, Some(1000usize)))
         .max_gas()
         .view()
         .await?
         .json()?;
-    assert_eq!(account_ids, account_ids_after);
+    assert_eq!(
+        account_ids.into_iter().collect::<HashSet<_>>(),
+        account_ids_after.into_iter().collect::<HashSet<_>>()
+    );
 
     Ok(())
 }

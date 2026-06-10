@@ -1,6 +1,6 @@
-#[allow(deprecated)]
 use crate::{
-    Account, Chess, ChessEvent, ContractError, StorageKey, MAX_BETS_PER_GAME, MAX_OPEN_BETS,
+    Account, Achievement, Chess, ChessEvent, ContractError, Quest, StorageKey, MAX_BETS_PER_GAME,
+    MAX_OPEN_BETS,
 };
 use near_sdk::{
     borsh::{self, BorshDeserialize, BorshSerialize},
@@ -38,36 +38,9 @@ impl BetId {
 
 #[derive(BorshDeserialize, BorshSerialize)]
 #[borsh(crate = "near_sdk::borsh")]
-#[allow(deprecated)]
-pub struct OldBets {
-    pub is_locked: bool,
-    pub bets: near_sdk::store::UnorderedMap<AccountId, Vec<(AccountId, Bet)>>,
-}
-
-#[derive(BorshDeserialize, BorshSerialize)]
-#[borsh(crate = "near_sdk::borsh")]
 pub struct Bets {
     pub is_locked: bool,
     pub bets: IterableMap<AccountId, Vec<(AccountId, Bet)>>,
-}
-
-impl Bets {
-    #[allow(deprecated)]
-    pub fn migrate_from(old: OldBets, storage_key: Vec<u8>) -> Self {
-        let entries: Vec<(AccountId, Vec<(AccountId, Bet)>)> = old
-            .bets
-            .iter()
-            .map(|(k, v)| (k.clone(), v.clone()))
-            .collect();
-        let mut bets = IterableMap::new(storage_key);
-        for (k, v) in entries {
-            bets.insert(k, v);
-        }
-        Self {
-            is_locked: old.is_locked,
-            bets,
-        }
-    }
 }
 
 #[derive(Debug, Deserialize, Serialize, NearSchema)]
@@ -238,13 +211,23 @@ impl Chess {
         }
 
         let event = ChessEvent::PlaceBet {
-            bettor: sender_id,
+            bettor: sender_id.clone(),
             players,
             token_id,
             amount: amount.into(),
             winner,
         };
         event.emit();
+
+        let account = self.accounts.get_mut(&sender_id).unwrap();
+        account.record_bet_placed();
+        let points = account.apply_quest(Quest::WeeklyBettor, true);
+        self.points_total_supply += points;
+        let bets_placed = account.get_bets_placed();
+        if bets_placed == 1 {
+            let p = account.apply_achievement(Achievement::FirstBet, true);
+            self.points_total_supply += p;
+        }
 
         Ok(())
     }

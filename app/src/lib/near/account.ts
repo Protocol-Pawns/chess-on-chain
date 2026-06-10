@@ -64,6 +64,12 @@ async function checkRegistration(accountId: string) {
   try {
     const balance = await contract.storageBalanceOf(accountId);
     isRegistered.set(balance !== null);
+    if (balance !== null) {
+      const ad = await contract.getAccount(accountId);
+      if (ad.pending_points !== '0') {
+        contract.claimPoints().catch(() => {});
+      }
+    }
   } catch {
     isRegistered.set(false);
   } finally {

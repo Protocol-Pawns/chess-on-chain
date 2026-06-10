@@ -28,9 +28,22 @@
   let activeGames = $state<GameOverview[]>([]);
   let elo = $state<number | null>(null);
   let points = $state<string | null>(null);
+  let wins = $state(0);
+  let winStreak = $state(0);
+  let maxWinStreak = $state(0);
+  let betsPlaced = $state(0);
+  let betsWon = $state(0);
+  let wagersPlayed = $state(0);
+  let wagerWins = $state(0);
+  let challengesSent = $state(0);
   let achievements: Array<[number, string]> = $state([]);
   let questCooldowns: Array<[number, string]> = $state([]);
-  let questList: Array<{ name: string; points: string; points_on_cd: string; cooldown: number }> = $state([]);
+  let questList: Array<{
+    name: string;
+    points: string;
+    points_on_cd: string;
+    cooldown: number;
+  }> = $state([]);
   let loading = $state(true);
   let betStats = $state<BetStats | null>(null);
   let tokenBalances = $state<Array<[string, string]>>([]);
@@ -42,14 +55,42 @@
 
   const ACHIEVEMENT_LABELS: Record<string, string> = {
     FirstWinHuman: 'First Win vs Human',
+    FirstWin: 'First Win vs Human',
     FirstWinAiEasy: 'First Win vs AI (Easy)',
     FirstWinAiMedium: 'First Win vs AI (Medium)',
-    FirstWinAiHard: 'First Win vs AI (Hard)'
+    FirstWinAiHard: 'First Win vs AI (Hard)',
+    Wins10: '10 Wins',
+    Wins50: '50 Wins',
+    Wins100: '100 Wins',
+    Wins500: '500 Wins',
+    WinStreak3: '3 Win Streak',
+    WinStreak5: '5 Win Streak',
+    WinStreak10: '10 Win Streak',
+    WinStreak25: '25 Win Streak',
+    FirstBet: 'First Bet',
+    FirstBetWin: 'First Bet Win',
+    BetsWon10: '10 Bets Won',
+    BetsWon100: '100 Bets Won',
+    FirstWager: 'First Wager',
+    FirstWagerWin: 'First Wager Win',
+    WagerWins10: '10 Wager Wins',
+    WagerWins100: '100 Wager Wins',
+    Elo1100: '1100 ELO',
+    Elo1200: '1200 ELO',
+    Elo1300: '1300 ELO',
+    Elo1400: '1400 ELO',
+    Elo1500: '1500 ELO',
+    FirstChallenge: 'First Challenge',
+    Challenges10: '10 Challenges',
+    Challenges100: '100 Challenges'
   };
 
   const QUEST_LABELS: Record<string, string> = {
     DailyPlayMove: 'Daily Move',
-    WeeklyWin: 'Weekly Win'
+    DailyGame: 'Daily Game',
+    WeeklyWin: 'Weekly Win',
+    WeeklyBettor: 'Weekly Bet',
+    WeeklyChallenger: 'Weekly Challenge'
   };
 
   function formatCooldown(timestampMs: number): string {
@@ -203,6 +244,14 @@
       if (accountData) {
         elo = accountData.elo;
         points = accountData.points;
+        wins = accountData.wins ?? 0;
+        winStreak = accountData.win_streak ?? 0;
+        maxWinStreak = accountData.max_win_streak ?? 0;
+        betsPlaced = accountData.bets_placed ?? 0;
+        betsWon = accountData.bets_won ?? 0;
+        wagersPlayed = accountData.wagers_played ?? 0;
+        wagerWins = accountData.wager_wins ?? 0;
+        challengesSent = accountData.challenges_sent ?? 0;
       }
       achievements = ach;
       questCooldowns = qc;
@@ -398,6 +447,35 @@
           </div>
         </div>
       {/if}
+
+      {#if winStreak > 0 || maxWinStreak > 0 || betsPlaced > 0 || wagersPlayed > 0 || challengesSent > 0}
+        <div class="grid grid-cols-3 gap-3 mt-3">
+          {#if winStreak > 0 || maxWinStreak > 0}
+            <div class="text-center bg-white/5 rounded p-2">
+              <div class="text-sm font-bold text-primary-warn">{winStreak}<span class="text-white/30 text-xs">/{maxWinStreak}</span></div>
+              <div class="text-xs text-white/50">Streak / Best</div>
+            </div>
+          {/if}
+          {#if betsPlaced > 0}
+            <div class="text-center bg-white/5 rounded p-2">
+              <div class="text-sm font-bold text-primary-green">{betsWon}<span class="text-white/30 text-xs">/{betsPlaced}</span></div>
+              <div class="text-xs text-white/50">Bets Won</div>
+            </div>
+          {/if}
+          {#if wagersPlayed > 0}
+            <div class="text-center bg-white/5 rounded p-2">
+              <div class="text-sm font-bold text-primary">{wagerWins}<span class="text-white/30 text-xs">/{wagersPlayed}</span></div>
+              <div class="text-xs text-white/50">Wagers Won</div>
+            </div>
+          {/if}
+          {#if challengesSent > 0}
+            <div class="text-center bg-white/5 rounded p-2">
+              <div class="text-sm font-bold">{challengesSent}</div>
+              <div class="text-xs text-white/50">Challenges</div>
+            </div>
+          {/if}
+        </div>
+      {/if}
     </section>
 
     {#if betStats && betStats.total_bets > 0}
@@ -506,7 +584,9 @@
             {@const cooldown = questCooldowns.find(([, q]) => q === quest.name)}
             {@const status = cooldown ? formatCooldown(cooldown[0]) : 'Ready'}
             <div class="flex justify-between items-center text-sm">
-              <span class="text-white/70">{QUEST_LABELS[quest.name] ?? quest.name}</span>
+              <span class="text-white/70"
+                >{QUEST_LABELS[quest.name] ?? quest.name}</span
+              >
               <span
                 class="text-xs {status === 'Ready'
                   ? 'text-primary-green'

@@ -1,7 +1,3 @@
-mod old;
-
-use old::*;
-
 use crate::{Account, Chess, ChessEvent, ContractError, Wager};
 use chess_engine::{Board, Color, GameResult, Move, Piece, Position};
 use near_sdk::{
@@ -93,8 +89,32 @@ pub enum Difficulty {
 pub enum Game {
     V1(()),
     V2(()),
-    V3(GameV3),
+    V3(()),
     V4(GameV4),
+    V5(GameV5),
+}
+
+macro_rules! access_v4_v5 {
+    ($self:expr, $var:ident, $body:expr) => {
+        match $self {
+            Game::V4($var) => $body,
+            Game::V5($var) => $body,
+            _ => panic!("migration required"),
+        }
+    };
+}
+
+#[derive(BorshDeserialize, BorshSerialize)]
+#[borsh(crate = "near_sdk::borsh")]
+pub struct GameV5 {
+    game_id: GameId,
+    white: Player,
+    black: Player,
+    board: Board,
+    wager: Wager,
+    last_move_block_height: u64,
+    has_bets: bool,
+    move_count: u32,
 }
 
 #[derive(BorshDeserialize, BorshSerialize)]
@@ -145,7 +165,7 @@ impl Game {
             white.get_account_id().unwrap(),
             black.get_account_id(),
         );
-        Game::V4(GameV4 {
+        Game::V5(GameV5 {
             game_id,
             white,
             black,
@@ -153,19 +173,12 @@ impl Game {
             wager,
             last_move_block_height: env::block_height(),
             has_bets,
+            move_count: 0,
         })
     }
 
     pub fn migrate(self) -> Self {
-        if let Self::V3(GameV3 {
-            game_id,
-            white,
-            black,
-            board,
-            last_move_block_height,
-            wager,
-        }) = self
-        {
+        match self {
             Self::V4(GameV4 {
                 game_id,
                 white,
@@ -173,92 +186,91 @@ impl Game {
                 board,
                 wager,
                 last_move_block_height,
-                has_bets: false,
-            })
-        } else {
-            self
+                has_bets,
+            }) => Self::V5(GameV5 {
+                game_id,
+                white,
+                black,
+                board,
+                wager,
+                last_move_block_height,
+                has_bets,
+                move_count: 0,
+            }),
+            other => other,
         }
     }
 
     pub fn get_game_id(&self) -> &GameId {
-        let Game::V4(game) = self else {
-            panic!("migration required")
-        };
-        &game.game_id
+        access_v4_v5!(self, game, &game.game_id)
     }
 
     pub fn get_white(&self) -> &Player {
-        let Game::V4(game) = self else {
-            panic!("migration required")
-        };
-        &game.white
+        access_v4_v5!(self, game, &game.white)
     }
 
     pub fn get_black(&self) -> &Player {
-        let Game::V4(game) = self else {
-            panic!("migration required")
-        };
-        &game.black
+        access_v4_v5!(self, game, &game.black)
     }
 
     pub fn get_board(&self) -> &Board {
-        let Game::V4(game) = self else {
-            panic!("migration required")
-        };
-        &game.board
+        access_v4_v5!(self, game, &game.board)
     }
 
     pub fn get_wager(&self) -> &Wager {
-        let Game::V4(game) = self else {
-            panic!("migration required")
-        };
-        &game.wager
+        access_v4_v5!(self, game, &game.wager)
     }
 
     pub fn get_last_block_height(&self) -> u64 {
-        let Game::V4(game) = self else {
-            panic!("migration required")
-        };
-        game.last_move_block_height
+        access_v4_v5!(self, game, game.last_move_block_height)
     }
 
     pub fn is_turn(&self, account_id: &AccountId) -> bool {
-        let Game::V4(game) = self else {
-            panic!("migration required")
-        };
-        let player = match game.board.get_turn_color() {
-            Color::White => &game.white,
-            Color::Black => &game.black,
-        };
-        if let Player::Human(id) = player {
-            id == account_id
-        } else {
-            false
-        }
+        access_v4_v5!(self, game, {
+            let player = match game.board.get_turn_color() {
+                Color::White => &game.white,
+                Color::Black => &game.black,
+            };
+            if let Player::Human(id) = player {
+                id == account_id
+            } else {
+                false
+            }
+        })
     }
 
     pub fn is_player(&self, account_id: &AccountId) -> bool {
-        let Game::V4(game) = self else {
-            panic!("migration required")
-        };
-        if let Player::Human(id) = &game.white {
-            if id == account_id {
-                return true;
+        access_v4_v5!(self, game, {
+            if let Player::Human(id) = &game.white {
+                if id == account_id {
+                    return true;
+                }
             }
-        }
-        if let Player::Human(id) = &game.black {
-            if id == account_id {
-                return true;
+            if let Player::Human(id) = &game.black {
+                if id == account_id {
+                    return true;
+                }
             }
-        }
-        false
+            false
+        })
     }
 
     pub fn has_bets(&self) -> bool {
-        let Game::V4(game) = self else {
+        access_v4_v5!(self, game, game.has_bets)
+    }
+
+    pub fn get_move_count(&self) -> u32 {
+        match self {
+            Game::V5(game) => game.move_count,
+            _ => 0,
+        }
+    }
+
+    pub fn increment_move_count(&mut self) {
+        let Game::V5(game) = self else {
             panic!("migration required")
         };
-        game.has_bets
+        game.move_count += 1;
     }
 
     #[allow(clippy::type_complexity)]
@@ -266,7 +278,7 @@ impl Game {
         &mut self,
         mv: Move,
     ) -> Result<(Option<(GameOutcome, [String; 8])>, Color), ContractError> {
-        let Game::V4(game) = self else {
+        let Game::V5(game) = self else {
             panic!("migration required")
         };
 
@@ -332,15 +344,13 @@ impl Game {
             outcome_with_board = outcome.map(|outcome| (outcome, board_state));
         }
 
+        game.move_count += 1;
         game.last_move_block_height = env::block_height();
         Ok((outcome_with_board, game.board.get_turn_color()))
     }
 
     pub fn get_board_state(&self) -> [String; 8] {
-        let Game::V4(game) = self else {
-            panic!("migration required")
-        };
-        Self::_get_board_state(&game.board)
+        access_v4_v5!(self, game, Self::_get_board_state(&game.board))
     }
 
     pub fn _get_board_state(board: &Board) -> [String; 8] {
@@ -375,43 +385,42 @@ impl Game {
     }
 
     pub fn render_board(&self) -> String {
-        let Game::V4(game) = self else {
-            panic!("migration required")
-        };
-        (-1..8)
-            .rev()
-            .flat_map(|row| {
-                (-1..9).map(move |col| -> char {
-                    if col == -1 && row == -1 {
-                        ' '
-                    } else if col == -1 {
-                        (b'1' + row as u8) as char
-                    } else if col == 8 {
-                        '\n'
-                    } else if row == -1 {
-                        (b'A' + col as u8) as char
-                    } else if let Some(piece) = game.board.get_piece(Position::new(row, col)) {
-                        match piece {
-                            Piece::King(Color::Black, _) => '♚',
-                            Piece::King(Color::White, _) => '♔',
-                            Piece::Queen(Color::Black, _) => '♛',
-                            Piece::Queen(Color::White, _) => '♕',
-                            Piece::Rook(Color::Black, _) => '♜',
-                            Piece::Rook(Color::White, _) => '♖',
-                            Piece::Bishop(Color::Black, _) => '♝',
-                            Piece::Bishop(Color::White, _) => '♗',
-                            Piece::Knight(Color::Black, _) => '♞',
-                            Piece::Knight(Color::White, _) => '♘',
-                            Piece::Pawn(Color::Black, _) => '♟',
-                            Piece::Pawn(Color::White, _) => '♙',
+        access_v4_v5!(self, game, {
+            (-1..8)
+                .rev()
+                .flat_map(|row| {
+                    (-1..9).map(move |col| -> char {
+                        if col == -1 && row == -1 {
+                            ' '
+                        } else if col == -1 {
+                            (b'1' + row as u8) as char
+                        } else if col == 8 {
+                            '\n'
+                        } else if row == -1 {
+                            (b'A' + col as u8) as char
+                        } else if let Some(piece) = game.board.get_piece(Position::new(row, col)) {
+                            match piece {
+                                Piece::King(Color::Black, _) => '♚',
+                                Piece::King(Color::White, _) => '♔',
+                                Piece::Queen(Color::Black, _) => '♛',
+                                Piece::Queen(Color::White, _) => '♕',
+                                Piece::Rook(Color::Black, _) => '♜',
+                                Piece::Rook(Color::White, _) => '♖',
+                                Piece::Bishop(Color::Black, _) => '♝',
+                                Piece::Bishop(Color::White, _) => '♗',
+                                Piece::Knight(Color::Black, _) => '♞',
+                                Piece::Knight(Color::White, _) => '♘',
+                                Piece::Pawn(Color::Black, _) => '♟',
+                                Piece::Pawn(Color::White, _) => '♙',
+                            }
+                        } else if (row + col) % 2 == 0 {
+                            '⬜'
+                        } else {
+                            '⬛'
                         }
-                    } else if (row + col) % 2 == 0 {
-                        '⬜'
-                    } else {
-                        '⬛'
-                    }
+                    })
                 })
-            })
-            .collect()
+                .collect()
+        })
     }
 }

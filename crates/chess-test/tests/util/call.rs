@@ -16,13 +16,11 @@ use serde_json::json;
 pub async fn migrate(
     contract: &Contract,
     sender: &Account,
-    owner_id: &AccountId,
 ) -> anyhow::Result<ExecutionResult<Value>> {
     let (res, _): (ExecutionResult<Value>, Vec<ContractEvent>) = log_tx_result(
         Some("migrate"),
         sender
             .call(contract.id(), "migrate")
-            .args_json((owner_id,))
             .max_gas()
             .transact()
             .await?,
@@ -65,16 +63,14 @@ pub async fn set_is_agent(
     Ok(res)
 }
 
-pub async fn add_human(
+pub async fn claim_points(
     contract: &Contract,
     sender: &Account,
-    account_id: &AccountId,
 ) -> anyhow::Result<ExecutionResult<Value>> {
     let (res, _) = log_tx_result(
-        Some("add_human"),
+        Some("claim_points"),
         sender
-            .call(contract.id(), "add_human")
-            .args_json((account_id,))
+            .call(contract.id(), "claim_points")
             .max_gas()
             .transact()
             .await?,

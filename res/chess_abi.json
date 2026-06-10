@@ -10,7 +10,7 @@
       "compiler": "rustc 1.86.0",
       "builder": "cargo-near cargo-near-build 0.11.3"
     },
-    "wasm_hash": "F5ZzVgj5S8m6djPLfGbFKruHavUof6MEygSEETSHE6cA"
+    "wasm_hash": "C75mQjCPNq6z4kDXoc6LvGmQJ4Lv8uiNpGkHn9541uvR"
   },
   "body": {
     "functions": [
@@ -192,6 +192,16 @@
           "serialization_type": "json",
           "type_schema": {
             "type": "null"
+          }
+        }
+      },
+      {
+        "name": "claim_points",
+        "kind": "call",
+        "result": {
+          "serialization_type": "json",
+          "type_schema": {
+            "type": "string"
           }
         }
       },
@@ -924,21 +934,8 @@
         "name": "migrate",
         "kind": "call",
         "modifiers": [
-          "init",
           "private"
-        ],
-        "params": {
-          "serialization_type": "json",
-          "args": [
-            {
-              "name": "owner_id",
-              "type_schema": {
-                "description": "NEAR Account Identifier.\n\nThis is a unique, syntactically valid, human-readable account identifier on the NEAR network.\n\n[See the crate-level docs for information about validation.](index.html#account-id-rules)\n\nAlso see [Error kind precedence](AccountId#error-kind-precedence).\n\n## Examples\n\n``` use near_account_id::AccountId;\n\nlet alice: AccountId = \"alice.near\".parse().unwrap();\n\nassert!(\"ƒelicia.near\".parse::<AccountId>().is_err()); // (ƒ is not f) ```",
-                "type": "string"
-              }
-            }
-          ]
-        }
+        ]
       },
       {
         "name": "new",
@@ -1487,11 +1484,35 @@
         "AccountInfo": {
           "type": "object",
           "required": [
+            "bets_placed",
+            "bets_won",
+            "challenges_sent",
             "is_agent",
+            "max_win_streak",
             "near_amount",
-            "points"
+            "pending_points",
+            "points",
+            "wager_wins",
+            "wagers_played",
+            "win_streak",
+            "wins"
           ],
           "properties": {
+            "bets_placed": {
+              "type": "integer",
+              "format": "uint32",
+              "minimum": 0.0
+            },
+            "bets_won": {
+              "type": "integer",
+              "format": "uint32",
+              "minimum": 0.0
+            },
+            "challenges_sent": {
+              "type": "integer",
+              "format": "uint32",
+              "minimum": 0.0
+            },
             "elo": {
               "type": [
                 "number",
@@ -1502,11 +1523,39 @@
             "is_agent": {
               "type": "boolean"
             },
+            "max_win_streak": {
+              "type": "integer",
+              "format": "uint32",
+              "minimum": 0.0
+            },
             "near_amount": {
+              "type": "string"
+            },
+            "pending_points": {
               "type": "string"
             },
             "points": {
               "type": "string"
+            },
+            "wager_wins": {
+              "type": "integer",
+              "format": "uint32",
+              "minimum": 0.0
+            },
+            "wagers_played": {
+              "type": "integer",
+              "format": "uint32",
+              "minimum": 0.0
+            },
+            "win_streak": {
+              "type": "integer",
+              "format": "uint32",
+              "minimum": 0.0
+            },
+            "wins": {
+              "type": "integer",
+              "format": "uint32",
+              "minimum": 0.0
             }
           }
         },
@@ -1516,7 +1565,31 @@
             "FirstWin",
             "FirstWinAiEasy",
             "FirstWinAiMedium",
-            "FirstWinAiHard"
+            "FirstWinAiHard",
+            "Wins10",
+            "Wins50",
+            "Wins100",
+            "Wins500",
+            "WinStreak3",
+            "WinStreak5",
+            "WinStreak10",
+            "WinStreak25",
+            "FirstBet",
+            "FirstBetWin",
+            "BetsWon10",
+            "BetsWon100",
+            "FirstWager",
+            "FirstWagerWin",
+            "WagerWins10",
+            "WagerWins100",
+            "Elo1100",
+            "Elo1200",
+            "Elo1300",
+            "Elo1400",
+            "Elo1500",
+            "FirstChallenge",
+            "Challenges10",
+            "Challenges100"
           ]
         },
         "AchievementInfo": {
@@ -1830,7 +1903,10 @@
           "type": "string",
           "enum": [
             "DailyPlayMove",
-            "WeeklyWin"
+            "DailyGame",
+            "WeeklyWin",
+            "WeeklyBettor",
+            "WeeklyChallenger"
           ]
         },
         "QuestInfo": {

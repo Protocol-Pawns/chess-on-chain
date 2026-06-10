@@ -32,14 +32,41 @@
 
   const QUEST_LABELS: Record<string, string> = {
     DailyPlayMove: 'Play a Move',
-    WeeklyWin: 'Win vs Human'
+    DailyGame: 'Complete a Game',
+    WeeklyWin: 'Win vs Human',
+    WeeklyBettor: 'Place a Bet',
+    WeeklyChallenger: 'Challenge a Player'
   };
 
   const ACHIEVEMENT_LABELS: Record<string, string> = {
-    FirstWinHuman: 'First Win vs Human',
+    FirstWin: 'First Win vs Human',
     FirstWinAiEasy: 'First Win vs AI (Easy)',
     FirstWinAiMedium: 'First Win vs AI (Medium)',
-    FirstWinAiHard: 'First Win vs AI (Hard)'
+    FirstWinAiHard: 'First Win vs AI (Hard)',
+    Wins10: '10 Wins',
+    Wins50: '50 Wins',
+    Wins100: '100 Wins',
+    Wins500: '500 Wins',
+    WinStreak3: '3 Win Streak',
+    WinStreak5: '5 Win Streak',
+    WinStreak10: '10 Win Streak',
+    WinStreak25: '25 Win Streak',
+    FirstBet: 'First Bet',
+    FirstBetWin: 'First Bet Win',
+    BetsWon10: '10 Bets Won',
+    BetsWon100: '100 Bets Won',
+    FirstWager: 'First Wager',
+    FirstWagerWin: 'First Wager Win',
+    WagerWins10: '10 Wager Wins',
+    WagerWins100: '100 Wager Wins',
+    Elo1100: '1100 ELO',
+    Elo1200: '1200 ELO',
+    Elo1300: '1300 ELO',
+    Elo1400: '1400 ELO',
+    Elo1500: '1500 ELO',
+    FirstChallenge: 'First Challenge',
+    Challenges10: '10 Challenges',
+    Challenges100: '100 Challenges'
   };
 
   onMount(async () => {
