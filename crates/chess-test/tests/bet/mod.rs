@@ -2325,3 +2325,100 @@ async fn test_bet_sorted_insertion() -> anyhow::Result<()> {
 
     Ok(())
 }
+
+#[tokio::test]
+async fn test_bettor_active_bets_multi_token_cancel() -> anyhow::Result<()> {
+    let (worker, owner, contract) = initialize_contracts(None).await?;
+    let token_a = initialize_token(&worker, "TokenA", "TKA", None, 6).await?;
+    let token_b = initialize_token(&worker, "TokenB", "TKB", None, 6).await?;
+    let bet_amount = 1_000_000;
+
+    let player_a = worker.dev_create_account().await?;
+    let player_b = worker.dev_create_account().await?;
+    let better = worker.dev_create_account().await?;
+
+    tokio::try_join!(
+        call::storage_deposit(&contract, &player_a, None, None),
+        call::storage_deposit(&contract, &player_b, None, None),
+        call::storage_deposit(&contract, &better, None, None),
+    )?;
+
+    for token in [&token_a, &token_b] {
+        tokio::try_join!(
+            call::storage_deposit(
+                token,
+                contract.as_account(),
+                None,
+                Some(NearToken::from_millinear(100))
+            ),
+            call::storage_deposit(token, &better, None, Some(NearToken::from_millinear(100))),
+        )?;
+        call::mint_tokens(token, better.id(), bet_amount * 20).await?;
+    }
+
+    let whitelist = vec![token_a.id().clone(), token_b.id().clone()];
+    call::set_token_whitelist(&contract, &owner, &whitelist).await?;
+
+    // Phase 1: Bet on game A with 2 tokens.
+    // bettor_active_bets = 1 (incremented once per BetId, not per-token).
+    bet!(&better, token_a.id(), contract.id(), bet_amount, player_a => player_b).await?;
+    bet!(&better, token_b.id(), contract.id(), bet_amount, player_a => player_b).await?;
+
+    let players_ab = sorted_players(&player_a, &player_b);
+    let bet_info = view::get_bet_info(&contract, (&players_ab.0, &players_ab.1)).await?;
+    assert_eq!(bet_info.bets.len(), 2, "should have 2 token entries");
+
+    // Phase 2: Cancel ONE token's bet. The bettor still has a bet in the
+    // other token, so bettor_active_bets should NOT decrement.
+    // BUG: the current code decrements unconditionally, so counter goes to 0.
+    call::cancel_bet(&contract, &better, players_ab.clone(), token_a.id()).await?;
+
+    let bet_info = view::get_bet_info(&contract, (&players_ab.0, &players_ab.1)).await?;
+    assert_eq!(bet_info.bets.len(), 1, "should still have 1 token entry");
+
+    // Phase 3: The bettor still has an active bet on game A (via token_b).
+    // With the bug (counter = 0), they can place bets on 10 MORE games for a
+    // total of 11 active BetIds, exceeding MAX_OPEN_BETS.
+    // With the fix (counter = 1), they should only be able to place 9 more.
+    //
+    // We place 9 bets — these should succeed with both buggy and fixed code.
+    let mut game_players: Vec<(Account, Account)> = vec![];
+    for _ in 0..9 {
+        let pa = worker.dev_create_account().await?;
+        let pb = worker.dev_create_account().await?;
+        call::storage_deposit(&contract, &pa, None, None).await?;
+        call::storage_deposit(&contract, &pb, None, None).await?;
+        game_players.push((pa, pb));
+    }
+
+    for (pa, pb) in &game_players {
+        bet!(&better, token_a.id(), contract.id(), bet_amount, pa => pb).await?;
+    }
+
+    // Phase 4: The 10th NEW bet (11th BetId total: game A + 9 new + this one)
+    // should FAIL because bettor_active_bets should be at MAX_OPEN_BETS = 10.
+    // With the bug (counter = 9 after 9 new bets), this SUCCEEDS — test fails.
+    // With the fix (counter = 10 = 1 game A + 9 new), this correctly fails.
+    let player_extra_a = worker.dev_create_account().await?;
+    let player_extra_b = worker.dev_create_account().await?;
+    call::storage_deposit(&contract, &player_extra_a, None, None).await?;
+    call::storage_deposit(&contract, &player_extra_b, None, None).await?;
+
+    let ft_balance_before = view::ft_balance_of(&token_a, better.id()).await?;
+    let _ = bet!(
+        &better,
+        token_a.id(),
+        contract.id(),
+        bet_amount,
+        player_extra_a => player_extra_b
+    )
+    .await;
+    let ft_balance_after = view::ft_balance_of(&token_a, better.id()).await?;
+
+    assert_eq!(
+        ft_balance_before, ft_balance_after,
+        "10th bet should be refunded — MAX_OPEN_BETS reached"
+    );
+
+    Ok(())
+}

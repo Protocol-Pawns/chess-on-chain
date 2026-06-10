@@ -670,12 +670,26 @@ impl Chess {
             }
             (bets.bets.is_empty(), removed_bet.amount)
         };
-        if should_remove {
+        let bettor_still_has_bets = if should_remove {
             self.bets.remove(&bet_id);
-        }
+            false
+        } else {
+            self.bets
+                .get(&bet_id)
+                .unwrap()
+                .bets
+                .iter()
+                .any(|(_, bet_list)| {
+                    bet_list
+                        .binary_search_by_key(&sender_id, |(id, _)| id.clone())
+                        .is_ok()
+                })
+        };
 
-        if let Some(active) = self.bettor_active_bets.get_mut(&sender_id) {
-            *active = active.saturating_sub(1);
+        if !bettor_still_has_bets {
+            if let Some(active) = self.bettor_active_bets.get_mut(&sender_id) {
+                *active = active.saturating_sub(1);
+            }
         }
 
         let event = ChessEvent::CancelBet {

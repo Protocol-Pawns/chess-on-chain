@@ -184,8 +184,7 @@ impl Chess {
         }
 
         if let Some(token_bets) = bets.bets.get_mut(&token_id) {
-            match token_bets
-                .binary_search_by_key(&sender_id, |(account_id, _)| account_id.clone())
+            match token_bets.binary_search_by_key(&sender_id, |(account_id, _)| account_id.clone())
             {
                 Ok(index) => {
                     token_bets.get_mut(index).unwrap().1.amount += amount;
