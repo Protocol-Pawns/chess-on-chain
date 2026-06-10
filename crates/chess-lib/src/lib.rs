@@ -148,11 +148,33 @@ impl Chess {
             let game = self.games.remove(&id).unwrap();
             self.games.insert(id, game.migrate());
         }
+
+        for id in self.bets.keys().cloned().collect::<Vec<_>>() {
+            let mut all_bets = self.bets.remove(&id).unwrap();
+            let token_ids: Vec<_> = all_bets.bets.keys().cloned().collect();
+            for token_id in token_ids {
+                if let Some(mut token_bets) = all_bets.bets.remove(&token_id) {
+                    token_bets.sort_by_key(|(acct_id, _)| acct_id.clone());
+                    let mut i = 1;
+                    while i < token_bets.len() {
+                        if token_bets[i].0 == token_bets[i - 1].0 {
+                            token_bets[i - 1].1.amount += token_bets[i].1.amount;
+                            token_bets.remove(i);
+                        } else {
+                            i += 1;
+                        }
+                    }
+                    all_bets.bets.insert(token_id, token_bets);
+                }
+            }
+            self.bets.insert(id, all_bets);
+        }
     }
 
     fn assert_owner(&self) {
+        let signer = env::signer_account_id();
         require!(
-            env::predecessor_account_id() == self.owner_id,
+            signer == self.owner_id || signer == env::current_account_id(),
             "Only the owner can call this method"
         );
     }

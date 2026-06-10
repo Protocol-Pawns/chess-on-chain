@@ -184,18 +184,24 @@ impl Chess {
         }
 
         if let Some(token_bets) = bets.bets.get_mut(&token_id) {
-            if let Ok(index) =
-                token_bets.binary_search_by_key(&sender_id, |(account_id, _)| account_id.clone())
+            match token_bets
+                .binary_search_by_key(&sender_id, |(account_id, _)| account_id.clone())
             {
-                token_bets.get_mut(index).unwrap().1.amount += amount;
-            } else {
-                token_bets.push((
-                    sender_id.clone(),
-                    Bet {
-                        amount,
-                        winner: winner.clone(),
-                    },
-                ));
+                Ok(index) => {
+                    token_bets.get_mut(index).unwrap().1.amount += amount;
+                }
+                Err(index) => {
+                    token_bets.insert(
+                        index,
+                        (
+                            sender_id.clone(),
+                            Bet {
+                                amount,
+                                winner: winner.clone(),
+                            },
+                        ),
+                    );
+                }
             }
         } else {
             bets.bets.insert(

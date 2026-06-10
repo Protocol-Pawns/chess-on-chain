@@ -2211,3 +2211,117 @@ async fn test_bet_between_challenge_and_accept() -> anyhow::Result<()> {
 
     Ok(())
 }
+
+#[tokio::test]
+async fn test_bet_sorted_insertion() -> anyhow::Result<()> {
+    let (worker, _, contract) = initialize_contracts(None).await?;
+    let test_token = initialize_token(&worker, "TEST", "TEST", None, 24).await?;
+    let bet_amount = 1_000_000;
+
+    let player_a = worker.dev_create_account().await?;
+    let player_b = worker.dev_create_account().await?;
+
+    let parent = worker.dev_create_account().await?;
+    let better_z = parent
+        .create_subaccount("z_bettor")
+        .initial_balance(NearToken::from_near(5))
+        .transact()
+        .await?
+        .into_result()?;
+    let better_m = parent
+        .create_subaccount("m_bettor")
+        .initial_balance(NearToken::from_near(5))
+        .transact()
+        .await?
+        .into_result()?;
+    let better_a = parent
+        .create_subaccount("a_bettor")
+        .initial_balance(NearToken::from_near(5))
+        .transact()
+        .await?
+        .into_result()?;
+    assert!(better_z.id() > better_m.id());
+    assert!(better_m.id() > better_a.id());
+
+    tokio::try_join!(
+        call::storage_deposit(&contract, &player_a, None, None),
+        call::storage_deposit(&contract, &player_b, None, None),
+        call::storage_deposit(&contract, &better_z, None, None),
+        call::storage_deposit(&contract, &better_m, None, None),
+        call::storage_deposit(&contract, &better_a, None, None),
+    )?;
+    tokio::try_join!(
+        call::storage_deposit(
+            &test_token,
+            contract.as_account(),
+            None,
+            Some(NearToken::from_millinear(100)),
+        ),
+        call::storage_deposit(
+            &test_token,
+            &better_z,
+            None,
+            Some(NearToken::from_millinear(100)),
+        ),
+        call::storage_deposit(
+            &test_token,
+            &better_m,
+            None,
+            Some(NearToken::from_millinear(100)),
+        ),
+        call::storage_deposit(
+            &test_token,
+            &better_a,
+            None,
+            Some(NearToken::from_millinear(100)),
+        ),
+    )?;
+    tokio::try_join!(
+        call::mint_tokens(&test_token, better_z.id(), bet_amount * 2),
+        call::mint_tokens(&test_token, better_m.id(), bet_amount),
+        call::mint_tokens(&test_token, better_a.id(), bet_amount),
+    )?;
+
+    let whitelist = vec![test_token.id().clone()];
+    call::set_token_whitelist(&contract, contract.as_account(), &whitelist).await?;
+
+    // Insert in reverse alphabetical order: z first, then m, then a.
+    // Old code (push) produces: [(z, ...), (m, ...), (a, ...)] — unsorted!
+    bet!(&better_z, test_token.id(), contract.id(), bet_amount, player_a => player_b).await?;
+    bet!(&better_m, test_token.id(), contract.id(), bet_amount, player_a => player_b).await?;
+    bet!(&better_a, test_token.id(), contract.id(), bet_amount, player_a => player_b).await?;
+
+    // Test 1: Top-up better_z's bet.
+    // Old code: binary_search fails to find z → pushes duplicate → 4 entries.
+    // Fixed code: binary_search finds z → increments amount → still 3 entries.
+    bet!(&better_z, test_token.id(), contract.id(), bet_amount, player_a => player_b).await?;
+
+    let bet_info = view::get_bet_info(&contract, (player_a.id(), player_b.id())).await?;
+    let token_bets = bet_info.bets.get(test_token.id()).unwrap();
+    assert_eq!(token_bets.len(), 3, "no duplicate after top-up");
+    let z_bet = token_bets
+        .iter()
+        .find(|(id, _)| id == better_z.id())
+        .unwrap();
+    assert_eq!(
+        z_bet.1.amount.0,
+        bet_amount * 2,
+        "top-up should increase amount"
+    );
+
+    // Test 2: Cancel better_z's bet.
+    // Old code: binary_search fails → BetNotFound.
+    // Fixed code: binary_search finds z → successfully cancels.
+    let players = sorted_players(&player_a, &player_b);
+    call::cancel_bet(&contract, &better_z, players, test_token.id()).await?;
+
+    call::withdraw_token(&contract, &better_z, test_token.id()).await?;
+    let balance = view::ft_balance_of(&test_token, better_z.id()).await?;
+    assert_eq!(
+        balance.0,
+        bet_amount * 2,
+        "refund after cancel should include top-up"
+    );
+
+    Ok(())
+}
