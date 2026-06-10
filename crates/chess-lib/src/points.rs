@@ -232,8 +232,11 @@ impl FungibleTokenCore for Chess {
     }
 
     fn ft_balance_of(&self, account_id: AccountId) -> U128 {
-        let account = self.accounts.get(&account_id).unwrap();
-        account.get_points().into()
+        self.accounts
+            .get(&account_id)
+            .map(|a| a.get_points())
+            .unwrap_or(0)
+            .into()
     }
 }
 
