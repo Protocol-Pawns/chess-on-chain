@@ -53,6 +53,7 @@ pub const NO_DEPOSIT: NearToken = NearToken::from_yoctonear(0);
 pub const ONE_YOCTO: NearToken = NearToken::from_yoctonear(1);
 pub const FT_TRANSFER_GAS: Gas = Gas::from_tgas(15);
 pub const WITHDRAW_CALLBACK_GAS: Gas = Gas::from_tgas(5);
+pub const WITHDRAW_TOKEN_CALLBACK_GAS: Gas = Gas::from_tgas(5);
 pub const CANCEL_WAGER_CALLBACK_GAS: Gas = Gas::from_tgas(10);
 pub const REJECT_WAGER_CALLBACK_GAS: Gas = Gas::from_tgas(10);
 pub const WAGER_PAYOUT_CALLBACK_GAS: Gas = Gas::from_tgas(10);
@@ -705,11 +706,35 @@ impl Chess {
             PromiseOrValue::Value(())
         } else {
             PromiseOrValue::Promise(
-                ext_ft_core::ext(token_id)
+                ext_ft_core::ext(token_id.clone())
                     .with_static_gas(FT_TRANSFER_GAS)
                     .with_attached_deposit(ONE_YOCTO)
-                    .ft_transfer(signer_id, amount.into(), Some("withdraw".to_string())),
+                    .ft_transfer(
+                        signer_id.clone(),
+                        amount.into(),
+                        Some("withdraw".to_string()),
+                    )
+                    .then(
+                        Self::ext(env::current_account_id())
+                            .with_static_gas(WITHDRAW_TOKEN_CALLBACK_GAS)
+                            .withdraw_token_callback(token_id, signer_id, amount),
+                    ),
             )
         })
+    }
+
+    #[private]
+    #[allow(deprecated)]
+    pub fn withdraw_token_callback(
+        &mut self,
+        token_id: AccountId,
+        account_id: AccountId,
+        amount: u128,
+    ) {
+        if !matches!(env::promise_result(0), PromiseResult::Successful(_)) {
+            if let Some(account) = self.accounts.get_mut(&account_id) {
+                account.add_token(&token_id, amount);
+            }
+        }
     }
 }

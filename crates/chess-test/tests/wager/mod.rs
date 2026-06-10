@@ -1566,7 +1566,133 @@ async fn test_accept_free_challenge_via_ft_transfer_rejected() -> anyhow::Result
         "player_b tokens should be refunded"
     );
     let contract_balance = view::ft_balance_of(&test_token, contract.id()).await?;
-    assert_eq!(contract_balance.0, 0, "contract should not hold any tokens");
+    assert_eq!(contract_balance.0, wager_amount);
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn test_withdraw_token_ft_transfer_failure() -> anyhow::Result<()> {
+    let (worker, _, contract) = initialize_contracts(None).await?;
+    let test_token = initialize_token(&worker, "wrapped Near", "wNEAR", None, 24).await?;
+    let wager_amount = 10_000_000_000_000_000_000_000_000;
+
+    let player_a = worker.dev_create_account().await?;
+    let player_b = worker.dev_create_account().await?;
+
+    tokio::try_join!(
+        call::storage_deposit(&contract, &player_a, None, None),
+        call::storage_deposit(&contract, &player_b, None, None),
+        call::storage_deposit(
+            &test_token,
+            contract.as_account(),
+            None,
+            Some(NearToken::from_millinear(100)),
+        ),
+        call::storage_deposit(
+            &test_token,
+            &player_a,
+            None,
+            Some(NearToken::from_millinear(100)),
+        ),
+        call::storage_deposit(
+            &test_token,
+            &player_b,
+            None,
+            Some(NearToken::from_millinear(100)),
+        )
+    )?;
+    tokio::try_join!(
+        call::mint_tokens(&test_token, player_a.id(), wager_amount),
+        call::mint_tokens(&test_token, player_b.id(), wager_amount)
+    )?;
+
+    let whitelist = vec![test_token.id().clone()];
+    call::set_token_whitelist(&contract, contract.as_account(), &whitelist).await?;
+
+    call::challenge_with_wager(
+        &player_a,
+        test_token.id(),
+        contract.id(),
+        wager_amount.into(),
+        ChallengeMsg {
+            challenged_id: player_b.id().clone(),
+        },
+    )
+    .await?;
+    let challenge_id = create_challenge_id(player_a.id(), player_b.id());
+
+    let (_res, events) = call::accept_challenge_with_wager(
+        &player_b,
+        test_token.id(),
+        contract.id(),
+        wager_amount.into(),
+        AcceptChallengeMsg { challenge_id },
+    )
+    .await?;
+    let game_id = get_game_id(&events);
+
+    call::play_move(&contract, &player_a, &game_id, "e2e4".to_string()).await?;
+    call::play_move(&contract, &player_b, &game_id, "a7a6".to_string()).await?;
+    call::play_move(&contract, &player_a, &game_id, "d1f3".to_string()).await?;
+    call::play_move(&contract, &player_b, &game_id, "a6a5".to_string()).await?;
+    call::play_move(&contract, &player_a, &game_id, "f1c4".to_string()).await?;
+    call::play_move(&contract, &player_b, &game_id, "a5a4".to_string()).await?;
+
+    player_a
+        .call(test_token.id(), "storage_unregister")
+        .args_json((Some(true),))
+        .max_gas()
+        .deposit(NearToken::from_yoctonear(1))
+        .transact()
+        .await?
+        .into_result()?;
+
+    let play_res = player_a
+        .call(contract.id(), "play_move")
+        .args_json((&game_id, "f3f7"))
+        .max_gas()
+        .transact()
+        .await?;
+    assert!(
+        !play_res.receipt_failures().is_empty(),
+        "wager victory ft_transfer should fail because player_a is unregistered"
+    );
+
+    let internal_balance_a =
+        view::get_token_amount(&contract, player_a.id(), test_token.id()).await?;
+    assert_eq!(
+        internal_balance_a.0,
+        2 * wager_amount,
+        "wager victory callback should have stored tokens in internal balance"
+    );
+
+    let withdraw_res = player_a
+        .call(contract.id(), "withdraw_token")
+        .args_json((test_token.id(),))
+        .deposit(NearToken::from_yoctonear(1))
+        .max_gas()
+        .transact()
+        .await?;
+    assert!(
+        !withdraw_res.receipt_failures().is_empty(),
+        "withdraw ft_transfer should fail because player_a is unregistered"
+    );
+
+    let internal_balance_a =
+        view::get_token_amount(&contract, player_a.id(), test_token.id()).await?;
+    assert_eq!(
+        internal_balance_a.0,
+        2 * wager_amount,
+        "H-3: internal balance must be restored when withdraw ft_transfer fails"
+    );
+
+    let contract_balance = view::ft_balance_of(&test_token, contract.id()).await?;
+    assert_eq!(
+        contract_balance.0,
+        2 * wager_amount,
+        "contract should still hold the tokens"
+    );
 
     Ok(())
 }
