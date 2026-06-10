@@ -155,7 +155,8 @@ impl Chess {
 
         let is_human_game = game.get_black().is_human();
 
-        if is_human_game {
+        let elo_eligible = !resigned || move_count >= 5;
+        if is_human_game && elo_eligible {
             self.internal_calculate_elo(&game, outcome);
         }
 

@@ -455,9 +455,9 @@ async fn test_resign() -> anyhow::Result<()> {
     let game_ids = view::get_game_ids(&contract, player_b.id()).await?;
     assert!(game_ids.is_empty());
     let account = view::get_account(&contract, player_a.id()).await?;
-    assert_eq!(account.elo.unwrap(), 984.);
+    assert_eq!(account.elo.unwrap(), 1000.);
     let account = view::get_account(&contract, player_b.id()).await?;
-    assert_eq!(account.elo.unwrap(), 1016.);
+    assert_eq!(account.elo.unwrap(), 1000.);
 
     Ok(())
 }
