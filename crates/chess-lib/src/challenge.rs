@@ -70,7 +70,7 @@ impl Challenge {
     }
 
     pub fn check_reject(&self, is_challenger: bool) -> Result<Wager, ContractError> {
-        let sender_id = env::signer_account_id();
+        let sender_id = env::predecessor_account_id();
         if is_challenger && sender_id != self.challenger {
             return Err(ContractError::WrongChallengerId);
         } else if !is_challenger && sender_id != self.challenged {

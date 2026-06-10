@@ -151,9 +151,8 @@ impl Chess {
     }
 
     fn assert_owner(&self) {
-        let signer = env::signer_account_id();
         require!(
-            signer == self.owner_id || signer == env::current_account_id(),
+            env::predecessor_account_id() == self.owner_id,
             "Only the owner can call this method"
         );
     }
@@ -168,7 +167,7 @@ impl Chess {
     pub fn set_is_agent(&mut self, is_agent: bool) -> Result<(), ContractError> {
         require!(self.is_running, "Contract is paused");
         assert_one_yocto();
-        let account_id = env::signer_account_id();
+        let account_id = env::predecessor_account_id();
         let account = self
             .accounts
             .get_mut(&account_id)
@@ -244,7 +243,7 @@ impl Chess {
     #[handle_result]
     pub fn create_ai_game(&mut self, difficulty: Difficulty) -> Result<GameId, ContractError> {
         require!(self.is_running, "Contract is paused");
-        let account_id = env::signer_account_id();
+        let account_id = env::predecessor_account_id();
         let account = self
             .accounts
             .get_mut(&account_id)
@@ -279,7 +278,7 @@ impl Chess {
     #[handle_result]
     pub fn challenge(&mut self, challenged_id: AccountId) -> Result<(), ContractError> {
         require!(self.is_running, "Contract is paused");
-        let challenger_id = env::signer_account_id();
+        let challenger_id = env::predecessor_account_id();
         if challenger_id == challenged_id {
             return Err(ContractError::SelfChallenge);
         }
@@ -293,7 +292,7 @@ impl Chess {
     #[handle_result]
     pub fn accept_challenge(&mut self, challenge_id: ChallengeId) -> Result<GameId, ContractError> {
         require!(self.is_running, "Contract is paused");
-        let challenged_id = env::signer_account_id();
+        let challenged_id = env::predecessor_account_id();
         Ok(self
             .internal_accept_challenge(challenged_id, challenge_id, None)?
             .0)
@@ -372,7 +371,7 @@ impl Chess {
 
     #[handle_result]
     pub fn claim_points(&mut self) -> Result<U128, ContractError> {
-        let account_id = env::signer_account_id();
+        let account_id = env::predecessor_account_id();
         let account = self
             .accounts
             .get_mut(&account_id)
@@ -390,7 +389,7 @@ impl Chess {
         mv: MoveStr,
     ) -> Result<(Option<GameOutcome>, [String; 8]), ContractError> {
         require!(self.is_running, "Contract is paused");
-        let account_id = env::signer_account_id();
+        let account_id = env::predecessor_account_id();
 
         let mv = Move::parse(mv).map_err(ContractError::MoveParse)?;
         let game = self
@@ -428,7 +427,7 @@ impl Chess {
     #[handle_result]
     pub fn resign(&mut self, game_id: GameId) -> Result<GameOutcome, ContractError> {
         require!(self.is_running, "Contract is paused");
-        let account_id = env::signer_account_id();
+        let account_id = env::predecessor_account_id();
         let game = self
             .games
             .get_mut(&game_id)
@@ -467,7 +466,7 @@ impl Chess {
     #[handle_result]
     pub fn cancel(&mut self, game_id: GameId) -> Result<PromiseOrValue<()>, ContractError> {
         require!(self.is_running, "Contract is paused");
-        let account_id = env::signer_account_id();
+        let account_id = env::predecessor_account_id();
         let game = self
             .games
             .get_mut(&game_id)
@@ -617,7 +616,7 @@ impl Chess {
         token_id: AccountId,
     ) -> Result<(), ContractError> {
         require!(self.is_running, "Contract is paused");
-        let sender_id = env::signer_account_id();
+        let sender_id = env::predecessor_account_id();
         let bet_id = BetId::new(players.clone())?;
 
         let (should_remove, bet_amount) = {
@@ -676,7 +675,7 @@ impl Chess {
         require!(self.is_running, "Contract is paused");
         assert_one_yocto();
 
-        let signer_id = env::signer_account_id();
+        let signer_id = env::predecessor_account_id();
         let account = self.internal_get_account_mut(&signer_id)?;
         let amount = account.withdraw_token(&token_id);
 
