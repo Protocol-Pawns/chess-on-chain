@@ -33,8 +33,8 @@
         <h3 class="text-sm font-semibold mb-1">Push Notifications</h3>
         {#if $pushEnabled}
           <p class="text-xs text-white/60 mb-2">
-            You'll be notified when it's your turn, when a challenge arrives, or
-            when a game ends.
+            You'll be notified when it's your turn, when a challenge arrives,
+            when a game ends, or when a quest is ready.
           </p>
           <button
             class="btn-secondary text-xs"
@@ -51,6 +51,7 @@
             <li>It's your turn in a game</li>
             <li>Someone challenges you</li>
             <li>A game finishes</li>
+            <li>A quest comes off cooldown</li>
           </ul>
           <button
             class="btn-primary text-xs"

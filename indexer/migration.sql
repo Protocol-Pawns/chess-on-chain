@@ -110,4 +110,14 @@ CREATE TABLE IF NOT EXISTS push_subscriptions (
 
 CREATE INDEX IF NOT EXISTS idx_push_subs_account ON push_subscriptions (account_id);
 
+CREATE TABLE IF NOT EXISTS quest_cooldowns (
+  account_id TEXT NOT NULL,
+  quest TEXT NOT NULL,
+  expires_at BIGINT NOT NULL,
+  notified BOOLEAN NOT NULL DEFAULT FALSE,
+  PRIMARY KEY (account_id, quest)
+);
+
+CREATE INDEX IF NOT EXISTS idx_quest_cooldowns_expires ON quest_cooldowns (expires_at) WHERE NOT notified;
+
 COMMIT;

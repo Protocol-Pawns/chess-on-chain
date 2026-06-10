@@ -11,6 +11,22 @@ interface Notification {
   };
 }
 
+const QUEST_COOLDOWNS_MS: Record<string, number> = {
+  DailyPlayMove: 1_000 * 60 * 60 * 24 - 1_000 * 60 * 60 * 8,
+  DailyGame: 1_000 * 60 * 60 * 24 - 1_000 * 60 * 60 * 8,
+  WeeklyWin: 1_000 * 60 * 60 * 24 * 7 - 1_000 * 60 * 60 * 8,
+  WeeklyBettor: 1_000 * 60 * 60 * 24 * 7 - 1_000 * 60 * 60 * 8,
+  WeeklyChallenger: 1_000 * 60 * 60 * 24 * 7 - 1_000 * 60 * 60 * 8
+};
+
+const QUEST_LABELS: Record<string, string> = {
+  DailyPlayMove: 'Play a Move',
+  DailyGame: 'Complete a Game',
+  WeeklyWin: 'Win vs Human',
+  WeeklyBettor: 'Place a Bet',
+  WeeklyChallenger: 'Challenge a Player'
+};
+
 interface GameLookup {
   white_value: string;
   black_value: string | null;
@@ -243,7 +259,7 @@ export async function processNotifications(
   const challenges = new Map<string, ChallengeLookup>();
   if (challengeIds.length > 0) {
     const rows = (await db`
-      SELECT challenge_id, challenger, challenged FROM challenges WHERE challenge_id = ANY(${challengeIds}) AND status = 'pending'
+      SELECT challenge_id, challenger, challenged FROM challenges WHERE challenge_id = ANY(${challengeIds})
     `) as Array<{
       challenge_id: string;
       challenger: string;
@@ -322,4 +338,150 @@ export async function processNotifications(
   }
 
   return events.length;
+}
+
+async function fetchQuestCooldowns(
+  rpcUrl: string,
+  contractId: string,
+  accountId: string
+): Promise<Array<[number, string]>> {
+  const args = btoa(JSON.stringify({ account_id: accountId }));
+  const res = await fetch(rpcUrl, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      jsonrpc: '2.0',
+      id: 1,
+      method: 'query',
+      params: {
+        request_type: 'call_function',
+        account_id: contractId,
+        method_name: 'get_quest_cooldowns',
+        args_base64: args,
+        finality: 'final'
+      }
+    })
+  });
+
+  const json = await res.json<{
+    result?: { result: number[] };
+    error?: { message: string };
+  }>();
+
+  if (json.error) {
+    console.error(
+      `RPC error fetching quest cooldowns for ${accountId}: ${json.error.message}`
+    );
+    return [];
+  }
+
+  const resultBytes = json.result?.result;
+  if (!resultBytes || resultBytes.length === 0) return [];
+
+  const decoded = new TextDecoder().decode(new Uint8Array(resultBytes));
+  return JSON.parse(decoded);
+}
+
+export async function processQuestCooldownNotifications(
+  db: Db,
+  vapidPrivateKey: CryptoKey,
+  vapidPublicKeyB64: string,
+  vapidSubject: string,
+  rpcUrl: string,
+  contractId: string
+): Promise<number> {
+  const activeSubs = (await db`
+    SELECT DISTINCT account_id FROM push_subscriptions
+  `) as Array<{ account_id: string }>;
+
+  if (activeSubs.length === 0) return 0;
+
+  const nowMs = Date.now();
+
+  for (const { account_id } of activeSubs) {
+    try {
+      const cooldowns = await fetchQuestCooldowns(rpcUrl, contractId, account_id);
+
+      if (cooldowns.length === 0) {
+        await db`DELETE FROM quest_cooldowns WHERE account_id = ${account_id}`;
+        continue;
+      }
+
+      for (const [triggeredAt, quest] of cooldowns) {
+        const duration = QUEST_COOLDOWNS_MS[quest];
+        if (!duration) continue;
+        const expiresAt = triggeredAt + duration;
+
+        await db`
+          INSERT INTO quest_cooldowns (account_id, quest, expires_at, notified)
+          VALUES (${account_id}, ${quest}, ${expiresAt}, false)
+          ON CONFLICT (account_id, quest) DO UPDATE SET
+            expires_at = ${expiresAt},
+            notified = CASE WHEN quest_cooldowns.expires_at = ${expiresAt} THEN quest_cooldowns.notified ELSE false END
+        `;
+      }
+    } catch (err) {
+      console.error(`Error fetching cooldowns for ${account_id}:`, err);
+    }
+  }
+
+  const expired = (await db`
+    SELECT account_id, quest FROM quest_cooldowns
+    WHERE expires_at < ${nowMs} AND notified = false
+  `) as Array<{ account_id: string; quest: string }>;
+
+  if (expired.length === 0) return 0;
+
+  const accountIds = [...new Set(expired.map(e => e.account_id))];
+
+  const subs = (await db`
+    SELECT account_id, endpoint, p256dh, auth FROM push_subscriptions
+    WHERE account_id = ANY(${accountIds})
+  `) as Array<{
+    account_id: string;
+    endpoint: string;
+    p256dh: string;
+    auth: string;
+  }>;
+
+  const subsByAccount = new Map<string, PushSubscriptionRow[]>();
+  for (const s of subs) {
+    const list = subsByAccount.get(s.account_id) || [];
+    list.push({ endpoint: s.endpoint, p256dh: s.p256dh, auth: s.auth });
+    subsByAccount.set(s.account_id, list);
+  }
+
+  const expiredEndpoints: string[] = [];
+
+  for (const { account_id, quest } of expired) {
+    const accountSubs = subsByAccount.get(account_id) || [];
+    const label = QUEST_LABELS[quest] ?? quest;
+    const payload = {
+      type: 'quest_ready',
+      title: 'Quest Ready!',
+      body: `Your ${label} quest is ready to complete again`,
+      data: { quest }
+    };
+
+    for (const sub of accountSubs) {
+      const result = await sendPush(
+        sub,
+        payload,
+        vapidPrivateKey,
+        vapidPublicKeyB64,
+        vapidSubject
+      );
+      if (result.subscriptionExpired) {
+        expiredEndpoints.push(sub.endpoint);
+      }
+    }
+  }
+
+  await db`UPDATE quest_cooldowns SET notified = true WHERE expires_at < ${nowMs} AND notified = false`;
+
+  if (expiredEndpoints.length > 0) {
+    await db`DELETE FROM push_subscriptions WHERE endpoint = ANY(${expiredEndpoints})`;
+  }
+
+  return expired.length;
 }

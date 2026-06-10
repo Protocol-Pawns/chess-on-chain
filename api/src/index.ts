@@ -31,7 +31,10 @@ import {
   getPppRankingPage,
   fetchAndCacheLeaderboard
 } from './leaderboard';
-import { processNotifications } from './notify';
+import {
+  processNotifications,
+  processQuestCooldownNotifications
+} from './notify';
 import { importVapidKey } from './push';
 import {
   getAccountRoute,
@@ -322,6 +325,26 @@ export default {
           console.log(`Processed ${processed} notifications`);
         } catch (err) {
           console.error('Notification cron error:', err);
+        }
+      })()
+    );
+
+    promises.push(
+      (async () => {
+        try {
+          const db = initDb(env);
+          const vapidPrivateKey = await importVapidKey(env.VAPID_PRIVATE_KEY);
+          const processed = await processQuestCooldownNotifications(
+            db,
+            vapidPrivateKey,
+            env.VAPID_PUBLIC_KEY,
+            env.VAPID_SUBJECT,
+            env.RPC_URL,
+            env.CONTRACT_ID
+          );
+          console.log(`Processed ${processed} quest cooldown notifications`);
+        } catch (err) {
+          console.error('Quest cooldown notification cron error:', err);
         }
       })()
     );
