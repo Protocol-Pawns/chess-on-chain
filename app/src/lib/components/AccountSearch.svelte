@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { onMount } from 'svelte';
   import { api, type AccountSearchResult } from '$lib/api/client';
 
   let {
@@ -12,10 +13,15 @@
   let open = $state(false);
   let loading = $state(false);
   let focusedIndex = $state(-1);
-  let inputValue = $state('');
+  let inputValue = $state(value || '');
   let blurTimer: ReturnType<typeof setTimeout> | undefined = undefined;
 
   let debounceTimer: ReturnType<typeof setTimeout> | undefined = undefined;
+  let currentQuery = $state('');
+
+  onMount(() => {
+    inputValue = value || '';
+  });
 
   function handleInput() {
     const q = inputValue.trim();
@@ -23,26 +29,34 @@
 
     if (debounceTimer) clearTimeout(debounceTimer);
 
-    if (q.length < 1) {
+    if (q.length < 2) {
       results = [];
       open = false;
+      loading = false;
       return;
     }
 
     loading = true;
     debounceTimer = setTimeout(async () => {
       try {
+        currentQuery = q;
         const r = await api.searchAccounts(q);
-        results = r;
-        open = r.length > 0;
-        focusedIndex = -1;
+        if (currentQuery === q) {
+          results = r.sort((a, b) => (b.elo ?? 0) - (a.elo ?? 0));
+          open = r.length > 0;
+          focusedIndex = -1;
+        }
       } catch {
-        results = [];
-        open = false;
+        if (currentQuery === q) {
+          results = [];
+          open = false;
+        }
       } finally {
-        loading = false;
+        if (currentQuery === q) {
+          loading = false;
+        }
       }
-    }, 200);
+    }, 500);
   }
 
   function select(accountId: string) {
@@ -74,7 +88,7 @@
   function handleBlur() {
     blurTimer = setTimeout(() => {
       open = false;
-    }, 150);
+    }, 200);
   }
 
   function handleFocus() {
@@ -113,7 +127,7 @@
     autocomplete="off"
   />
 
-  {#if open}
+  {#if open || (loading && inputValue.trim().length >= 2)}
     <div
       class="absolute z-50 left-0 right-0 mt-1 bg-[#1a1a2e] border border-white/15 rounded shadow-lg overflow-hidden"
       onmouseenter={() => {
@@ -122,36 +136,40 @@
       onmouseleave={() => {
         blurTimer = setTimeout(() => {
           open = false;
-        }, 150);
+        }, 200);
       }}
     >
-      {#each results as result, i}
-        <button
-          type="button"
-          class="w-full flex items-center gap-3 px-3 py-2 text-left text-sm transition-colors {i ===
-          focusedIndex
-            ? 'bg-primary/20 border border-primary/30'
-            : 'hover:bg-white/5 border border-transparent'}"
-          onmousedown={() => select(result.account_id)}
-          onmouseenter={() => (focusedIndex = i)}
-        >
-          <span class="flex-1 min-w-0 truncate font-mono">
-            {#each matchParts(result.account_id) as part}
-              {#if part.highlight}
-                <span class="text-primary font-semibold">{part.text}</span>
-              {:else}
-                {part.text}
-              {/if}
-            {/each}
-          </span>
-          <span class="text-xs text-white/40 tabular-nums whitespace-nowrap">
-            {result.elo != null ? `${result.elo} ELO` : '—'}
-          </span>
-          <span class="text-xs text-white/30 tabular-nums whitespace-nowrap">
-            {result.wins}W {result.losses}L {result.draws}D
-          </span>
-        </button>
-      {/each}
+      {#if loading && results.length === 0}
+        <div class="px-3 py-2 text-xs text-white/40">Searching...</div>
+      {:else}
+        {#each results as result, i}
+          <button
+            type="button"
+            class="w-full flex items-center gap-3 px-3 py-2 text-left text-sm transition-colors {i ===
+            focusedIndex
+              ? 'bg-primary/20 border border-primary/30'
+              : 'hover:bg-white/5 border border-transparent'}"
+            onmousedown={() => select(result.account_id)}
+            onmouseenter={() => (focusedIndex = i)}
+          >
+            <span class="flex-1 min-w-0 truncate font-mono">
+              {#each matchParts(result.account_id) as part}
+                {#if part.highlight}
+                  <span class="text-primary font-semibold">{part.text}</span>
+                {:else}
+                  {part.text}
+                {/if}
+              {/each}
+            </span>
+            <span class="text-xs text-white/40 tabular-nums whitespace-nowrap">
+              {result.elo != null ? `${result.elo} ELO` : '—'}
+            </span>
+            <span class="text-xs text-white/30 tabular-nums whitespace-nowrap">
+              {result.wins}W {result.losses}L {result.draws}D
+            </span>
+          </button>
+        {/each}
+      {/if}
     </div>
   {/if}
 </div>

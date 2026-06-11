@@ -430,7 +430,7 @@ export async function searchAccounts(
   db: Db,
   query: string
 ): Promise<AccountStats[]> {
-  const pattern = query.toLowerCase() + '%';
+  const pattern = '%' + query.toLowerCase() + '%';
   const rows = await db`
     SELECT DISTINCT account_id FROM (
       SELECT white_value AS account_id FROM games WHERE LOWER(white_value) LIKE ${pattern}
