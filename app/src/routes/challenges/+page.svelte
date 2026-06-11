@@ -380,6 +380,7 @@
   </div>
 {:else}
   <div class="space-y-6">
+    <h2 class="text-xl font-bold text-primary text-center">Challenges</h2>
     <section class="card space-y-3">
       <h2 class="text-base font-semibold">Challenge a Player</h2>
       <div class="flex gap-2">

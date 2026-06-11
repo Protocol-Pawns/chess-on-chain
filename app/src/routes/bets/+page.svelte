@@ -11,6 +11,7 @@
   import TokenInput from '$lib/components/TokenInput.svelte';
   import AccountSearch from '$lib/components/AccountSearch.svelte';
   import Pagination from '$lib/components/Pagination.svelte';
+  import ConfirmModal from '$lib/components/ConfirmModal.svelte';
 
   const PER_PAGE = 10;
 
@@ -28,6 +29,7 @@
   let newBetInsufficientBalance = $state(false);
   let newBetSubmitting = $state(false);
   let newBetError = $state('');
+  let showBetConfirm = $state(false);
 
   let globalBets = $state<Bet[]>([]);
   let globalBetsLoading = $state(false);
@@ -96,7 +98,7 @@
     } catch {}
   }
 
-  function submitNewBet() {
+  function requestBet() {
     if (!$accountStore) return;
     newBetError = '';
     const p0 = newBetPlayer0.trim();
@@ -129,28 +131,37 @@
       newBetError = 'Insufficient balance';
       return;
     }
+    showBetConfirm = true;
+  }
+
+  function doPlaceBet() {
+    if (!$accountStore) return;
+    showBetConfirm = false;
+    const p0 = newBetPlayer0.trim();
+    const p1 = newBetPlayer1.trim();
     const players: [string, string] = [p0, p1].sort() as [string, string];
     newBetSubmitting = true;
-    showTxToast(
-      contract
-        .placeBet(newBetToken, players, newBetWinner, newBetRawAmount)
-        .then(() => {
-          newBetPlayer0 = '';
-          newBetPlayer1 = '';
-          newBetWinner = '';
-          newBetAmount = '';
-          newBetRawAmount = '';
-          newBetError = '';
-          setTimeout(() => loadGlobalBets(true), 4000);
-        })
-        .catch((e: unknown) => {
-          const msg = e instanceof Error ? e.message : String(e);
-          newBetError = msg;
-        })
-        .finally(() => {
-          newBetSubmitting = false;
-        })
+    const promise = contract.placeBet(
+      newBetToken,
+      players,
+      newBetWinner,
+      newBetRawAmount
     );
+    showTxToast(promise);
+    promise
+      .then(() => {
+        newBetPlayer0 = '';
+        newBetPlayer1 = '';
+        newBetWinner = '';
+        newBetAmount = '';
+        newBetRawAmount = '';
+        newBetError = '';
+        setTimeout(() => loadGlobalBets(true), 4000);
+      })
+      .catch(() => {})
+      .finally(() => {
+        newBetSubmitting = false;
+      });
   }
 
   async function loadStats() {
@@ -274,6 +285,7 @@
   </div>
 {:else}
   <div class="space-y-4">
+    <h2 class="text-xl font-bold text-primary text-center">Bets</h2>
     <div class="flex gap-2 justify-center">
       <button
         class="btn text-xs"
@@ -349,7 +361,7 @@
               !newBetRawAmount ||
               !newBetToken ||
               newBetInsufficientBalance}
-            onclick={submitNewBet}
+            onclick={requestBet}
           >
             {newBetSubmitting ? 'Placing...' : 'Place Bet'}
           </button>
@@ -589,3 +601,15 @@
     {/if}
   </div>
 {/if}
+
+<ConfirmModal
+  open={showBetConfirm}
+  title="Place Bet?"
+  message="Bet {newBetAmount} {newBetTokenSymbol} on {shortId(
+    newBetWinner
+  )} to win?"
+  confirmLabel="Place Bet"
+  confirmClass="btn-primary text-sm"
+  onconfirm={doPlaceBet}
+  onclose={() => (showBetConfirm = false)}
+/>
