@@ -133,10 +133,15 @@ export async function register() {
 }
 
 export async function enablePush() {
-  if (!('serviceWorker' in navigator)) return false;
+  const { registerPushNotifications, PushError } =
+    await import('$lib/push/register');
+  if (!('serviceWorker' in navigator))
+    throw new PushError(
+      'unsupported',
+      'Your browser does not support push notifications.'
+    );
   await navigator.serviceWorker.register('/sw.js');
   await navigator.serviceWorker.ready;
-  const { registerPushNotifications } = await import('$lib/push/register');
   const accountId = await new Promise<string>(resolve => {
     const unsub = accountStore.subscribe(v => {
       if (v) {

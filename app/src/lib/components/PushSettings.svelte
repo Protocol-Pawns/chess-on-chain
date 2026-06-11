@@ -5,7 +5,8 @@
     disablePush,
     isLoggedIn
   } from '$lib/near/account';
-  import { showTxToast } from '$lib/toast';
+  import { showToast } from '$lib/toast';
+  import { PushError } from '$lib/push/register';
 
   let loading = $state(false);
 
@@ -19,6 +20,39 @@
       }
     } catch (e) {
       console.error('Push toggle failed:', e);
+      if (e instanceof PushError) {
+        switch (e.code) {
+          case 'denied':
+            showToast(
+              'error',
+              'Notifications blocked',
+              'Enable them in your browser site settings (lock icon → Notifications → Allow).'
+            );
+            break;
+          case 'unsupported':
+            showToast(
+              'error',
+              'Unsupported',
+              'Your browser does not support push notifications.'
+            );
+            break;
+          case 'api':
+            showToast(
+              'error',
+              'Connection error',
+              "Couldn't reach the notification service. Try again."
+            );
+            break;
+          default:
+            showToast('error', 'Failed to enable notifications', e.message);
+        }
+      } else {
+        showToast(
+          'error',
+          'Failed to enable notifications',
+          e instanceof Error ? e.message : String(e)
+        );
+      }
     } finally {
       loading = false;
     }
