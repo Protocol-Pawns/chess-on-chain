@@ -146,6 +146,11 @@ export const AccountStatsSchema = z.object({
 });
 export type AccountStats = z.infer<typeof AccountStatsSchema>;
 
+export const AccountSearchResultSchema = AccountStatsSchema.extend({
+  elo: z.number().nullable()
+});
+export type AccountSearchResult = z.infer<typeof AccountSearchResultSchema>;
+
 export const GlobalStatsSchema = z.object({
   total_games: z.number(),
   active_games: z.number(),

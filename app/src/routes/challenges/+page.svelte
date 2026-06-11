@@ -7,9 +7,11 @@
   import { gameUrl, MAX_OPEN_GAMES } from '$lib/game';
   import type { GameId } from '$lib/game';
   import WagerInput from '$lib/components/WagerInput.svelte';
+  import AccountSearch from '$lib/components/AccountSearch.svelte';
   import ChallengeCard from '$lib/components/ChallengeCard.svelte';
   import ConfirmModal from '$lib/components/ConfirmModal.svelte';
   import Pagination from '$lib/components/Pagination.svelte';
+  import { getTokenPrice, estimateUsd } from '$lib/prices';
 
   const MAX_OPEN_CHALLENGES = 25;
   const PER_PAGE = 25;
@@ -23,7 +25,10 @@
   let challengeTarget = $state('');
   let wagerEnabled = $state(false);
   let wagerToken = $state('');
+  let wagerTokenSymbol = $state('');
   let wagerAmount = $state('');
+  let wagerRawAmount = $state('');
+  let wagerInsufficientBalance = $state(false);
   let gameCount = $state(0);
   let ownChallengeCount = $state(0);
   let targetChallengeCount = $state<number | null>(null);
@@ -33,6 +38,17 @@
   let rejectTarget = $state<Challenge | null>(null);
   let cancelTarget = $state<Challenge | null>(null);
   let showSendConfirm = $state(false);
+  let wagerUsd = $state<string | undefined>(undefined);
+
+  $effect(() => {
+    if (wagerEnabled && wagerToken && wagerAmount) {
+      getTokenPrice(wagerToken, wagerTokenSymbol).then(p => {
+        wagerUsd = estimateUsd(wagerAmount, p);
+      });
+    } else {
+      wagerUsd = undefined;
+    }
+  });
 
   async function load() {
     if (!$accountStore) return;
@@ -114,15 +130,16 @@
     const target = challengeTarget.trim();
     const needsRegistration = targetRegistered === false;
     const savedWagerToken = wagerEnabled ? wagerToken : null;
-    const savedWagerAmount = wagerEnabled && wagerAmount ? wagerAmount : null;
+    const savedWagerAmount =
+      wagerEnabled && wagerRawAmount ? wagerRawAmount : null;
     challengeTarget = '';
     targetChallengeCount = null;
     targetRegistered = null;
     let promise;
     if (needsRegistration) {
       promise = contract.challengeWithRegistration(target);
-    } else if (wagerEnabled && wagerToken && wagerAmount) {
-      promise = contract.challengeWithWager(wagerToken, target, wagerAmount);
+    } else if (wagerEnabled && wagerToken && wagerRawAmount) {
+      promise = contract.challengeWithWager(wagerToken, target, wagerRawAmount);
     } else {
       promise = contract.challenge(target);
     }
@@ -217,9 +234,15 @@
     }).catch(() => {});
   }
 
+  let selfChallenge = $derived(
+    challengeTarget.trim().toLowerCase() === $accountStore?.toLowerCase()
+  );
+
   let sendDisabled = $derived(
     !challengeTarget.trim() ||
-      (wagerEnabled && (!wagerAmount || !wagerToken)) ||
+      selfChallenge ||
+      (wagerEnabled && (!wagerRawAmount || !wagerToken)) ||
+      (wagerEnabled && wagerInsufficientBalance) ||
       gameCount >= MAX_OPEN_GAMES ||
       ownChallengeCount >= MAX_OPEN_CHALLENGES ||
       (targetChallengeCount !== null &&
@@ -227,6 +250,7 @@
   );
 
   let sendDisabledReason = $derived.by(() => {
+    if (selfChallenge) return 'Cannot challenge yourself';
     if (gameCount >= MAX_OPEN_GAMES) return 'Max games reached';
     if (ownChallengeCount >= MAX_OPEN_CHALLENGES)
       return 'Max challenges reached';
@@ -236,6 +260,11 @@
     )
       return 'Target has max challenges';
     return '';
+  });
+
+  $effect(() => {
+    challengeTarget;
+    checkTargetLimit(challengeTarget);
   });
 
   $effect(() => {
@@ -284,16 +313,9 @@
     <section class="card space-y-3">
       <h2 class="text-base font-semibold">Challenge a Player</h2>
       <div class="flex gap-2">
-        <input
-          type="text"
-          bind:value={challengeTarget}
-          placeholder="wallet.near"
-          class="flex-1 bg-transparent border border-white/15 rounded px-2 py-1.5 text-sm focus:outline-none focus:border-primary"
-          oninput={() => checkTargetLimit(challengeTarget)}
-          onkeydown={(e: KeyboardEvent) => {
-            if (e.key === 'Enter') sendChallenge();
-          }}
-        />
+        <div class="flex-1">
+          <AccountSearch bind:value={challengeTarget} onenter={sendChallenge} />
+        </div>
         <button
           class="btn-primary text-sm"
           onclick={sendChallenge}
@@ -316,7 +338,10 @@
       <WagerInput
         bind:enabled={wagerEnabled}
         bind:tokenId={wagerToken}
+        bind:tokenSymbol={wagerTokenSymbol}
         bind:amount={wagerAmount}
+        bind:rawAmount={wagerRawAmount}
+        bind:insufficientBalance={wagerInsufficientBalance}
       />
     </section>
 
@@ -405,7 +430,7 @@
       ? ' This player is not yet registered. An additional 0.05 N will be charged to register them.'
       : '') +
     (wagerEnabled && wagerToken && wagerAmount
-      ? ` This includes a wager of ${wagerAmount}.`
+      ? ` This includes a wager of ${wagerAmount} ${wagerTokenSymbol}${wagerUsd ? ` (${wagerUsd})` : ''}.`
       : '')}
   confirmLabel="Send"
   confirmClass="btn-primary text-sm"

@@ -1,12 +1,14 @@
 import type { GameOverview } from '$lib/api/client';
+import type { GameId, Player, Color } from '$lib/near/contract-types';
 
 export const MAX_OPEN_GAMES = 5;
 
-export type GameId = [number, string, string | null];
+export type { GameId };
 
-export function normalizePlayer(
-  p: { type: string; value: string | null } | null
-): { type: string; value: string | null } {
+export function normalizePlayer(p: Player | null): {
+  type: string;
+  value: string | null;
+} {
   if (!p) return { type: 'AI', value: null };
   if (p.type === 'Ai') return { type: 'AI', value: p.value };
   return p;
@@ -16,7 +18,7 @@ export function gameUrl(gameId: GameId): string {
   return `/game/${encodeURIComponent(JSON.stringify(gameId))}`;
 }
 
-export function boardToFen(board: string[], turnColor: string): string {
+export function boardToFen(board: string[], turnColor: Color): string {
   const rows: string[] = [];
   for (let i = 0; i < 8; i++) {
     let fenRow = '';
@@ -43,7 +45,7 @@ export function boardToFen(board: string[], turnColor: string): string {
 }
 
 export interface ContractGameData extends GameOverview {
-  turn_color: string;
+  turn_color: Color;
 }
 
 export async function loadGameFromContract(

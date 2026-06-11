@@ -449,6 +449,32 @@ export async function getAccountStatsBatch(
   }));
 }
 
+export async function searchAccounts(
+  db: Db,
+  query: string
+): Promise<AccountStats[]> {
+  const pattern = query.toLowerCase() + '%';
+  const rows = await db`
+    SELECT DISTINCT account_id FROM (
+      SELECT white_value AS account_id FROM games WHERE LOWER(white_value) LIKE ${pattern}
+      UNION
+      SELECT black_value AS account_id FROM games WHERE LOWER(black_value) LIKE ${pattern}
+      UNION
+      SELECT challenger AS account_id FROM challenges WHERE LOWER(challenger) LIKE ${pattern}
+      UNION
+      SELECT challenged AS account_id FROM challenges WHERE LOWER(challenged) LIKE ${pattern}
+      UNION
+      SELECT account_id FROM account_finished_games WHERE LOWER(account_id) LIKE ${pattern}
+    ) matching
+    LIMIT 20
+  `;
+  const accountIds = rows.map(
+    r => (r as unknown as { account_id: string }).account_id
+  );
+  if (accountIds.length === 0) return [];
+  return getAccountStatsBatch(db, accountIds);
+}
+
 export async function getChallenges(
   db: Db,
   accountId: string,

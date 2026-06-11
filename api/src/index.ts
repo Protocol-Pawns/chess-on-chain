@@ -23,10 +23,12 @@ import {
   getInfo,
   getOpenChallenges,
   queryGames,
-  removePushSubscription
+  removePushSubscription,
+  searchAccounts
 } from './db';
 import type { Db } from './db';
 import {
+  fetchEloRatingsByIds,
   getEloRankingPage,
   getPppRankingPage,
   fetchAndCacheLeaderboard
@@ -57,6 +59,7 @@ import {
   getOpenChallengesRoute,
   getVapidPublicKeyRoute,
   queryGamesRoute,
+  searchAccountsRoute,
   subscribePushRoute,
   unsubscribePushRoute
 } from './routes';
@@ -238,6 +241,24 @@ app.openapi(unsubscribePushRoute, async c => {
   const db = c.get('DB');
   const ok = await removePushSubscription(db, accountId, endpoint);
   return c.json({ ok }, 200);
+});
+
+app.openapi(searchAccountsRoute, async c => {
+  const { query } = c.req.valid('json');
+  const db = c.get('DB');
+  const stats = await searchAccounts(db, query);
+  const accountIds = stats.map(s => s.account_id);
+  const eloPairs = await fetchEloRatingsByIds(
+    c.env.RPC_URL,
+    c.env.CONTRACT_ID,
+    accountIds
+  );
+  const eloMap = new Map<string, number>(eloPairs);
+  const results = stats.map(s => ({
+    ...s,
+    elo: eloMap.get(s.account_id) ?? null
+  }));
+  return c.json(results, 200);
 });
 
 app.openapi(getBetsRoute, async c => {

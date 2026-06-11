@@ -3,6 +3,7 @@ import { z } from 'zod';
 
 import {
   AccountSchema,
+  AccountSearchResultSchema,
   AccountStatsSchema,
   BetLeaderboardEntrySchema,
   BetSchema,
@@ -187,6 +188,29 @@ export const batchAccountStatsRoute = createRoute({
     200: {
       content: { 'application/json': { schema: AccountStatsSchema.array() } },
       description: 'Returns win/loss/draw statistics for multiple accounts'
+    }
+  }
+});
+
+export const searchAccountsRoute = createRoute({
+  method: 'post',
+  path: '/account/query',
+  request: {
+    body: {
+      content: {
+        'application/json': {
+          schema: z.object({ query: z.string().min(1).max(64) })
+        }
+      }
+    }
+  },
+  responses: {
+    200: {
+      content: {
+        'application/json': { schema: AccountSearchResultSchema.array() }
+      },
+      description:
+        'Returns accounts matching the query prefix with ELO and win/loss/draw stats'
     }
   }
 });

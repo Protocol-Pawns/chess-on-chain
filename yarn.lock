@@ -2010,6 +2010,15 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@tarnadas/fixed-number@npm:0.2.2":
+  version: 0.2.2
+  resolution: "@tarnadas/fixed-number@npm:0.2.2"
+  dependencies:
+    ts-pattern: "npm:^5.0.1"
+  checksum: 10c0/9d3502dea8e42d5e4239b2cea017e403114ddd11b046aced8bdddaa5e8aac6f056f94f41a4687cb88a333384d7654febf3fb9fe6be3dc869933552bc8a70cd57
+  languageName: node
+  linkType: hard
+
 "@tybys/wasm-util@npm:^0.10.1":
   version: 0.10.2
   resolution: "@tybys/wasm-util@npm:0.10.2"
@@ -2858,6 +2867,7 @@ __metadata:
     "@sveltejs/adapter-cloudflare": "npm:^7.2.8"
     "@sveltejs/kit": "npm:^2.57.0"
     "@sveltejs/vite-plugin-svelte": "npm:^7.0.0"
+    "@tarnadas/fixed-number": "npm:0.2.2"
     "@types/node": "npm:^25.9.1"
     "@unocss/postcss": "npm:^66.7.0"
     "@unocss/reset": "npm:^66.7.0"
@@ -6757,6 +6767,13 @@ __metadata:
   version: 0.1.13
   resolution: "ts-interface-checker@npm:0.1.13"
   checksum: 10c0/232509f1b84192d07b81d1e9b9677088e590ac1303436da1e92b296e9be8e31ea042e3e1fd3d29b1742ad2c959e95afe30f63117b8f1bc3a3850070a5142fea7
+  languageName: node
+  linkType: hard
+
+"ts-pattern@npm:^5.0.1":
+  version: 5.9.0
+  resolution: "ts-pattern@npm:5.9.0"
+  checksum: 10c0/7640db25c39d29b287471b2b82d4f7b4674a02098c6ba4d10fed180adfb07d0e0c71930d9e59dc0d90654145e02fd320af63cf0df3c41e100d4154658a612a0a
   languageName: node
   linkType: hard
 

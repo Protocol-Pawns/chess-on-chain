@@ -1,3 +1,5 @@
+import { FixedNumber } from '@tarnadas/fixed-number';
+
 const decimals = new Intl.NumberFormat('en', {
   minimumFractionDigits: 0,
   maximumFractionDigits: 2
@@ -21,10 +23,13 @@ export function truncateAddr(id: string, max = 20): string {
   return `${id.slice(0, 8)}...${id.slice(-4)}`;
 }
 
+export function fmtToken(raw: string, dec: number): string {
+  if (!raw || raw === '0') return '0';
+  return new FixedNumber(raw, dec).format({
+    maximumFractionDigits: Math.min(dec, 6)
+  });
+}
+
 export function fmtPPP(raw: string): string {
-  const val = BigInt(raw);
-  const whole = val / BigInt(1000000);
-  const frac = val % BigInt(1000000);
-  const fractional = Number(frac) / 1e6;
-  return decimals.format(Number(whole) + fractional);
+  return fmtToken(raw, 6);
 }

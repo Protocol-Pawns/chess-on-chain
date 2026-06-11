@@ -1,10 +1,21 @@
 import { NearConnector } from '@hot-labs/near-connect';
 import { JsonRpcProvider, Account, KeyPairSigner, actions } from 'near-api-js';
 
+import type {
+  AccountInfo,
+  GameInfo,
+  QuestInfo,
+  AchievementInfo,
+  BetInfo,
+  GameId,
+  Difficulty
+} from '$lib/near/contract-types';
+
 const NETWORK = import.meta.env.VITE_NETWORK_ID || 'mainnet';
 const CONTRACT_ID = import.meta.env.VITE_CONTRACT_ID || 'app.chess-game.near';
 const RPC_URL = import.meta.env.VITE_RPC_URL || 'https://rpc.shitzuapes.xyz';
 const GAS = BigInt('30000000000000');
+const WRAP_NEAR_ID = NETWORK === 'testnet' ? 'wrap.testnet' : 'wrap.near';
 
 let connector: NearConnector | undefined;
 let provider: JsonRpcProvider;
@@ -40,6 +51,20 @@ export async function viewFunction<T = unknown>(
   const p = getProvider();
   const result = await p.callFunction({
     contractId: CONTRACT_ID,
+    method: methodName,
+    args
+  });
+  return result as T;
+}
+
+export async function viewTokenFunction<T = unknown>(
+  contractId: string,
+  methodName: string,
+  args: Record<string, unknown> = {}
+): Promise<T> {
+  const p = getProvider();
+  const result = await p.callFunction({
+    contractId,
     method: methodName,
     args
   });
@@ -172,6 +197,72 @@ async function sendTokenTransaction(
   });
 }
 
+export async function getNearNativeBalance(accountId: string): Promise<bigint> {
+  const p = getProvider();
+  const result = await p.query({
+    request_type: 'view_account',
+    account_id: accountId,
+    finality: 'optimistic'
+  });
+  return BigInt((result as unknown as { amount: string }).amount);
+}
+
+async function sendTokenTransactionWithAutoWrap(
+  tokenId: string,
+  methodName: string,
+  args: Record<string, unknown>,
+  deposit: string = '1'
+) {
+  if (tokenId !== WRAP_NEAR_ID) {
+    return sendTokenTransaction(tokenId, methodName, args, deposit);
+  }
+
+  const GAS_STR = '30000000000000';
+  const amount = args.amount as string;
+  const accountId = await getAccountId();
+
+  let wNearBalance = 0n;
+  if (accountId) {
+    try {
+      wNearBalance = BigInt(
+        await viewTokenFunction<string>(WRAP_NEAR_ID, 'ft_balance_of', {
+          account_id: accountId
+        })
+      );
+    } catch {
+      wNearBalance = 0n;
+    }
+  }
+
+  const needed = BigInt(amount);
+  if (wNearBalance >= needed) {
+    return sendTokenTransaction(tokenId, methodName, args, deposit);
+  }
+
+  const shortfall = needed - wNearBalance;
+
+  const c = getConnector();
+  const wallet = await c.wallet();
+  return wallet.signAndSendTransaction({
+    receiverId: WRAP_NEAR_ID,
+    actions: [
+      {
+        type: 'FunctionCall',
+        params: {
+          methodName: 'near_deposit',
+          args: {},
+          gas: GAS_STR,
+          deposit: shortfall.toString()
+        }
+      },
+      {
+        type: 'FunctionCall',
+        params: { methodName, args, gas: GAS_STR, deposit }
+      }
+    ]
+  });
+}
+
 export const contract = {
   storageDeposit() {
     return sendTransaction(
@@ -238,7 +329,7 @@ export const contract = {
     return tryLocalSign('claim_points', {}, '0');
   },
 
-  createAiGame(difficulty: 'Easy' | 'Medium' | 'Hard') {
+  createAiGame(difficulty: Difficulty) {
     return sendTransaction('create_ai_game', { difficulty });
   },
 
@@ -249,7 +340,7 @@ export const contract = {
     });
   },
 
-  getGameIds(accountId: string): Promise<[number, string, string | null][]> {
+  getGameIds(accountId: string): Promise<GameId[]> {
     return viewFunction('get_game_ids', { account_id: accountId });
   },
 
@@ -257,23 +348,11 @@ export const contract = {
     return viewFunction('get_board', { game_id: gameId });
   },
 
-  getGameInfo(gameId: unknown): Promise<{
-    white: { type: string; value: string };
-    black: { type: string; value: string | null };
-    turn_color: string;
-    last_block_height: number;
-    has_bets: boolean;
-  }> {
+  getGameInfo(gameId: unknown): Promise<GameInfo> {
     return viewFunction('game_info', { game_id: gameId });
   },
 
-  getAccount(accountId: string): Promise<{
-    near_amount: string;
-    is_agent: boolean;
-    points: string;
-    pending_points: string;
-    elo: number | null;
-  }> {
+  getAccount(accountId: string): Promise<AccountInfo> {
     return viewFunction('get_account', { account_id: accountId });
   },
 
@@ -285,14 +364,7 @@ export const contract = {
     return viewFunction('get_elo_ratings_by_ids', { account_ids: accountIds });
   },
 
-  getQuestList(): Promise<
-    Array<{
-      name: string;
-      points: string;
-      points_on_cd: string;
-      cooldown: number;
-    }>
-  > {
+  getQuestList(): Promise<QuestInfo[]> {
     return viewFunction('get_quest_list', {});
   },
 
@@ -300,12 +372,7 @@ export const contract = {
     return viewFunction('get_quest_cooldowns', { account_id: accountId });
   },
 
-  getAchievementList(): Promise<
-    Array<{
-      name: string;
-      points: string;
-    }>
-  > {
+  getAchievementList(): Promise<AchievementInfo[]> {
     return viewFunction('get_achievement_list', {});
   },
 
@@ -321,15 +388,12 @@ export const contract = {
     return viewFunction('get_tokens', { account_id: accountId });
   },
 
-  getBetInfo(players: [string, string]): Promise<{
-    is_locked: boolean;
-    bets: Record<string, Array<[string, { amount: string; winner: string }]>>;
-  }> {
+  getBetInfo(players: [string, string]): Promise<BetInfo> {
     return viewFunction('bet_info', { players });
   },
 
   challengeWithWager(tokenId: string, challenged: string, amount: string) {
-    return sendTokenTransaction(tokenId, 'ft_transfer_call', {
+    return sendTokenTransactionWithAutoWrap(tokenId, 'ft_transfer_call', {
       receiver_id: CONTRACT_ID,
       amount,
       msg: JSON.stringify({
@@ -343,7 +407,7 @@ export const contract = {
     challengeId: string,
     amount: string
   ) {
-    return sendTokenTransaction(tokenId, 'ft_transfer_call', {
+    return sendTokenTransactionWithAutoWrap(tokenId, 'ft_transfer_call', {
       receiver_id: CONTRACT_ID,
       amount,
       msg: JSON.stringify({
@@ -358,7 +422,7 @@ export const contract = {
     winner: string,
     amount: string
   ) {
-    return sendTokenTransaction(tokenId, 'ft_transfer_call', {
+    return sendTokenTransactionWithAutoWrap(tokenId, 'ft_transfer_call', {
       receiver_id: CONTRACT_ID,
       amount,
       msg: JSON.stringify({

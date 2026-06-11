@@ -254,7 +254,7 @@ export async function getPppRankingPage(
   };
 }
 
-async function fetchEloRatingsByIds(
+export async function fetchEloRatingsByIds(
   rpcUrl: string,
   contractId: string,
   accountIds: string[]

@@ -12,7 +12,7 @@ export default tseslint.config(
       'target',
       'dist',
       'build',
-      '.svelte-kit',
+      '**/.svelte-kit',
       '.env',
       '.env.*',
       'pnpm-lock.yaml',
@@ -20,7 +20,8 @@ export default tseslint.config(
       'yarn.lock',
       'app-old',
       'res',
-      'app/static/sw.js'
+      'app/static/sw.js',
+      'api/.wrangler'
     ]
   },
   js.configs.recommended,

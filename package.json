@@ -14,8 +14,9 @@
     "api": "yarn workspace api",
     "app": "yarn workspace app",
     "processor": "yarn workspace processor",
+    "gen-abi": "jq '{\"$schema\": .body.root_schema[\"$schema\"], title: \"ContractTypes\", type: \"object\", definitions: .body.root_schema.definitions}' res/chess_abi.json | npx json-schema-to-typescript --unreachableDefinitions -o app/src/lib/near/contract-types.d.ts",
     "lint": "eslint --max-warnings=0 && prettier --check .",
-    "format": "prettier --write ."
+    "format": "prettier --write . && eslint --fix"
   },
   "devDependencies": {
     "@eslint/js": "^9.30.0",

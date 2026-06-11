@@ -11,6 +11,7 @@
   import { showTxToast } from '$lib/toast';
   import BetCard from '$lib/components/BetCard.svelte';
   import Pagination from '$lib/components/Pagination.svelte';
+  import type { BetInfo } from '$lib/near/contract-types';
 
   const PER_PAGE = 10;
 
@@ -22,18 +23,7 @@
   let challenges = $state<Challenge[]>([]);
   let challengesLoading = $state(false);
   let challengesHasMore = $state(false);
-  let challengeBetInfo = $state<
-    Record<
-      string,
-      {
-        is_locked: boolean;
-        bets: Record<
-          string,
-          Array<[string, { amount: string; winner: string }]>
-        >;
-      } | null
-    >
-  >({});
+  let challengeBetInfo = $state<Record<string, BetInfo | null>>({});
   let challengeTokens = $state<string[]>([]);
   let betForms = $state<
     Record<
@@ -136,10 +126,7 @@
   }
 
   function getBetTotals(
-    info: {
-      is_locked: boolean;
-      bets: Record<string, Array<[string, { amount: string; winner: string }]>>;
-    } | null,
+    info: BetInfo | null,
     player0: string,
     player1: string
   ) {

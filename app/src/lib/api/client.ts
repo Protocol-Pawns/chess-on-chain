@@ -1,3 +1,5 @@
+import type { GameId } from '$lib/near/contract-types';
+
 const API_URL =
   import.meta.env.VITE_API_URL || 'https://api.protocol-pawns.com';
 
@@ -11,7 +13,7 @@ export interface PaginatedResult<T> {
 }
 
 export interface GameOverview {
-  game_id: [number, string, string | null];
+  game_id: GameId;
   white: { type: string; value: string };
   black: { type: string; value: string | null };
   board: string[];
@@ -41,6 +43,10 @@ export interface AccountStats {
   losses: number;
   draws: number;
   total_games: number;
+}
+
+export interface AccountSearchResult extends AccountStats {
+  elo: number | null;
 }
 
 export interface EloLeaderboardEntry {
@@ -158,9 +164,7 @@ export const api = {
   activeGame: (accountId: string) =>
     request<Game>(`/account/${accountId}/active-game`),
   account: (accountId: string) =>
-    request<{ finishedGameIds: [number, string, string | null][] }>(
-      `/account/${accountId}`
-    ),
+    request<{ finishedGameIds: GameId[] }>(`/account/${accountId}`),
   accountStats: (accountId: string) =>
     request<AccountStats>(`/account/${accountId}/stats`),
   accountStatsBatch: (accountIds: string[]) =>
@@ -185,7 +189,13 @@ export const api = {
       `/account/${accountId}/challenges${suffix}`
     );
   },
-  query: (gameIds: [number, string, string | null][]) =>
+  searchAccounts: (query: string) =>
+    request<AccountSearchResult[]>('/account/query', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query })
+    }),
+  query: (gameIds: GameId[]) =>
     request<GameOverview[]>('/query', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

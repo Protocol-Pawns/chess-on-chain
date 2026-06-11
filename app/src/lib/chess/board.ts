@@ -1,3 +1,5 @@
+import type { Color } from '$lib/near/contract-types';
+
 export const PIECE_UNICODE: Record<string, string> = {
   K: '\u2654',
   Q: '\u2655',
@@ -88,26 +90,20 @@ export function algebraicToPos(sq: string): BoardPosition {
   return { col: sq.charCodeAt(0) - 97, row: 8 - parseInt(sq[1]) };
 }
 
-export function isOwnPiece(
-  piece: string | null,
-  color: 'White' | 'Black'
-): boolean {
+export function isOwnPiece(piece: string | null, color: Color): boolean {
   if (!piece) return false;
   return color === 'White'
     ? piece === piece.toUpperCase()
     : piece === piece.toLowerCase();
 }
 
-export function isOpponentPiece(
-  piece: string | null,
-  color: 'White' | 'Black'
-): boolean {
+export function isOpponentPiece(piece: string | null, color: Color): boolean {
   if (!piece) return false;
   return color === 'White'
     ? piece === piece.toLowerCase()
     : piece === piece.toUpperCase();
 }
 
-export function colorFromFEN(fen: string): 'White' | 'Black' {
+export function colorFromFEN(fen: string): Color {
   return fen.split(' ')[1] === 'w' ? 'White' : 'Black';
 }

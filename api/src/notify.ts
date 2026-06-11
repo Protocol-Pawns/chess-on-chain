@@ -400,7 +400,11 @@ export async function processQuestCooldownNotifications(
 
   for (const { account_id } of activeSubs) {
     try {
-      const cooldowns = await fetchQuestCooldowns(rpcUrl, contractId, account_id);
+      const cooldowns = await fetchQuestCooldowns(
+        rpcUrl,
+        contractId,
+        account_id
+      );
 
       if (cooldowns.length === 0) {
         await db`DELETE FROM quest_cooldowns WHERE account_id = ${account_id}`;

@@ -34,6 +34,8 @@ CREATE TABLE IF NOT EXISTS games (
 CREATE INDEX IF NOT EXISTS idx_games_created ON games (created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_games_finished ON games (finished_at DESC) WHERE finished_at IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_games_status ON games (status);
+CREATE INDEX IF NOT EXISTS idx_games_white_value ON games (white_value);
+CREATE INDEX IF NOT EXISTS idx_games_black_value ON games (black_value);
 
 CREATE TABLE IF NOT EXISTS game_moves (
   id TEXT PRIMARY KEY,

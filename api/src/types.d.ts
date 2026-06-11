@@ -1,5 +1,5 @@
-import type { Sql } from 'postgres';
 import type { KVNamespace } from '@cloudflare/workers-types';
+import type { Sql } from 'postgres';
 
 export type Optional<T, K extends keyof T> = Omit<T, K> & Partial<T>;
 

@@ -6,8 +6,7 @@
     "start": "wrangler dev",
     "deploy": "wrangler deploy",
     "test": "vitest",
-    "clean": "rm -rf ./.wrangler",
-    "build:dts": "tsup src/index.ts --dts-only --dts-resolve && mv dist/index.d.ts dist/api.d.ts"
+    "clean": "rm -rf ./.wrangler"
   },
   "dependencies": {
     "@hono/zod-openapi": "^0.19.8",

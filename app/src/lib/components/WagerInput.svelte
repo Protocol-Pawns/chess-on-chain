@@ -1,30 +1,23 @@
 <script lang="ts">
-  import { contract } from '$lib/near/connector';
-  import { onMount } from 'svelte';
+  import TokenInput from './TokenInput.svelte';
 
   let {
     enabled = $bindable(false),
     tokenId = $bindable(''),
-    amount = $bindable('')
+    tokenSymbol = $bindable(''),
+    amount = $bindable(''),
+    rawAmount = $bindable(''),
+    insufficientBalance = $bindable(false)
   } = $props();
 
-  let tokens = $state<string[]>([]);
   let show = $state(false);
-
-  onMount(async () => {
-    try {
-      tokens = await contract.getTokenWhitelist();
-      if (tokens.length > 0) tokenId = tokens[0];
-    } catch {
-      tokens = [];
-    }
-  });
 
   function toggle() {
     show = !show;
     if (!show) {
       enabled = false;
       amount = '';
+      rawAmount = '';
     } else {
       enabled = true;
     }
@@ -38,21 +31,12 @@
   </label>
 
   {#if show}
-    <div class="flex gap-2">
-      <select
-        bind:value={tokenId}
-        class="bg-transparent border border-white/15 rounded px-2 py-1.5 text-sm focus:outline-none focus:border-primary"
-      >
-        {#each tokens as token}
-          <option value={token}>{token}</option>
-        {/each}
-      </select>
-      <input
-        type="text"
-        bind:value={amount}
-        placeholder="Amount"
-        class="flex-1 bg-transparent border border-white/15 rounded px-2 py-1.5 text-sm focus:outline-none focus:border-primary"
-      />
-    </div>
+    <TokenInput
+      bind:tokenId
+      bind:tokenSymbol
+      bind:amount
+      bind:rawAmount
+      bind:insufficientBalance
+    />
   {/if}
 </div>

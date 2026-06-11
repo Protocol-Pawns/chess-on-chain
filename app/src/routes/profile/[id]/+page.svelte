@@ -13,6 +13,7 @@
   import { accountStore } from '$lib/near/account';
   import { loadGameFromContract, MAX_OPEN_GAMES, gameUrl } from '$lib/game';
   import type { GameId } from '$lib/game';
+  import type { QuestInfo } from '$lib/near/contract-types';
   import { showToast, showTxToast, decodeSuccessValue } from '$lib/toast';
   import { goto } from '$app/navigation';
   import GameCard from '$lib/components/GameCard.svelte';
@@ -38,12 +39,7 @@
   let challengesSent = $state(0);
   let achievements: Array<[number, string]> = $state([]);
   let questCooldowns: Array<[number, string]> = $state([]);
-  let questList: Array<{
-    name: string;
-    points: string;
-    points_on_cd: string;
-    cooldown: number;
-  }> = $state([]);
+  let questList: QuestInfo[] = $state([]);
   let loading = $state(true);
   let betStats = $state<BetStats | null>(null);
   let tokenBalances = $state<Array<[string, string]>>([]);
@@ -242,7 +238,7 @@
       ]);
       stats = s;
       if (accountData) {
-        elo = accountData.elo;
+        elo = accountData.elo ?? null;
         points = accountData.points;
         wins = accountData.wins ?? 0;
         winStreak = accountData.win_streak ?? 0;
@@ -452,19 +448,30 @@
         <div class="grid grid-cols-3 gap-3 mt-3">
           {#if winStreak > 0 || maxWinStreak > 0}
             <div class="text-center bg-white/5 rounded p-2">
-              <div class="text-sm font-bold text-primary-warn">{winStreak}<span class="text-white/30 text-xs">/{maxWinStreak}</span></div>
+              <div class="text-sm font-bold text-primary-warn">
+                {winStreak}<span class="text-white/30 text-xs"
+                  >/{maxWinStreak}</span
+                >
+              </div>
               <div class="text-xs text-white/50">Streak / Best</div>
             </div>
           {/if}
           {#if betsPlaced > 0}
             <div class="text-center bg-white/5 rounded p-2">
-              <div class="text-sm font-bold text-primary-green">{betsWon}<span class="text-white/30 text-xs">/{betsPlaced}</span></div>
+              <div class="text-sm font-bold text-primary-green">
+                {betsWon}<span class="text-white/30 text-xs">/{betsPlaced}</span
+                >
+              </div>
               <div class="text-xs text-white/50">Bets Won</div>
             </div>
           {/if}
           {#if wagersPlayed > 0}
             <div class="text-center bg-white/5 rounded p-2">
-              <div class="text-sm font-bold text-primary">{wagerWins}<span class="text-white/30 text-xs">/{wagersPlayed}</span></div>
+              <div class="text-sm font-bold text-primary">
+                {wagerWins}<span class="text-white/30 text-xs"
+                  >/{wagersPlayed}</span
+                >
+              </div>
               <div class="text-xs text-white/50">Wagers Won</div>
             </div>
           {/if}

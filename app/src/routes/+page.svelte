@@ -18,6 +18,7 @@
   import { showToast, showTxToast, decodeSuccessValue } from '$lib/toast';
   import { loadGameFromContract, gameUrl, MAX_OPEN_GAMES } from '$lib/game';
   import type { GameId } from '$lib/game';
+  import type { Difficulty } from '$lib/near/contract-types';
   import GameCard from '$lib/components/GameCard.svelte';
   import ChallengeCard from '$lib/components/ChallengeCard.svelte';
   import Pagination from '$lib/components/Pagination.svelte';
@@ -36,7 +37,7 @@
   let loadingMore = $state(false);
   let loading = $state(true);
   let showAiMenu = $state(false);
-  let selectedDifficulty = $state<'Easy' | 'Medium' | 'Hard'>('Easy');
+  let selectedDifficulty = $state<Difficulty>('Easy');
   let showAiConfirm = $state(false);
   let pendingChallenges = $state<Challenge[]>([]);
   let acceptTarget = $state<Challenge | null>(null);
@@ -240,7 +241,7 @@
     goto(gameUrl(gameId));
   }
 
-  function createAiGame(difficulty: 'Easy' | 'Medium' | 'Hard') {
+  function createAiGame(difficulty: Difficulty) {
     showAiMenu = false;
     showToast('info', 'Creating AI game...');
     contract

@@ -10,16 +10,10 @@
   import { showTxToast } from '$lib/toast';
   import { fmtPPP, fmtOneDecimal } from '$lib/format';
   import PppIcon from '$lib/components/PppIcon.svelte';
+  import type { QuestInfo, AchievementInfo } from '$lib/near/contract-types';
 
-  let questList = $state<
-    Array<{
-      name: string;
-      points: string;
-      points_on_cd: string;
-      cooldown: number;
-    }>
-  >([]);
-  let achievementList = $state<Array<{ name: string; points: string }>>([]);
+  let questList = $state<QuestInfo[]>([]);
+  let achievementList = $state<AchievementInfo[]>([]);
   let loading = $state(true);
 
   function formatCooldown(ms: number): string {

@@ -14,6 +14,7 @@
   },
   "dependencies": {
     "@hot-labs/near-connect": "^0.11.4",
+    "@tarnadas/fixed-number": "0.2.2",
     "@unocss/reset": "^66.7.0",
     "chess.js": "^1.4.0",
     "dayjs": "^1.11.21",
