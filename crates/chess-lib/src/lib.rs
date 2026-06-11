@@ -49,6 +49,11 @@ pub const MIN_BLOCK_DIFF_CANCEL: u64 = 60 * 60 * 24 * 3; // ~3 days
 #[cfg(feature = "integration-test")]
 pub const MIN_BLOCK_DIFF_CANCEL: u64 = 100;
 
+#[cfg(not(feature = "integration-test"))]
+pub const MIN_BLOCK_DIFF_PUBLIC_CANCEL: u64 = 60 * 60 * 24 * 14; // ~14 days
+#[cfg(feature = "integration-test")]
+pub const MIN_BLOCK_DIFF_PUBLIC_CANCEL: u64 = 200;
+
 pub const NO_DEPOSIT: NearToken = NearToken::from_yoctonear(0);
 pub const ONE_YOCTO: NearToken = NearToken::from_yoctonear(1);
 pub const FT_TRANSFER_GAS: Gas = Gas::from_tgas(15);
@@ -495,16 +500,23 @@ impl Chess {
             .get_mut(&game_id)
             .ok_or(ContractError::GameNotExists)?;
 
-        if !game.is_player(&account_id) {
-            return Err(ContractError::NotPlaying);
-        }
-        if game.is_turn(&account_id) {
-            return Err(ContractError::CancelOnOpponentsTurn);
-        }
-        if env::block_height() - game.get_last_block_height() < MIN_BLOCK_DIFF_CANCEL {
-            return Err(ContractError::GameNotCancellable(
-                MIN_BLOCK_DIFF_CANCEL + game.get_last_block_height() - env::block_height(),
-            ));
+        let block_diff = env::block_height() - game.get_last_block_height();
+
+        if game.is_player(&account_id) {
+            if game.is_turn(&account_id) {
+                return Err(ContractError::CancelOnOpponentsTurn);
+            }
+            if block_diff < MIN_BLOCK_DIFF_CANCEL {
+                return Err(ContractError::GameNotCancellable(
+                    MIN_BLOCK_DIFF_CANCEL - block_diff,
+                ));
+            }
+        } else {
+            if block_diff < MIN_BLOCK_DIFF_PUBLIC_CANCEL {
+                return Err(ContractError::GameNotPublicCancellable(
+                    MIN_BLOCK_DIFF_PUBLIC_CANCEL - block_diff,
+                ));
+            }
         }
 
         let game = self.games.remove(&game_id).unwrap();

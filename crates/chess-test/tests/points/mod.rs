@@ -799,7 +799,10 @@ async fn test_ft_balance_of_unregistered_account() -> anyhow::Result<()> {
     let stranger = worker.dev_create_account().await?;
 
     let balance = view::ft_balance_of(&contract, stranger.id()).await?;
-    assert_eq!(balance.0, 0, "ft_balance_of should return 0 for unregistered accounts");
+    assert_eq!(
+        balance.0, 0,
+        "ft_balance_of should return 0 for unregistered accounts"
+    );
 
     Ok(())
 }

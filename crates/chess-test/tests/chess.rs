@@ -10,8 +10,8 @@ use base64::Engine;
 use chess_common::ContractEvent;
 use chess_engine::Color;
 use chess_lib::{
-    create_challenge_id, Challenge, ChessEvent, Difficulty, GameId, GameInfo, GameOutcome, Player,
-    MAX_OPEN_CHALLENGES, MAX_OPEN_GAMES,
+    create_challenge_id, BetMsg, Challenge, ChessEvent, Difficulty, GameId, GameInfo, GameOutcome,
+    Player, MAX_OPEN_CHALLENGES, MAX_OPEN_GAMES,
 };
 use futures::future::try_join_all;
 use near_workspaces::types::{KeyType, SecretKey};
@@ -601,6 +601,151 @@ async fn test_cancel_check_opponent() -> anyhow::Result<()> {
 
     let res = call::cancel(&contract, &player_a, &game_id).await;
     assert!(res.is_err());
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn test_public_cancel_success() -> anyhow::Result<()> {
+    let (worker, _, contract) = initialize_contracts(None).await?;
+
+    let player_a = worker.dev_create_account().await?;
+    let player_b = worker.dev_create_account().await?;
+    let spectator = worker.dev_create_account().await?;
+
+    tokio::try_join!(
+        call::storage_deposit(&contract, &player_a, None, None),
+        call::storage_deposit(&contract, &player_b, None, None),
+        call::storage_deposit(&contract, &spectator, None, None)
+    )?;
+
+    call::challenge(&contract, &player_a, player_b.id()).await?;
+    let challenge_id = create_challenge_id(player_a.id(), player_b.id());
+
+    let (game_id, _) = call::accept_challenge(&contract, &player_b, &challenge_id).await?;
+    let block_height = game_id.0;
+    let game_id = GameId(
+        block_height,
+        player_a.id().clone(),
+        Some(player_b.id().clone()),
+    );
+
+    let res = call::cancel(&contract, &spectator, &game_id).await;
+    assert!(res.is_err());
+
+    worker.fast_forward(200).await?;
+
+    let (_res, events) = call::cancel(&contract, &spectator, &game_id).await?;
+    assert_event_emits(
+        events,
+        vec![ChessEvent::CancelGame {
+            game_id: game_id.clone(),
+            cancelled_by: spectator.id().clone(),
+        }],
+    )?;
+
+    let game_ids = view::get_game_ids(&contract, player_a.id()).await?;
+    assert!(game_ids.is_empty());
+    let game_ids = view::get_game_ids(&contract, player_b.id()).await?;
+    assert!(game_ids.is_empty());
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn test_public_cancel_refunds_bettors() -> anyhow::Result<()> {
+    let (worker, _, contract) = initialize_contracts(None).await?;
+    let test_token = initialize_token(&worker, "SHITZU", "SHITZU", None, 24).await?;
+    let bet_amount = 10_000_000;
+
+    let player_a = worker.dev_create_account().await?;
+    let player_b = worker.dev_create_account().await?;
+    let better = worker.dev_create_account().await?;
+    let spectator = worker.dev_create_account().await?;
+
+    tokio::try_join!(
+        call::storage_deposit(&contract, &player_a, None, None),
+        call::storage_deposit(&contract, &player_b, None, None),
+        call::storage_deposit(&contract, &better, None, None),
+        call::storage_deposit(&contract, &spectator, None, None),
+    )?;
+    tokio::try_join!(
+        call::storage_deposit(
+            &test_token,
+            contract.as_account(),
+            None,
+            Some(near_workspaces::types::NearToken::from_millinear(100)),
+        ),
+        call::storage_deposit(
+            &test_token,
+            &better,
+            None,
+            Some(near_workspaces::types::NearToken::from_millinear(100)),
+        )
+    )?;
+    call::mint_tokens(&test_token, better.id(), bet_amount * 2).await?;
+
+    let whitelist = vec![test_token.id().clone()];
+    call::set_token_whitelist(&contract, contract.as_account(), &whitelist).await?;
+
+    bet!(&better, test_token.id(), contract.id(), bet_amount, player_a => player_b).await?;
+    let (_, events) =
+        bet!(&better, test_token.id(), contract.id(), bet_amount, player_b => player_a).await?;
+    drop(events);
+
+    call::challenge(&contract, &player_a, player_b.id()).await?;
+    let challenge_id = create_challenge_id(player_a.id(), player_b.id());
+    let (game_id, _) = call::accept_challenge(&contract, &player_b, &challenge_id).await?;
+    let block_height = game_id.0;
+    let game_id = GameId(
+        block_height,
+        player_a.id().clone(),
+        Some(player_b.id().clone()),
+    );
+
+    worker.fast_forward(200).await?;
+
+    call::cancel(&contract, &spectator, &game_id).await?;
+
+    call::withdraw_token(&contract, &better, test_token.id()).await?;
+    let balance = view::ft_balance_of(&test_token, better.id()).await?;
+    assert_eq!(balance.0, bet_amount * 2);
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn test_public_cancel_not_enough_blocks() -> anyhow::Result<()> {
+    let (worker, _, contract) = initialize_contracts(None).await?;
+
+    let player_a = worker.dev_create_account().await?;
+    let player_b = worker.dev_create_account().await?;
+    let spectator = worker.dev_create_account().await?;
+
+    tokio::try_join!(
+        call::storage_deposit(&contract, &player_a, None, None),
+        call::storage_deposit(&contract, &player_b, None, None),
+        call::storage_deposit(&contract, &spectator, None, None)
+    )?;
+
+    call::challenge(&contract, &player_a, player_b.id()).await?;
+    let challenge_id = create_challenge_id(player_a.id(), player_b.id());
+
+    let (game_id, _) = call::accept_challenge(&contract, &player_b, &challenge_id).await?;
+    let block_height = game_id.0;
+    let game_id = GameId(
+        block_height,
+        player_a.id().clone(),
+        Some(player_b.id().clone()),
+    );
+
+    worker.fast_forward(150).await?;
+
+    let res = call::cancel(&contract, &spectator, &game_id).await;
+    assert!(res.is_err());
+
+    let res = call::cancel(&contract, &player_b, &game_id).await;
+    assert!(res.is_ok());
 
     Ok(())
 }

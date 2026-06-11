@@ -54,6 +54,7 @@
   let pollInterval: ReturnType<typeof setInterval>;
   let showResignModal = $state(false);
   let showCancelModal = $state(false);
+  let showPublicCancelModal = $state(false);
   let pendingLastMove = $state<{ from: string; to: string } | null>(null);
   let viewingMoveIndex = $state<number | null>(null);
   const STARTING_FEN =
@@ -154,6 +155,13 @@
       game &&
       game.white.value !== $accountStore &&
       game.black?.value !== $accountStore
+  );
+  let canPublicCancel = $derived(
+    game?.status === 'in_progress' &&
+      $accountStore &&
+      isSpectating &&
+      game.created_at &&
+      dayjs().diff(dayjs(game.created_at), 'day') >= 14
   );
 
   async function loadFromContract(): Promise<ContractGameData> {
@@ -411,6 +419,49 @@
       });
   }
 
+  function handlePublicCancel() {
+    showPublicCancelModal = true;
+  }
+
+  function confirmPublicCancel() {
+    if (!game) return;
+    showPublicCancelModal = false;
+    showToast('info', 'Cancelling stale game...');
+    contract
+      .cancel($state.snapshot(game.game_id))
+      .then(async txResult => {
+        const tx = txResult as {
+          receipts_outcome?: { outcome: { logs: string[] } }[];
+        };
+        const txLogs: string[] = [];
+        if (tx.receipts_outcome) {
+          for (const r of tx.receipts_outcome) {
+            txLogs.push(...(r.outcome?.logs ?? []));
+          }
+        }
+        const parsed = parseTxLogs(txLogs);
+        if (parsed.cancelled && game) {
+          game = {
+            ...game,
+            status: 'cancelled' as const
+          };
+          showToast('success', 'Stale game cancelled');
+          retryLoadUntilFinished('cancelled');
+        } else {
+          showToast('success', 'Game cancelled');
+          load();
+        }
+      })
+      .catch((err: unknown) => {
+        const msg = err instanceof Error ? err.message : String(err);
+        if (msg.includes('publicly cancellable')) {
+          showToast('error', 'Not yet cancellable', msg);
+        } else {
+          showToast('error', 'Cancel failed', msg);
+        }
+      });
+  }
+
   onMount(() => {
     load();
     pollInterval = setInterval(load, 15000);
@@ -553,7 +604,7 @@
         </div>
       {/if}
 
-      {#if canResign || canCancel}
+      {#if canResign || canCancel || canPublicCancel}
         <div class="flex gap-2 mt-3 justify-center">
           {#if canResign}
             <button
@@ -566,6 +617,14 @@
           {#if canCancel}
             <button class="btn-secondary text-sm" onclick={handleCancel}>
               Cancel Game
+            </button>
+          {/if}
+          {#if canPublicCancel}
+            <button
+              class="btn-secondary text-sm text-primary-warn border border-primary-warn/50"
+              onclick={handlePublicCancel}
+            >
+              Cancel Stale Game
             </button>
           {/if}
         </div>
@@ -628,4 +687,13 @@
   confirmLabel="Yes, Cancel"
   onconfirm={confirmCancel}
   onclose={() => (showCancelModal = false)}
+/>
+
+<ConfirmModal
+  open={showPublicCancelModal}
+  title="Cancel Stale Game?"
+  message="This game has been inactive for over 14 days. Cancelling will refund all wagers and bets to the players. This action cannot be undone."
+  confirmLabel="Cancel Stale Game"
+  onconfirm={confirmPublicCancel}
+  onclose={() => (showPublicCancelModal = false)}
 />
