@@ -359,6 +359,16 @@ impl Chess {
                             }
                         }
 
+                        if total_winner == 0 {
+                            for (account_id, bet) in bets.iter() {
+                                self.accounts
+                                    .get_mut(account_id)
+                                    .unwrap()
+                                    .add_token(token_id, bet.amount);
+                            }
+                            continue;
+                        }
+
                         total_looser -= self.deduct_fees(token_id, total_looser);
 
                         let mut total_win_amount = 0;
@@ -384,7 +394,7 @@ impl Chess {
                             }
                         }
 
-                        let total_refund_amount = total_looser - total_win_amount;
+                        let total_refund_amount = total_looser.saturating_sub(total_win_amount);
                         if total_refund_amount > 0 {
                             for (account_id, bet) in bets.iter() {
                                 if winner_id != bet.winner {
