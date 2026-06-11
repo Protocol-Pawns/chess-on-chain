@@ -12,7 +12,8 @@
     onMove,
     flipped = false,
     lastMove,
-    disabled = false
+    disabled = false,
+    loading = false
   }: {
     board?: string[];
     fen?: string;
@@ -20,6 +21,7 @@
     flipped?: boolean;
     lastMove?: { from: string; to: string } | null;
     disabled?: boolean;
+    loading?: boolean;
   } = $props();
 
   let selected: [number, number] | null = $state(null);
@@ -208,53 +210,64 @@
   const files = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'];
 </script>
 
-<!-- svelte-ignore a11y_no_static_element_interactions -->
-<div
-  class="inline-grid grid-cols-8"
-  style="width: min(100%, 30rem); aspect-ratio: 1; user-select: none; -webkit-user-select: none; touch-action: none;"
-  ondragover={e => e.preventDefault()}
->
-  {#each getRows() as row, r}
-    {#each row as sq, c}
-      <button
-        class="flex items-center justify-center relative aspect-square transition-colors {cellClass(
-          r,
-          c
-        )} {sq.piece && !disabled ? 'cursor-pointer' : ''}"
-        draggable={sq.piece && !disabled ? true : undefined}
-        onclick={() => handleClick(r, c)}
-        ondragstart={e => handleDragStart(r, c, e)}
-        ondragover={e => handleDragOver(r, c, e)}
-        ondrop={e => handleDrop(r, c, e)}
-        ondragend={handleDragEnd}
-      >
-        {#if sq.piece}
-          <img
-            src={PIECE_IMG[sq.piece]}
-            alt={sq.piece}
-            class="w-[85%] h-[85%] object-contain pointer-events-none"
-            draggable="false"
-          />
-        {/if}
-        {#if c === 0}
-          <span
-            class="absolute top-0.5 left-1 text-xs font-semibold {sq.isLight
-              ? 'text-board-dark'
-              : 'text-board-light'}"
-          >
-            {flipped ? ranks[7 - r] : ranks[r]}
-          </span>
-        {/if}
-        {#if r === 7}
-          <span
-            class="absolute bottom-0.5 right-1 text-xs font-semibold {sq.isLight
-              ? 'text-board-dark'
-              : 'text-board-light'}"
-          >
-            {flipped ? files[7 - c] : files[c]}
-          </span>
-        {/if}
-      </button>
+<div class="relative" style="width: min(100%, 30rem);">
+  {#if loading}
+    <div
+      class="absolute inset-0 flex items-center justify-center bg-black/40 z-10 rounded"
+    >
+      <div
+        class="w-10 h-10 border-4 border-white/30 border-t-white rounded-full animate-spin"
+      ></div>
+    </div>
+  {/if}
+  <!-- svelte-ignore a11y_no_static_element_interactions -->
+  <div
+    class="inline-grid grid-cols-8"
+    style="width: 100%; aspect-ratio: 1; user-select: none; -webkit-user-select: none; touch-action: none;"
+    ondragover={e => e.preventDefault()}
+  >
+    {#each getRows() as row, r}
+      {#each row as sq, c}
+        <button
+          class="flex items-center justify-center relative aspect-square transition-colors {cellClass(
+            r,
+            c
+          )} {sq.piece && !disabled ? 'cursor-pointer' : ''}"
+          draggable={sq.piece && !disabled ? true : undefined}
+          onclick={() => handleClick(r, c)}
+          ondragstart={e => handleDragStart(r, c, e)}
+          ondragover={e => handleDragOver(r, c, e)}
+          ondrop={e => handleDrop(r, c, e)}
+          ondragend={handleDragEnd}
+        >
+          {#if sq.piece}
+            <img
+              src={PIECE_IMG[sq.piece]}
+              alt={sq.piece}
+              class="w-[85%] h-[85%] object-contain pointer-events-none"
+              draggable="false"
+            />
+          {/if}
+          {#if c === 0}
+            <span
+              class="absolute top-0.5 left-1 text-xs font-semibold {sq.isLight
+                ? 'text-board-dark'
+                : 'text-board-light'}"
+            >
+              {flipped ? ranks[7 - r] : ranks[r]}
+            </span>
+          {/if}
+          {#if r === 7}
+            <span
+              class="absolute bottom-0.5 right-1 text-xs font-semibold {sq.isLight
+                ? 'text-board-dark'
+                : 'text-board-light'}"
+            >
+              {flipped ? files[7 - c] : files[c]}
+            </span>
+          {/if}
+        </button>
+      {/each}
     {/each}
-  {/each}
+  </div>
 </div>

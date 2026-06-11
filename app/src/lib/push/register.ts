@@ -46,7 +46,7 @@ export async function registerPushNotifications(
       try {
         const res = await api.vapidPublicKey();
         publicKey = res.publicKey;
-      } catch (e) {
+      } catch {
         throw new PushError('api', 'Could not reach the notification service.');
       }
       subscription = await registration.pushManager.subscribe({
@@ -64,7 +64,7 @@ export async function registerPushNotifications(
         endpoint: sub.endpoint,
         keys: { p256dh: sub.keys.p256dh, auth: sub.keys.auth }
       });
-    } catch (e) {
+    } catch {
       throw new PushError('api', 'Could not reach the notification service.');
     }
 

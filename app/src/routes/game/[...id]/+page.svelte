@@ -344,7 +344,6 @@
       .catch(() => {
         submitting = false;
       });
-    showToast('info', 'Submitting move...');
   }
 
   function handleResign() {
@@ -682,6 +681,7 @@
             submitting ||
             !isMyTurn ||
             !isViewingCurrent}
+          loading={submitting}
           {flipped}
           lastMove={displayLastMove}
         />
