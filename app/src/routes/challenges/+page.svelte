@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { onMount } from 'svelte';
   import { goto } from '$app/navigation';
   import { api, type Challenge, type GameOverview } from '$lib/api/client';
   import { accountStore, isLoggedIn } from '$lib/near/account';
@@ -6,6 +7,8 @@
   import { showTxToast, showToast, decodeSuccessValue } from '$lib/toast';
   import { gameUrl, MAX_OPEN_GAMES } from '$lib/game';
   import type { GameId } from '$lib/game';
+  import type { SSEEventData } from '$lib/sse';
+  import { subscribe, updateWatermark } from '$lib/sse';
   import WagerInput from '$lib/components/WagerInput.svelte';
   import AccountSearch from '$lib/components/AccountSearch.svelte';
   import ChallengeCard from '$lib/components/ChallengeCard.svelte';
@@ -159,7 +162,6 @@
         };
         challenges = [optimistic, ...challenges];
         ownChallengeCount += 1;
-        setTimeout(load, 10000);
       })
       .catch(() => {});
   }
@@ -195,7 +197,6 @@
         } else {
           showToast('success', 'Challenge accepted!');
         }
-        setTimeout(load, 10000);
       })
       .catch((err: unknown) => {
         const msg = err instanceof Error ? err.message : String(err);
@@ -215,7 +216,6 @@
         challenges = challenges;
         ownChallengeCount = Math.max(0, ownChallengeCount - 1);
       }
-      setTimeout(load, 10000);
     }).catch(() => {});
   }
 
@@ -230,7 +230,6 @@
         challenges = challenges;
         ownChallengeCount = Math.max(0, ownChallengeCount - 1);
       }
-      setTimeout(load, 10000);
     }).catch(() => {});
   }
 
@@ -277,6 +276,77 @@
       currentPage = 1;
       load();
     }
+  });
+
+  function handleSSEChallenge(event: SSEEventData) {
+    const data = event.event_data;
+    if (data.challenged !== $accountStore) return;
+    const exists = challenges.some(c => c.id === data.id);
+    if (exists) return;
+    updateWatermark(event.trigger_block_height);
+    const newChallenge: Challenge = {
+      id: data.id as string,
+      challenger: data.challenger as string,
+      challenged: data.challenged as string,
+      wager_token: ((data.wager as unknown[])?.[0] as string | null) ?? null,
+      wager_amount: ((data.wager as unknown[])?.[1] as string | null) ?? null,
+      status: 'pending',
+      game_id: null,
+      created_at: new Date(
+        Number(event.trigger_block_timestamp) / 1_000_000
+      ).toISOString(),
+      resolved_at: null
+    };
+    challenges = [newChallenge, ...challenges];
+    ownChallengeCount += 1;
+    showToast('info', `New challenge from ${data.challenger as string}!`);
+  }
+
+  function handleSSEAcceptChallenge(event: SSEEventData) {
+    const data = event.event_data;
+    const challengeId = data.challenge_id as string;
+    const challenge = challenges.find(c => c.id === challengeId);
+    if (!challenge || challenge.status === 'accepted') return;
+    updateWatermark(event.trigger_block_height);
+    const gameId = data.game_id as GameId | null;
+    const idx = challenges.findIndex(c => c.id === challengeId);
+    if (idx !== -1) {
+      challenges[idx] = {
+        ...challenges[idx],
+        status: 'accepted',
+        game_id: gameId ? JSON.stringify(gameId) : null
+      };
+      challenges = challenges;
+    }
+    if (gameId) {
+      showToast('success', 'Challenge accepted! Redirecting...');
+      setTimeout(() => navigateToGame(gameId), 1000);
+    }
+  }
+
+  function handleSSERejectChallenge(event: SSEEventData) {
+    const data = event.event_data;
+    const challengeId = data.challenge_id as string;
+    const challenge = challenges.find(c => c.id === challengeId);
+    if (!challenge || challenge.status === 'rejected') return;
+    updateWatermark(event.trigger_block_height);
+    const idx = challenges.findIndex(c => c.id === challengeId);
+    if (idx !== -1) {
+      challenges[idx] = { ...challenges[idx], status: 'rejected' };
+      challenges = challenges;
+    }
+    ownChallengeCount = Math.max(0, ownChallengeCount - 1);
+  }
+
+  onMount(() => {
+    const unsubs = [
+      subscribe('challenge', handleSSEChallenge),
+      subscribe('accept_challenge', handleSSEAcceptChallenge),
+      subscribe('reject_challenge', handleSSERejectChallenge)
+    ];
+    return () => {
+      for (const u of unsubs) u();
+    };
   });
 
   function goToPage(p: number) {

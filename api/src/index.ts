@@ -27,6 +27,7 @@ import {
   searchAccounts
 } from './db';
 import type { Db } from './db';
+import { registerSSERoutes } from './events-stream';
 import {
   fetchEloRatingsByIds,
   getEloRankingPage,
@@ -38,6 +39,7 @@ import {
   processQuestCooldownNotifications
 } from './notify';
 import { importVapidKey } from './push';
+export { SSEHub } from './do-sse';
 import {
   getAccountRoute,
   getAccountStatsRoute,
@@ -87,6 +89,8 @@ app.onError((err, c) => {
   console.error('Unhandled error:', err);
   return c.json({ error: 'Internal Server Error', message: err.message }, 500);
 });
+
+registerSSERoutes(app);
 
 app.doc('/doc', {
   openapi: '3.1.0',

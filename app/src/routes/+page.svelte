@@ -19,6 +19,8 @@
   import { loadGameFromContract, gameUrl, MAX_OPEN_GAMES } from '$lib/game';
   import type { GameId } from '$lib/game';
   import type { Difficulty } from '$lib/near/contract-types';
+  import type { SSEEventData } from '$lib/sse';
+  import { subscribe, updateWatermark } from '$lib/sse';
   import GameCard from '$lib/components/GameCard.svelte';
   import ChallengeCard from '$lib/components/ChallengeCard.svelte';
   import Pagination from '$lib/components/Pagination.svelte';
@@ -140,7 +142,6 @@
         } else {
           showToast('success', 'Challenge accepted!');
         }
-        setTimeout(loadPendingChallenges, 10000);
       })
       .catch((err: unknown) => {
         const msg = err instanceof Error ? err.message : String(err);
@@ -162,7 +163,6 @@
         };
         pendingChallenges = pendingChallenges;
       }
-      setTimeout(loadPendingChallenges, 10000);
     }).catch(() => {});
   }
 
@@ -179,7 +179,6 @@
         };
         pendingChallenges = pendingChallenges;
       }
-      setTimeout(loadPendingChallenges, 10000);
     }).catch(() => {});
   }
 
@@ -228,6 +227,15 @@
     loadLobby().then(() => {
       loading = false;
     });
+
+    const unsubs = [
+      subscribe('challenge', handleSSEChallenge),
+      subscribe('accept_challenge', handleSSEAcceptChallenge),
+      subscribe('reject_challenge', handleSSERejectChallenge)
+    ];
+    return () => {
+      for (const u of unsubs) u();
+    };
   });
 
   $effect(() => {
@@ -236,6 +244,64 @@
       loadPendingChallenges();
     }
   });
+
+  function handleSSEChallenge(event: SSEEventData) {
+    const data = event.event_data;
+    if (data.challenged !== $accountStore) return;
+    const exists = pendingChallenges.some(c => c.id === data.id);
+    if (exists) return;
+    updateWatermark(event.trigger_block_height);
+    const newChallenge: Challenge = {
+      id: data.id as string,
+      challenger: data.challenger as string,
+      challenged: data.challenged as string,
+      wager_token: ((data.wager as unknown[])?.[0] as string | null) ?? null,
+      wager_amount: ((data.wager as unknown[])?.[1] as string | null) ?? null,
+      status: 'pending',
+      game_id: null,
+      created_at: new Date(
+        Number(event.trigger_block_timestamp) / 1_000_000
+      ).toISOString(),
+      resolved_at: null
+    };
+    pendingChallenges = [newChallenge, ...pendingChallenges];
+    showToast('info', `New challenge from ${data.challenger as string}!`);
+  }
+
+  function handleSSEAcceptChallenge(event: SSEEventData) {
+    const data = event.event_data;
+    const challengeId = data.challenge_id as string;
+    const challenge = pendingChallenges.find(c => c.id === challengeId);
+    if (!challenge || challenge.status === 'accepted') return;
+    updateWatermark(event.trigger_block_height);
+    const gameId = data.game_id as GameId | null;
+    const idx = pendingChallenges.findIndex(c => c.id === challengeId);
+    if (idx !== -1) {
+      pendingChallenges[idx] = {
+        ...pendingChallenges[idx],
+        status: 'accepted',
+        game_id: gameId ? JSON.stringify(gameId) : null
+      };
+      pendingChallenges = pendingChallenges;
+    }
+    loadMyGames();
+  }
+
+  function handleSSERejectChallenge(event: SSEEventData) {
+    const data = event.event_data;
+    const challengeId = data.challenge_id as string;
+    const challenge = pendingChallenges.find(c => c.id === challengeId);
+    if (!challenge || challenge.status === 'rejected') return;
+    updateWatermark(event.trigger_block_height);
+    const idx = pendingChallenges.findIndex(c => c.id === challengeId);
+    if (idx !== -1) {
+      pendingChallenges[idx] = {
+        ...pendingChallenges[idx],
+        status: 'rejected'
+      };
+      pendingChallenges = pendingChallenges;
+    }
+  }
 
   function navigateToGame(gameId: GameId) {
     goto(gameUrl(gameId));

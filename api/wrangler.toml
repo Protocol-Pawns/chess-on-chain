@@ -12,6 +12,15 @@ routes = [
 binding = "LEADERBOARD_CACHE"
 id = "58ad893c51224f928c34c19f0bdda19c"
 
+[durable_objects]
+bindings = [
+  { name = "SSE_HUB", class_name = "SSEHub" }
+]
+
+[[migrations]]
+tag = "v1"
+new_classes = ["SSEHub"]
+
 [vars]
 VAPID_SUBJECT = "mailto:admin@protocol-pawns.com"
 VAPID_PUBLIC_KEY = "BM4Wktu_G9xs5JWCqXaQHa2TrGdjIdz6hUF1JrKZUfa43ANx_bZl8_wXj3pnLGr2xNg6Ot12oCqgbhqwEFgVA18"

@@ -15,8 +15,10 @@
   import { colorFromFEN } from '$lib/chess/board';
   import { showToast } from '$lib/toast';
   import { truncateAddr } from '$lib/format';
-  import { loadGameFromContract } from '$lib/game';
+  import { loadGameFromContract, boardToFen } from '$lib/game';
   import type { GameId, ContractGameData } from '$lib/game';
+  import type { SSEEventData } from '$lib/sse';
+  import { subscribe, updateWatermark } from '$lib/sse';
   import Board from '$lib/components/Board.svelte';
   import MoveHistory from '$lib/components/MoveHistory.svelte';
   import ConfirmModal from '$lib/components/ConfirmModal.svelte';
@@ -52,12 +54,12 @@
   let error = $state<string | null>(null);
   let submitting = $state(false);
   let gameBets = $state<Bet[]>([]);
-  let pollInterval: ReturnType<typeof setInterval>;
   let showResignModal = $state(false);
   let showCancelModal = $state(false);
   let showPublicCancelModal = $state(false);
   let pendingLastMove = $state<{ from: string; to: string } | null>(null);
   let viewingMoveIndex = $state<number | null>(null);
+  let sseMoveCount = $state(0);
   const STARTING_FEN =
     'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
 
@@ -509,10 +511,111 @@
       });
   }
 
+  function applySSEMove(data: Record<string, unknown>) {
+    const board = data.board as string[] | undefined;
+    if (!board || !game) return;
+    const color = data.color as string;
+    const nextTurn: 'White' | 'Black' = color === 'White' ? 'Black' : 'White';
+    const fen = boardToFen(board, nextTurn);
+    const outcome = data.outcome as { result: string; color?: string } | null;
+    const mv = data.mv as string;
+
+    moves = [
+      ...moves,
+      {
+        move_number: moves.length + 1,
+        color,
+        move_notation: mv,
+        fen,
+        outcome: outcome ?? null
+      }
+    ];
+    sseMoveCount = moves.length;
+
+    game = {
+      ...game,
+      board,
+      fen,
+      ...(outcome
+        ? {
+            status: 'finished' as const,
+            outcome,
+            ...(data.resigner ? { resigner: data.resigner as string } : {})
+          }
+        : {})
+    };
+
+    pendingLastMove = null;
+    contractTurnColor = null;
+    gameBets = [];
+    api
+      .gameBets(gameIdStr)
+      .then(b => (gameBets = b))
+      .catch(() => {});
+  }
+
+  function handleSSEPlayMove(event: SSEEventData) {
+    const data = event.event_data;
+    const eventGameId =
+      typeof data.game_id === 'string'
+        ? data.game_id
+        : JSON.stringify(data.game_id);
+    if (eventGameId !== gameIdStr) return;
+    if (pendingLastMove) return;
+    if (submitting) return;
+    if (game && game.status !== 'in_progress') return;
+    if (moves.length >= sseMoveCount + 1 && sseMoveCount > 0) return;
+
+    updateWatermark(event.trigger_block_height);
+    applySSEMove(data);
+  }
+
+  function handleSSEResignGame(event: SSEEventData) {
+    const data = event.event_data;
+    const eventGameId = gameIdFromData(data);
+    if (eventGameId !== gameIdStr) return;
+    if (!game || game.status !== 'in_progress') return;
+
+    updateWatermark(event.trigger_block_height);
+    const outcome = data.outcome as { result: string; color: string };
+    game = {
+      ...game,
+      status: 'finished' as const,
+      outcome,
+      resigner: data.resigner as string
+    };
+    showToast('info', 'Opponent resigned!');
+  }
+
+  function handleSSECancelGame(event: SSEEventData) {
+    const data = event.event_data;
+    const eventGameId = gameIdFromData(data);
+    if (eventGameId !== gameIdStr) return;
+    if (!game || game.status === 'cancelled') return;
+
+    updateWatermark(event.trigger_block_height);
+    game = { ...game, status: 'cancelled' as const };
+    showToast('info', 'Game was cancelled');
+  }
+
+  function gameIdFromData(data: Record<string, unknown>): string {
+    return typeof data.game_id === 'string'
+      ? data.game_id
+      : JSON.stringify(data.game_id);
+  }
+
   onMount(() => {
     load();
-    pollInterval = setInterval(load, 15000);
-    return () => clearInterval(pollInterval);
+
+    const unsubs = [
+      subscribe('play_move', handleSSEPlayMove),
+      subscribe('resign_game', handleSSEResignGame),
+      subscribe('cancel_game', handleSSECancelGame)
+    ];
+
+    return () => {
+      for (const u of unsubs) u();
+    };
   });
 </script>
 

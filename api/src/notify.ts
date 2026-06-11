@@ -1,12 +1,17 @@
 import type { PushSubscriptionRow } from './db';
 import { sendPush } from './push';
 
+function gameUrlPath(gameId: unknown): string {
+  return `/game/${encodeURIComponent(typeof gameId === 'string' ? gameId : JSON.stringify(gameId))}`;
+}
+
 interface Notification {
   accountId: string;
   payload: {
     type: string;
     title: string;
     body: string;
+    url?: string;
     data: Record<string, unknown>;
   };
 }
@@ -81,6 +86,7 @@ function buildNotifications(
             type: 'challenge_received',
             title: 'New Challenge!',
             body: `${data.challenger as string} challenged you`,
+            url: '/challenges',
             data: {
               challenge_id: data.id,
               challenger: data.challenger
@@ -100,6 +106,7 @@ function buildNotifications(
             type: 'challenge_accepted',
             title: 'Challenge Accepted!',
             body: `${challenge.challenged} accepted your challenge`,
+            url: gameUrlPath(data.game_id),
             data: { challenge_id: challengeId, game_id: data.game_id }
           }
         }
@@ -116,6 +123,7 @@ function buildNotifications(
             type: 'challenge_rejected',
             title: 'Challenge Rejected',
             body: `${challenge.challenged} rejected your challenge`,
+            url: '/challenges',
             data: { challenge_id: challengeId }
           }
         }
@@ -138,6 +146,7 @@ function buildNotifications(
             type: 'game_over',
             title: 'Game Over!',
             body: formatOutcome(outcome),
+            url: gameUrlPath(data.game_id),
             data: { game_id: data.game_id, outcome }
           }
         }));
@@ -151,6 +160,7 @@ function buildNotifications(
             type: 'your_turn',
             title: 'Your Turn!',
             body: `It's your move in your chess game`,
+            url: gameUrlPath(data.game_id),
             data: { game_id: data.game_id }
           }
         }
@@ -171,6 +181,7 @@ function buildNotifications(
             type: 'opponent_resigned',
             title: 'Opponent Resigned!',
             body: 'Your opponent resigned — you win!',
+            url: gameUrlPath(data.game_id),
             data: { game_id: data.game_id }
           }
         }
@@ -197,6 +208,7 @@ function buildNotifications(
           type: 'game_cancelled',
           title: 'Game Cancelled',
           body: 'Your chess game was cancelled',
+          url: '/',
           data: { game_id: data.game_id }
         }
       }));

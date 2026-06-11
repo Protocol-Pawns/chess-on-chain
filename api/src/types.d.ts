@@ -1,4 +1,7 @@
-import type { KVNamespace } from '@cloudflare/workers-types';
+import type {
+  KVNamespace,
+  DurableObjectNamespace
+} from '@cloudflare/workers-types';
 import type { Sql } from 'postgres';
 
 export type Optional<T, K extends keyof T> = Omit<T, K> & Partial<T>;
@@ -12,6 +15,8 @@ export type AppEnv = {
     LEADERBOARD_CACHE: KVNamespace;
     RPC_URL: string;
     CONTRACT_ID: string;
+    SSE_HUB: DurableObjectNamespace;
+    PROCESSOR_SECRET: string;
   };
   Variables: {
     DB: Sql;

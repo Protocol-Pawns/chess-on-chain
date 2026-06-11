@@ -173,13 +173,18 @@ self.addEventListener('push', function (event) {
   if (!event.data) return;
   var data = event.data.json();
   var title = data.title || 'Protocol Pawns';
+  var url = data.url
+    ? data.url.charAt(0) === '/'
+      ? self.location.origin + data.url
+      : data.url
+    : null;
   var options = {
     body: data.body || '',
     icon: '/icons/icon-192.png',
     badge: '/icons/icon-192.png',
     vibrate: [100, 50, 100],
-    data: data.url ? { url: data.url } : undefined,
-    actions: data.url ? [{ action: 'open', title: 'Open' }] : undefined
+    data: url ? { url: url } : undefined,
+    actions: url ? [{ action: 'open', title: 'Open' }] : undefined
   };
   event.waitUntil(self.registration.showNotification(title, options));
 });
