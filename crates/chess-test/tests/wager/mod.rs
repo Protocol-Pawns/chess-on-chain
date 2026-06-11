@@ -1566,7 +1566,7 @@ async fn test_accept_free_challenge_via_ft_transfer_rejected() -> anyhow::Result
         "player_b tokens should be refunded"
     );
     let contract_balance = view::ft_balance_of(&test_token, contract.id()).await?;
-    assert_eq!(contract_balance.0, wager_amount);
+    assert_eq!(contract_balance.0, 0, "contract should not hold any tokens");
 
     Ok(())
 }

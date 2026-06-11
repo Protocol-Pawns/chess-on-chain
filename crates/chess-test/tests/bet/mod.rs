@@ -1,9 +1,9 @@
 use crate::{bet, util::*};
 use chess_engine::Color;
-use chess_lib::{create_challenge_id, BetInfo, BetMsg, BetView, ChessEvent, GameId, GameOutcome};
-use maplit::hashmap;
+use chess_lib::{create_challenge_id, BetMsg, ChessEvent, GameId, GameOutcome};
 use near_sdk::json_types::U128;
 use near_workspaces::{types::NearToken, Account, AccountId, Contract};
+use std::collections::HashMap;
 
 #[tokio::test]
 async fn test_bet_basic() -> anyhow::Result<()> {
@@ -91,20 +91,14 @@ async fn test_bet_basic() -> anyhow::Result<()> {
     )?;
 
     let bet_info = view::get_bet_info(&contract, (player_a.id(), player_b.id())).await?;
-    let actual = serde_json::to_value(bet_info)?;
-    let expected = serde_json::to_value(BetInfo {
-        is_locked: false,
-        bets: hashmap! {
-            test_token.id().clone() => vec![(
-                better_a.id().clone(),
-                BetView { amount: U128(bet_amount), winner: player_a.id().clone() }
-            ), (
-                better_b.id().clone(),
-                BetView { amount: U128(bet_amount), winner: player_b.id().clone() }
-            )]
-        },
-    })?;
-    assert_eq!(actual, expected);
+    assert!(!bet_info.is_locked);
+    let token_bets = bet_info.bets.get(test_token.id()).unwrap();
+    let bet_map: HashMap<_, _> = token_bets.iter().map(|(id, b)| (id.clone(), b)).collect();
+    assert_eq!(bet_map.len(), 2);
+    assert_eq!(bet_map[better_a.id()].amount.0, bet_amount);
+    assert_eq!(bet_map[better_a.id()].winner, player_a.id().clone());
+    assert_eq!(bet_map[better_b.id()].amount.0, bet_amount);
+    assert_eq!(bet_map[better_b.id()].winner, player_b.id().clone());
 
     call::challenge(&contract, &player_a, player_b.id()).await?;
     let challenge_id = create_challenge_id(player_a.id(), player_b.id());
@@ -310,20 +304,14 @@ async fn test_bet_increase() -> anyhow::Result<()> {
     bet!(&better_b, test_token.id(), contract.id(), bet_amount, player_b => player_a).await?;
 
     let bet_info = view::get_bet_info(&contract, (player_a.id(), player_b.id())).await?;
-    let actual = serde_json::to_value(bet_info)?;
-    let expected = serde_json::to_value(BetInfo {
-        is_locked: false,
-        bets: hashmap! {
-            test_token.id().clone() => vec![(
-                better_a.id().clone(),
-                BetView { amount: U128(bet_amount), winner: player_a.id().clone() }
-            ), (
-                better_b.id().clone(),
-                BetView { amount: U128(bet_amount * 4), winner: player_b.id().clone() }
-            )]
-        },
-    })?;
-    assert_eq!(actual, expected);
+    assert!(!bet_info.is_locked);
+    let token_bets = bet_info.bets.get(test_token.id()).unwrap();
+    let bet_map: HashMap<_, _> = token_bets.iter().map(|(id, b)| (id.clone(), b)).collect();
+    assert_eq!(bet_map.len(), 2);
+    assert_eq!(bet_map[better_a.id()].amount.0, bet_amount);
+    assert_eq!(bet_map[better_a.id()].winner, player_a.id().clone());
+    assert_eq!(bet_map[better_b.id()].amount.0, bet_amount * 4);
+    assert_eq!(bet_map[better_b.id()].winner, player_b.id().clone());
 
     play_game(&contract, &player_a, &player_b).await?;
 
