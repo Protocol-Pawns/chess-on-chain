@@ -2,6 +2,7 @@
   import { onMount } from 'svelte';
   import { goto } from '$app/navigation';
   import { page } from '$app/state';
+  import { Chess } from 'chess.js';
   import {
     api,
     type Game,
@@ -223,7 +224,7 @@
   }
 
   function parseTxLogs(logs: string[]) {
-    let lastMove: { from: string; to: string } | null = null;
+    const moves: { from: string; to: string }[] = [];
     let outcome: Record<string, unknown> | null = null;
     let board: string[] | null = null;
     let resigner: string | null = null;
@@ -236,7 +237,7 @@
         if (event.event === 'play_move') {
           const parts: string[] = event.data.mv.split(' to ');
           if (parts.length === 2) {
-            lastMove = { from: parts[0], to: parts[1] };
+            moves.push({ from: parts[0], to: parts[1] });
           }
           if (event.data.board) {
             board = event.data.board as string[];
@@ -258,13 +259,13 @@
         // skip
       }
     }
-    return { lastMove, outcome, board, resigner, cancelled };
+    return { moves, outcome, board, resigner, cancelled };
   }
 
   function handleMove(from: string, to: string) {
     if (!game || submitting) return;
     submitting = true;
-    const isAiGame = game.white.type === 'AI' || game.black?.type === 'AI';
+    const isAiGame = game.white.type === 'Ai' || game.black?.type === 'Ai';
     contract
       .playMove($state.snapshot(game.game_id), from + to)
       .then(async txResult => {
@@ -282,34 +283,47 @@
         }
         let parsed = parseTxLogs(txLogs);
 
-        if (isAiGame && !parsed.lastMove) {
-          const txHash = tx.transaction?.hash ?? tx.transaction_outcome?.id;
-          if (txHash) {
-            try {
-              const rpcLogs = await getTxLogs(txHash);
-              parsed = parseTxLogs(rpcLogs);
-            } catch (e) {
-              console.warn('[game] getTxLogs failed:', e);
+        if (game) {
+          if (parsed.outcome && parsed.board) {
+            game = {
+              ...game,
+              board: parsed.board,
+              fen: undefined,
+              status: 'finished' as const,
+              outcome: parsed.outcome as GameOverview['outcome']
+            };
+            pendingLastMove = null;
+            contractTurnColor = null;
+            retryLoadUntilFinished();
+          } else {
+            const aiMove =
+              isAiGame && parsed.moves.length > 1
+                ? parsed.moves[parsed.moves.length - 1]
+                : null;
+            pendingLastMove = aiMove ?? { from, to };
+            if (game.fen) {
+              try {
+                const c = new Chess(game.fen);
+                c.move({ from, to, promotion: 'q' });
+                if (aiMove) {
+                  c.move({
+                    from: aiMove.from,
+                    to: aiMove.to,
+                    promotion: 'q'
+                  });
+                }
+                game = { ...game, fen: c.fen() };
+              } catch {
+                if (parsed.board) {
+                  game = { ...game, board: parsed.board, fen: undefined };
+                }
+              }
+            } else if (parsed.board) {
+              game = { ...game, board: parsed.board, fen: undefined };
             }
+            const preMoveCount = moves.length;
+            retryLoadUntilSynced(preMoveCount);
           }
-        }
-
-        if (parsed.outcome && parsed.board && game) {
-          game = {
-            ...game,
-            board: parsed.board,
-            fen: undefined,
-            status: 'finished' as const,
-            outcome: parsed.outcome as GameOverview['outcome']
-          };
-          pendingLastMove = null;
-          contractTurnColor = null;
-          retryLoadUntilFinished();
-        } else {
-          if (isAiGame && parsed.lastMove) {
-            pendingLastMove = parsed.lastMove;
-          }
-          load();
         }
       })
       .catch(() => {
@@ -331,6 +345,39 @@
         // retry
       }
     }
+  }
+
+  async function retryLoadUntilSynced(previousMoveCount: number) {
+    for (let i = 0; i < 8; i++) {
+      await new Promise(r => setTimeout(r, 1500));
+      try {
+        const m = await api.gameMoves(gameIdStr);
+        if (m.length > previousMoveCount) {
+          moves = m;
+          if (pendingLastMove && m.length > 0) {
+            const parsed = parseMoveNotation(
+              m[m.length - 1].move_notation,
+              m[m.length - 1].color
+            );
+            if (
+              parsed &&
+              parsed.from === pendingLastMove.from &&
+              parsed.to === pendingLastMove.to
+            ) {
+              pendingLastMove = null;
+            }
+          }
+          const g = await api.game(gameIdStr);
+          game = g;
+          contractTurnColor = null;
+          gameBets = await api.gameBets(gameIdStr).catch(() => []);
+          return;
+        }
+      } catch {
+        // retry
+      }
+    }
+    load();
   }
 
   function handleResign() {
