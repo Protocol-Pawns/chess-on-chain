@@ -28,7 +28,7 @@ async function backfill() {
         SELECT id, trigger_block_height, trigger_block_timestamp, event_type, event_data
         FROM chess_events
         WHERE processed = false
-        ORDER BY trigger_block_height ASC, trigger_block_timestamp ASC
+        ORDER BY trigger_block_height ASC, trigger_block_timestamp ASC, id ASC
         LIMIT ${BATCH_SIZE}
       `) as RawEvent[];
 

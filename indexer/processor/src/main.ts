@@ -38,7 +38,7 @@ async function processBatch(
     SELECT id, trigger_block_height, trigger_block_timestamp, event_type, event_data
     FROM chess_events
     WHERE processed = false
-    ORDER BY trigger_block_height::bigint ASC, trigger_block_timestamp::bigint ASC
+    ORDER BY trigger_block_height::bigint ASC, trigger_block_timestamp::bigint ASC, id ASC
     LIMIT ${BATCH_SIZE}
   `;
   const events = rows.map((r: Record<string, unknown>) => ({
