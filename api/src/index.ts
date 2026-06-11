@@ -120,7 +120,8 @@ app.openapi(getGameRoute, async c => {
   const db = c.get('DB');
   const game = await getGame(db, gameIdJson);
   if (!game) return c.json({ error: 'Not found' } as const, 404);
-  return c.json(game, 200);
+  const { moves: _m, ...overview } = game;
+  return c.json(overview, 200);
 });
 
 app.openapi(getGameMovesRoute, async c => {

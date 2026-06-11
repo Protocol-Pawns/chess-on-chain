@@ -117,7 +117,9 @@ const handlers: Record<string, EventHandler> = {
       UPDATE games SET
         board = COALESCE(${JSON.stringify(board)}::jsonb, board),
         fen = ${fen},
-        moves = moves || ${JSON.stringify([{ color, mv: d.mv, board, fen }])}::jsonb
+        moves = moves || jsonb_build_array(
+          jsonb_build_object('color', ${color}, 'mv', ${d.mv}, 'board', ${JSON.stringify(board)}::jsonb, 'fen', ${fen})
+        )
       WHERE game_id = ${gid}
     `;
 

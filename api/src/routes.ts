@@ -55,7 +55,7 @@ export const getGameRoute = createRoute({
   },
   responses: {
     200: {
-      content: { 'application/json': { schema: GameSchema } },
+      content: { 'application/json': { schema: GameOverviewSchema } },
       description: 'Returns a game by ID'
     },
     404: {

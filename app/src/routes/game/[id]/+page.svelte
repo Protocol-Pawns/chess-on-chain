@@ -5,7 +5,6 @@
   import { Chess } from 'chess.js';
   import {
     api,
-    type Game,
     type GameMove,
     type Bet,
     type GameOverview
@@ -48,7 +47,7 @@
     return null;
   }
 
-  let game = $state<Game | null>(null);
+  let game = $state<GameOverview | null>(null);
   let moves = $state<GameMove[]>([]);
   let loading = $state(true);
   let error = $state<string | null>(null);
@@ -59,7 +58,11 @@
   let showPublicCancelModal = $state(false);
   let pendingLastMove = $state<{ from: string; to: string } | null>(null);
   let viewingMoveIndex = $state<number | null>(null);
-  let sseMoveCount = $state(0);
+  let appliedMoveSigs = $state<Set<string>>(new Set());
+
+  function moveSig(color: string, mv: string): string {
+    return `${color}:${mv}`;
+  }
   const STARTING_FEN =
     'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
 
@@ -171,6 +174,8 @@
     return loadGameFromContract(gameId);
   }
 
+  let localMoveCount = $state(0);
+
   async function load() {
     try {
       const [g, m] = await Promise.all([
@@ -180,41 +185,38 @@
       if (game && game.status !== 'in_progress' && game.status !== g.status) {
         return;
       }
-      game = g;
-      moves = m;
-      contractTurnColor = null;
-      console.log(
-        '[game] load() moves count:',
-        m.length,
-        'last move:',
-        m.length > 0 ? m[m.length - 1].move_notation : 'none',
-        'pendingLastMove:',
-        pendingLastMove
-      );
-      if (m.length > 0 && pendingLastMove) {
-        const parsed = parseMoveNotation(
-          m[m.length - 1].move_notation,
-          m[m.length - 1].color
-        );
-        if (
-          parsed &&
-          parsed.from === pendingLastMove.from &&
-          parsed.to === pendingLastMove.to
-        ) {
-          pendingLastMove = null;
-        }
-      } else if (m.length > 0) {
-        pendingLastMove = null;
+      if (m.length < localMoveCount && game?.status === 'in_progress') {
+        return;
       }
+      const localAhead = localMoveCount > m.length;
+      if (localAhead) {
+        const { board: localBoard, fen: localFen } = game ?? {};
+        const { board: _b, fen: _f, moves: _m, ...rest } = g;
+        game = {
+          ...rest,
+          board: localBoard ?? g.board,
+          fen: localFen ?? g.fen
+        };
+      } else {
+        game = g;
+      }
+      moves = m;
+      localMoveCount = Math.max(localMoveCount, m.length);
+      contractTurnColor = null;
+      if (m.length > 0) pendingLastMove = null;
+      const sigs = new Set<string>();
+      for (const mv of m) sigs.add(moveSig(mv.color, mv.move_notation));
+      appliedMoveSigs = sigs;
       gameBets = await api.gameBets(gameIdStr).catch(() => []);
     } catch (e) {
       if (game?.status !== 'in_progress' && game?.status !== undefined) return;
       console.warn('[game] API load failed, falling back to contract:', e);
       try {
         const contractGame = await loadFromContract();
-        game = { ...contractGame, moves: [] } as Game;
+        game = { ...contractGame } as GameOverview;
         contractTurnColor = contractGame.turn_color;
         moves = [];
+        localMoveCount = 0;
         gameBets = [];
       } catch (e2) {
         console.error('[game] contract fallback also failed:', e2);
@@ -226,7 +228,12 @@
   }
 
   function parseTxLogs(logs: string[]) {
-    const moves: { from: string; to: string }[] = [];
+    const parsedMoves: {
+      from: string;
+      to: string;
+      color: string;
+      mv: string;
+    }[] = [];
     let outcome: Record<string, unknown> | null = null;
     let board: string[] | null = null;
     let resigner: string | null = null;
@@ -239,7 +246,12 @@
         if (event.event === 'play_move') {
           const parts: string[] = event.data.mv.split(' to ');
           if (parts.length === 2) {
-            moves.push({ from: parts[0], to: parts[1] });
+            parsedMoves.push({
+              from: parts[0],
+              to: parts[1],
+              color: event.data.color,
+              mv: event.data.mv
+            });
           }
           if (event.data.board) {
             board = event.data.board as string[];
@@ -261,8 +273,11 @@
         // skip
       }
     }
-    return { moves, outcome, board, resigner, cancelled };
+    const moves = parsedMoves.map(m => ({ from: m.from, to: m.to }));
+    return { moves, outcome, board, resigner, cancelled, parsedMoves };
   }
+
+  let clearPendingTimer: ReturnType<typeof setTimeout> | null = null;
 
   function handleMove(from: string, to: string) {
     if (!game || submitting) return;
@@ -286,6 +301,10 @@
         let parsed = parseTxLogs(txLogs);
 
         if (game) {
+          for (const m of parsed.parsedMoves) {
+            appliedMoveSigs.add(moveSig(m.color, m.mv));
+          }
+          localMoveCount += parsed.parsedMoves.length;
           if (parsed.outcome && parsed.board) {
             game = {
               ...game,
@@ -296,7 +315,6 @@
             };
             pendingLastMove = null;
             contractTurnColor = null;
-            retryLoadUntilFinished();
           } else {
             const aiMove =
               isAiGame && parsed.moves.length > 1
@@ -323,8 +341,11 @@
             } else if (parsed.board) {
               game = { ...game, board: parsed.board, fen: undefined };
             }
-            const preMoveCount = moves.length;
-            retryLoadUntilSynced(preMoveCount);
+
+            if (clearPendingTimer) clearTimeout(clearPendingTimer);
+            clearPendingTimer = setTimeout(() => {
+              pendingLastMove = null;
+            }, 3000);
           }
         }
       })
@@ -332,54 +353,6 @@
         submitting = false;
       });
     showToast('info', 'Submitting move...');
-  }
-
-  async function retryLoadUntilFinished(targetStatus = 'finished') {
-    for (let i = 0; i < 5; i++) {
-      await new Promise(r => setTimeout(r, 2000));
-      try {
-        const g = await api.game(gameIdStr);
-        if (g.status === targetStatus) {
-          await load();
-          return;
-        }
-      } catch {
-        // retry
-      }
-    }
-  }
-
-  async function retryLoadUntilSynced(previousMoveCount: number) {
-    for (let i = 0; i < 8; i++) {
-      await new Promise(r => setTimeout(r, 1500));
-      try {
-        const m = await api.gameMoves(gameIdStr);
-        if (m.length > previousMoveCount) {
-          moves = m;
-          if (pendingLastMove && m.length > 0) {
-            const parsed = parseMoveNotation(
-              m[m.length - 1].move_notation,
-              m[m.length - 1].color
-            );
-            if (
-              parsed &&
-              parsed.from === pendingLastMove.from &&
-              parsed.to === pendingLastMove.to
-            ) {
-              pendingLastMove = null;
-            }
-          }
-          const g = await api.game(gameIdStr);
-          game = g;
-          contractTurnColor = null;
-          gameBets = await api.gameBets(gameIdStr).catch(() => []);
-          return;
-        }
-      } catch {
-        // retry
-      }
-    }
-    load();
   }
 
   function handleResign() {
@@ -411,10 +384,8 @@
             resigner: (parsed.resigner as GameOverview['resigner']) ?? null
           };
           showToast('success', 'Game resigned');
-          retryLoadUntilFinished();
         } else {
           showToast('success', 'Game resigned');
-          load();
         }
       })
       .catch((err: unknown) => {
@@ -453,10 +424,8 @@
             status: 'cancelled' as const
           };
           showToast('success', 'Game cancelled');
-          retryLoadUntilFinished('cancelled');
         } else {
           showToast('success', 'Game cancelled');
-          load();
         }
       })
       .catch((err: unknown) => {
@@ -495,10 +464,8 @@
             status: 'cancelled' as const
           };
           showToast('success', 'Stale game cancelled');
-          retryLoadUntilFinished('cancelled');
         } else {
           showToast('success', 'Game cancelled');
-          load();
         }
       })
       .catch((err: unknown) => {
@@ -516,7 +483,7 @@
     if (!board || !game) return;
     const color = data.color as string;
     const nextTurn: 'White' | 'Black' = color === 'White' ? 'Black' : 'White';
-    const fen = boardToFen(board, nextTurn);
+    const fen = boardToFen([...board].reverse(), nextTurn);
     const outcome = data.outcome as { result: string; color?: string } | null;
     const mv = data.mv as string;
 
@@ -530,7 +497,7 @@
         outcome: outcome ?? null
       }
     ];
-    sseMoveCount = moves.length;
+    localMoveCount = moves.length;
 
     game = {
       ...game,
@@ -561,12 +528,13 @@
         ? data.game_id
         : JSON.stringify(data.game_id);
     if (eventGameId !== gameIdStr) return;
-    if (pendingLastMove) return;
-    if (submitting) return;
     if (game && game.status !== 'in_progress') return;
-    if (moves.length >= sseMoveCount + 1 && sseMoveCount > 0) return;
+
+    const sig = moveSig(data.color as string, data.mv as string);
+    if (appliedMoveSigs.has(sig)) return;
 
     updateWatermark(event.trigger_block_height);
+    appliedMoveSigs.add(sig);
     applySSEMove(data);
   }
 
@@ -604,8 +572,12 @@
       : JSON.stringify(data.game_id);
   }
 
+  let pollInterval: ReturnType<typeof setInterval> | null = null;
+
   onMount(() => {
     load();
+
+    pollInterval = setInterval(load, 5_000);
 
     const unsubs = [
       subscribe('play_move', handleSSEPlayMove),
@@ -614,6 +586,7 @@
     ];
 
     return () => {
+      if (pollInterval) clearInterval(pollInterval);
       for (const u of unsubs) u();
     };
   });

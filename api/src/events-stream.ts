@@ -1,15 +1,4 @@
 import type { AppEnv } from './types';
-type DOStub = ReturnType<AppEnv['Bindings']['SSE_HUB']['get']>;
-
-function forwardResponse(res: Awaited<ReturnType<DOStub['fetch']>>): Response {
-  const headers = new Headers();
-  res.headers.forEach((v, k) => headers.set(k, v));
-  return new Response(res.body as unknown as BodyInit, {
-    status: res.status,
-    statusText: res.statusText,
-    headers
-  });
-}
 
 interface GameLookup {
   white_type: string;
@@ -126,19 +115,39 @@ export function registerSSERoutes(
   app: import('@hono/zod-openapi').OpenAPIHono<AppEnv>
 ) {
   app.get('/events', async c => {
+    console.log('[SSE] GET /events hit, account:', c.req.query('account'));
     const id = c.env.SSE_HUB.idFromName('global');
     const accounts = c.req.query('account');
     if (!accounts) {
+      console.log('[SSE] no account param');
       return c.json({ error: 'Missing account param' }, 400);
     }
     const params = new URLSearchParams();
     for (const a of Array.isArray(accounts) ? accounts : [accounts]) {
       params.append('account', a);
     }
+    console.log('[SSE] fetching DO subscribe');
     const doRes = await c.env.SSE_HUB.get(id).fetch(
-      `https://do/sse-hub/subscribe?${params.toString()}`
+      `https://do/subscribe?${params.toString()}`
     );
-    return forwardResponse(doRes);
+    console.log(
+      '[SSE] DO responded status:',
+      doRes.status,
+      'headers:',
+      Object.fromEntries(doRes.headers.entries())
+    );
+    const res = new Response(doRes.body as unknown as BodyInit, {
+      status: doRes.status,
+      headers: {
+        'Content-Type':
+          doRes.headers.get('Content-Type') || 'text/event-stream',
+        'Cache-Control': doRes.headers.get('Cache-Control') || 'no-cache',
+        Connection: 'keep-alive',
+        'X-Accel-Buffering': 'no'
+      }
+    });
+    console.log('[SSE] returning response, status:', res.status);
+    return res;
   });
 
   app.post('/events/publish', async c => {
@@ -235,11 +244,14 @@ export function registerSSERoutes(
 
     const id = c.env.SSE_HUB.idFromName('global');
     const stub = c.env.SSE_HUB.get(id);
-    const doRes = await stub.fetch('https://do/sse-hub/publish', {
+    const doRes = await stub.fetch('https://do/publish', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ events: publishEvents })
     });
-    return forwardResponse(doRes);
+    return c.json({
+      ok: true,
+      delivered: ((await doRes.json()) as { delivered?: number }).delivered ?? 0
+    });
   });
 }
