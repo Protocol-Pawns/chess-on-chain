@@ -20,7 +20,7 @@ export function gameUrl(gameId: GameId): string {
 
 export function boardToFen(board: string[], turnColor: Color): string {
   const rows: string[] = [];
-  for (let i = 0; i < 8; i++) {
+  for (let i = 7; i >= 0; i--) {
     let fenRow = '';
     let emptyCount = 0;
     for (let j = 0; j < 8; j++) {
@@ -56,7 +56,7 @@ export async function loadGameFromContract(
     contract.getGameInfo(gameId),
     contract.getBoard(gameId)
   ]);
-  const board = [...rawBoard].reverse();
+  const board = rawBoard;
   const fen = boardToFen(board, info.turn_color);
   return {
     game_id: gameId,

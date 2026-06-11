@@ -475,7 +475,7 @@
     if (!board || !game) return;
     const color = data.color as string;
     const nextTurn: 'White' | 'Black' = color === 'White' ? 'Black' : 'White';
-    const fen = boardToFen([...board].reverse(), nextTurn);
+    const fen = boardToFen(board, nextTurn);
     const outcome = data.outcome as { result: string; color?: string } | null;
     const mv = data.mv as string;
 
