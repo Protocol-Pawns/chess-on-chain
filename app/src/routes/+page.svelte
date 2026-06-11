@@ -525,12 +525,7 @@
           {:else}
             <div class="space-y-2">
               {#each finishedGames as game}
-                <a
-                  class="block"
-                  href="/game/{encodeURIComponent(
-                    JSON.stringify(game.game_id)
-                  )}"
-                >
+                <a class="block" href={gameUrl(game.game_id)}>
                   <GameCard {game} />
                 </a>
               {/each}

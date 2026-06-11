@@ -15,7 +15,16 @@ export function normalizePlayer(p: Player | null): {
 }
 
 export function gameUrl(gameId: GameId): string {
-  return `/game/${encodeURIComponent(JSON.stringify(gameId))}`;
+  const [num, p1, p2] = gameId;
+  return p2 ? `/game/${num}/${p1}/${p2}` : `/game/${num}/${p1}`;
+}
+
+export function parseGamePath(path: string): GameId {
+  const parts = path.split('/');
+  const num = Number(parts[0]);
+  const p1 = parts[1];
+  const p2 = parts[2] ?? null;
+  return [num, p1, p2];
 }
 
 export function boardToFen(board: string[], turnColor: Color): string {

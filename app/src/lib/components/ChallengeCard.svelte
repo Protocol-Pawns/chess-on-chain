@@ -3,7 +3,7 @@
   import type { Challenge, GameOverview } from '$lib/api/client';
   import { colorFromFEN } from '$lib/chess/board';
   import { truncateAddr } from '$lib/format';
-  import { MAX_OPEN_GAMES } from '$lib/game';
+  import { MAX_OPEN_GAMES, gameUrl } from '$lib/game';
   import { accountStore } from '$lib/near/account';
 
   interface Props {
@@ -61,7 +61,7 @@
 
 {#if isAccepted && game}
   <a
-    href="/game/{encodeURIComponent(challenge.game_id!)}"
+    href={gameUrl(JSON.parse(challenge.game_id!))}
     class={isMyTurn ? 'card-accent block' : 'card-hover block'}
   >
     <div class="flex justify-between items-start mb-1">
@@ -179,7 +179,7 @@
         {/if}
         {#if isAccepted}
           <a
-            href="/game/{encodeURIComponent(challenge.game_id!)}"
+            href={gameUrl(JSON.parse(challenge.game_id!))}
             class="btn-primary text-xs">View Game</a
           >
         {/if}

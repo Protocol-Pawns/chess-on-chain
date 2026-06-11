@@ -14,7 +14,7 @@
   import { colorFromFEN } from '$lib/chess/board';
   import { showToast } from '$lib/toast';
   import { truncateAddr } from '$lib/format';
-  import { loadGameFromContract, boardToFen } from '$lib/game';
+  import { loadGameFromContract, boardToFen, parseGamePath } from '$lib/game';
   import type { GameId, ContractGameData } from '$lib/game';
   import type { SSEEventData } from '$lib/sse';
   import { subscribe, updateWatermark } from '$lib/sse';
@@ -66,8 +66,8 @@
   const STARTING_FEN =
     'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
 
-  const gameIdStr = decodeURIComponent(page.params.id ?? '');
-  const gameId: GameId = JSON.parse(gameIdStr);
+  const gameId: GameId = parseGamePath(page.params.id ?? '');
+  const gameIdStr = JSON.stringify(gameId);
 
   let lastMove = $derived(
     pendingLastMove ??

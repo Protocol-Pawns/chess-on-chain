@@ -2,7 +2,10 @@ import type { PushSubscriptionRow } from './db';
 import { sendPush } from './push';
 
 function gameUrlPath(gameId: unknown): string {
-  return `/game/${encodeURIComponent(typeof gameId === 'string' ? gameId : JSON.stringify(gameId))}`;
+  const parsed: unknown =
+    typeof gameId === 'string' ? JSON.parse(gameId) : gameId;
+  const [num, p1, p2] = parsed as [number, string, string | null];
+  return p2 ? `/game/${num}/${p1}/${p2}` : `/game/${num}/${p1}`;
 }
 
 interface Notification {
