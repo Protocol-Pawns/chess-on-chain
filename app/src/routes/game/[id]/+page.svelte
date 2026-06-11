@@ -201,8 +201,8 @@
       }
       moves = m;
       localMoveCount = Math.max(localMoveCount, m.length);
+      if (!localAhead && m.length > 0) pendingLastMove = null;
       contractTurnColor = null;
-      if (m.length > 0) pendingLastMove = null;
       const sigs = new Set<string>();
       for (const mv of m) sigs.add(moveSig(mv.color, mv.move_notation));
       appliedMoveSigs = sigs;
@@ -276,8 +276,6 @@
     return { moves, outcome, board, resigner, cancelled, parsedMoves };
   }
 
-  let clearPendingTimer: ReturnType<typeof setTimeout> | null = null;
-
   function handleMove(from: string, to: string) {
     if (!game || submitting) return;
     submitting = true;
@@ -340,11 +338,6 @@
             } else if (parsed.board) {
               game = { ...game, board: parsed.board, fen: undefined };
             }
-
-            if (clearPendingTimer) clearTimeout(clearPendingTimer);
-            clearPendingTimer = setTimeout(() => {
-              pendingLastMove = null;
-            }, 3000);
           }
         }
       })
