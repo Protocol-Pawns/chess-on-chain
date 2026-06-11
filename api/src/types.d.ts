@@ -17,6 +17,7 @@ export type AppEnv = {
     CONTRACT_ID: string;
     SSE_HUB: DurableObjectNamespace;
     PROCESSOR_SECRET: string;
+    SSE_DEBUG?: string;
   };
   Variables: {
     DB: Sql;

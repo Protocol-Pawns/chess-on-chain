@@ -1,5 +1,9 @@
 import type { AppEnv } from './types';
 
+function dbg(env: { SSE_DEBUG?: string }, ...args: unknown[]) {
+  if (env.SSE_DEBUG === 'true' || env.SSE_DEBUG === '1') console.log(...args);
+}
+
 interface GameLookup {
   white_type: string;
   white_value: string;
@@ -115,22 +119,23 @@ export function registerSSERoutes(
   app: import('@hono/zod-openapi').OpenAPIHono<AppEnv>
 ) {
   app.get('/events', async c => {
-    console.log('[SSE] GET /events hit, account:', c.req.query('account'));
+    dbg(c.env, '[SSE] GET /events hit, account:', c.req.query('account'));
     const id = c.env.SSE_HUB.idFromName('global');
     const accounts = c.req.query('account');
     if (!accounts) {
-      console.log('[SSE] no account param');
+      dbg(c.env, '[SSE] no account param');
       return c.json({ error: 'Missing account param' }, 400);
     }
     const params = new URLSearchParams();
     for (const a of Array.isArray(accounts) ? accounts : [accounts]) {
       params.append('account', a);
     }
-    console.log('[SSE] fetching DO subscribe');
+    dbg(c.env, '[SSE] fetching DO subscribe');
     const doRes = await c.env.SSE_HUB.get(id).fetch(
       `https://do/subscribe?${params.toString()}`
     );
-    console.log(
+    dbg(
+      c.env,
       '[SSE] DO responded status:',
       doRes.status,
       'headers:',
@@ -146,13 +151,14 @@ export function registerSSERoutes(
         'X-Accel-Buffering': 'no'
       }
     });
-    console.log('[SSE] returning response, status:', res.status);
+    dbg(c.env, '[SSE] returning response, status:', res.status);
     return res;
   });
 
   app.post('/events/publish', async c => {
     const auth = c.req.header('Authorization');
     if (!auth || auth !== `Bearer ${c.env.PROCESSOR_SECRET}`) {
+      dbg(c.env, '[SSE/PUBLISH] unauthorized');
       return c.json({ error: 'Unauthorized' }, 401);
     }
 
@@ -165,6 +171,7 @@ export function registerSSERoutes(
       }>;
     }>();
 
+    dbg(c.env, '[SSE/PUBLISH] received', body.events?.length ?? 0, 'events');
     if (!body.events || body.events.length === 0) {
       return c.json({ ok: true, delivered: 0 });
     }
@@ -192,12 +199,27 @@ export function registerSSERoutes(
       }
     }
 
+    dbg(
+      c.env,
+      '[SSE/PUBLISH] gameIds:',
+      gameIds,
+      'challengeIds:',
+      challengeIds
+    );
+
     const games = new Map<string, GameLookup>();
     if (gameIds.length > 0) {
       const rows = (await db`
         SELECT game_id, white_type, white_value, black_type, black_value
         FROM games WHERE game_id = ANY(${gameIds})
       `) as Array<GameLookup & { game_id: string }>;
+      dbg(
+        c.env,
+        '[SSE/PUBLISH] DB returned',
+        rows.length,
+        'games:',
+        rows.map(r => r.game_id)
+      );
       for (const r of rows) games.set(r.game_id, r);
     }
 
@@ -228,6 +250,7 @@ export function registerSSERoutes(
         games,
         challenges
       );
+      dbg(c.env, '[SSE/PUBLISH] event:', e.event_type, 'targets:', targets);
       if (targets.length === 0) continue;
       publishEvents.push({
         event_type: e.event_type,
@@ -238,6 +261,12 @@ export function registerSSERoutes(
       });
     }
 
+    dbg(
+      c.env,
+      '[SSE/PUBLISH] publishing',
+      publishEvents.length,
+      'events to DO'
+    );
     if (publishEvents.length === 0) {
       return c.json({ ok: true, delivered: 0 });
     }
@@ -249,9 +278,11 @@ export function registerSSERoutes(
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ events: publishEvents })
     });
+    const doResult = (await doRes.json()) as { delivered?: number };
+    dbg(c.env, '[SSE/PUBLISH] DO response:', doResult);
     return c.json({
       ok: true,
-      delivered: ((await doRes.json()) as { delivered?: number }).delivered ?? 0
+      delivered: doResult.delivered ?? 0
     });
   });
 }
