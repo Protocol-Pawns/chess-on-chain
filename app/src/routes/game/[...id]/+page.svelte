@@ -616,52 +616,69 @@
       &larr; Back
     </button>
     <div class="card">
-      <div class="flex justify-between items-center mb-2">
+      <div class="flex justify-between items-center mb-2 gap-1">
         <span
-          class="text-sm px-2 py-1 rounded transition-all {currentTurn ===
+          class="min-w-0 inline-flex items-center gap-1 text-sm px-2 py-1 rounded transition-all {currentTurn ===
           'White'
             ? 'bg-white/20 font-bold ring-1 ring-white/50'
             : 'text-white/60'}"
         >
-          <span
-            class="inline-block w-3 h-3 rounded-full bg-white mr-1 align-middle"
-          ></span>
-          {game.white.type === 'Human'
-            ? truncateAddr(game.white.value)
-            : `AI (${game.white.value})`}
+          <span class="shrink-0 w-3 h-3 rounded-full bg-white"></span>
+          <span class="truncate max-w-24 sm:max-w-none">
+            {game.white.type === 'Human'
+              ? truncateAddr(game.white.value)
+              : `AI (${game.white.value})`}
+          </span>
           {#if currentTurn === 'White'}
-            <span class="text-xs ml-1 text-primary-green">&#9654;</span>
+            <span class="shrink-0 text-xs text-primary-green">&#9654;</span>
           {/if}
         </span>
         <span
-          class="text-sm px-2 py-0.5 rounded {game.status === 'in_progress'
+          class="shrink-0 text-xs sm:text-sm px-1.5 sm:px-2 py-0.5 rounded whitespace-nowrap {game.status ===
+          'in_progress'
             ? 'bg-primary-bgOk text-primary-green'
             : game.status === 'finished'
               ? 'bg-white/10 text-white/50'
               : 'bg-primary-bgErr text-primary-err'}"
         >
           {#if isSpectating}
-            Spectating
+            <span class="sm:hidden">Spec.</span><span class="hidden sm:inline"
+              >Spectating</span
+            >
+          {:else if game.status === 'in_progress'}
+            <span class="sm:hidden">Live</span><span class="hidden sm:inline"
+              >in progress</span
+            >
+          {:else if game.status === 'waiting'}
+            <span class="sm:hidden">Wait</span><span class="hidden sm:inline"
+              >waiting</span
+            >
+          {:else if game.status === 'finished'}
+            <span class="sm:hidden">Done</span><span class="hidden sm:inline"
+              >finished</span
+            >
           {:else}
             {game.status?.replace('_', ' ') ?? 'unknown'}
           {/if}
         </span>
         <span
-          class="text-sm px-2 py-1 rounded transition-all {currentTurn ===
+          class="min-w-0 inline-flex items-center gap-1 text-sm px-2 py-1 rounded transition-all {currentTurn ===
           'Black'
             ? 'bg-white/20 font-bold ring-1 ring-gray-400'
             : 'text-white/60'}"
         >
           {#if currentTurn === 'Black'}
-            <span class="text-xs mr-1 text-primary-green">&#9654;</span>
+            <span class="shrink-0 text-xs text-primary-green">&#9654;</span>
           {/if}
-          {game.black?.type === 'Human'
-            ? truncateAddr(game.black.value ?? '')
-            : game.black?.type?.toLowerCase() === 'ai'
-              ? `AI (${game.black.value})`
-              : '...'}
+          <span class="truncate max-w-24 sm:max-w-none">
+            {game.black?.type === 'Human'
+              ? truncateAddr(game.black.value ?? '')
+              : game.black?.type?.toLowerCase() === 'ai'
+                ? `AI (${game.black.value})`
+                : '...'}
+          </span>
           <span
-            class="inline-block w-3 h-3 rounded-full bg-gray-700 border border-gray-500 ml-1 align-middle"
+            class="shrink-0 w-3 h-3 rounded-full bg-gray-700 border border-gray-500"
           ></span>
         </span>
       </div>
