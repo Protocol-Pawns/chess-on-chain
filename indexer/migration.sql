@@ -23,7 +23,6 @@ CREATE TABLE IF NOT EXISTS games (
   black_value TEXT,
   board JSONB NOT NULL,
   fen TEXT,
-  moves JSONB NOT NULL DEFAULT '[]'::JSONB,
   outcome JSONB,
   resigner TEXT,
   status TEXT NOT NULL DEFAULT 'in_progress',

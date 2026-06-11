@@ -191,9 +191,8 @@
       const localAhead = localMoveCount > m.length;
       if (localAhead) {
         const { board: localBoard, fen: localFen } = game ?? {};
-        const { board: _b, fen: _f, moves: _m, ...rest } = g;
         game = {
-          ...rest,
+          ...g,
           board: localBoard ?? g.board,
           fen: localFen ?? g.fen
         };

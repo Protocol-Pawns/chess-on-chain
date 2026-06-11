@@ -25,10 +25,6 @@ export interface GameOverview {
   finished_at?: string | null;
 }
 
-export interface Game extends GameOverview {
-  moves: Array<{ color: string; mv: string; board: string[]; fen?: string }>;
-}
-
 export interface GameMove {
   move_number: number;
   color: string;
@@ -143,7 +139,8 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 export const api = {
   info: () => request<{ lastBlockHeight: number }>('/info'),
   stats: () => request<GlobalStats>('/stats'),
-  game: (id: string) => request<Game>(`/game/${encodeURIComponent(id)}`),
+  game: (id: string) =>
+    request<GameOverview>(`/game/${encodeURIComponent(id)}`),
   gameMoves: (id: string) =>
     request<GameMove[]>(`/game/${encodeURIComponent(id)}/moves`),
   games: (
@@ -162,7 +159,7 @@ export const api = {
     return request<PaginatedResult<GameOverview>>(`/games?${params}`);
   },
   activeGame: (accountId: string) =>
-    request<Game>(`/account/${accountId}/active-game`),
+    request<GameOverview>(`/account/${accountId}/active-game`),
   account: (accountId: string) =>
     request<{ finishedGameIds: GameId[] }>(`/account/${accountId}`),
   accountStats: (accountId: string) =>

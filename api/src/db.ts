@@ -38,7 +38,6 @@ interface GameRow {
   black_value: string | null;
   board: string[];
   fen: string | null;
-  moves: Array<{ color: string; mv: string; board: string[]; fen?: string }>;
   outcome: GameOutcome | null;
   resigner: Color | null;
   status: string;
@@ -85,9 +84,6 @@ function nsToIso(ts: string | number | null): string | null {
 
 function rowToGame(row: GameRow): Game {
   const board = parseJson<string[]>(row.board);
-  const moves = parseJson<
-    Array<{ color: string; mv: string; board: string[]; fen?: string }>
-  >(row.moves);
   const outcome = parseJson<GameOutcome | null>(row.outcome);
   return {
     game_id: JSON.parse(row.game_id),
@@ -95,12 +91,6 @@ function rowToGame(row: GameRow): Game {
     black: parsePlayer(row.black_type, row.black_value),
     board,
     fen: row.fen,
-    moves: moves.map(m => ({
-      color: m.color as Color,
-      mv: m.mv,
-      board: parseJson<string[]>(m.board),
-      fen: m.fen
-    })),
     status: row.status as Game['status'],
     outcome,
     resigner: row.resigner,
@@ -109,10 +99,8 @@ function rowToGame(row: GameRow): Game {
   };
 }
 
-function rowToGameOverview(row: GameRow, includeMoves: boolean) {
-  const game: Game = rowToGame(row);
-  const { moves, ...overview } = game;
-  return includeMoves ? { ...overview, moves } : overview;
+function rowToGameOverview(row: GameRow) {
+  return rowToGame(row);
 }
 
 function rowToGameMove(row: GameMoveRow): GameMove {
@@ -194,16 +182,10 @@ export async function getGameMoves(
   return rows.map((r: unknown) => rowToGameMove(r as GameMoveRow));
 }
 
-export async function queryGames(
-  db: Db,
-  gameIds: string[],
-  includeMoves: boolean
-) {
+export async function queryGames(db: Db, gameIds: string[]) {
   if (gameIds.length === 0) return [];
   const rows = await db`SELECT * FROM games WHERE game_id = ANY(${gameIds})`;
-  return rows.map((r: unknown) =>
-    rowToGameOverview(r as GameRow, includeMoves)
-  );
+  return rows.map((r: unknown) => rowToGameOverview(r as GameRow));
 }
 
 export interface OffsetPaginatedResult<T> {
@@ -220,7 +202,6 @@ export async function getGames(
   status: 'active' | 'finished',
   cursor: string | null,
   limit: number,
-  includeMoves: boolean,
   page?: number,
   excludeAi?: boolean
 ): Promise<OffsetPaginatedResult<GameOverview>> {
@@ -251,9 +232,7 @@ export async function getGames(
       LIMIT ${actualLimit} OFFSET ${offset}
     `;
 
-    const items = rows.map((r: unknown) =>
-      rowToGameOverview(r as GameRow, includeMoves)
-    );
+    const items = rows.map((r: unknown) => rowToGameOverview(r as GameRow));
     const hasMore = page < totalPages;
     const lastRaw = rows[rows.length - 1] as GameRow | undefined;
     const nextCursor =
@@ -290,9 +269,7 @@ export async function getGames(
 
   const hasMore = rows.length > actualLimit;
   const rawItems = hasMore ? rows.slice(0, -1) : rows;
-  const items = rawItems.map((r: unknown) =>
-    rowToGameOverview(r as GameRow, includeMoves)
-  );
+  const items = rawItems.map((r: unknown) => rowToGameOverview(r as GameRow));
   const lastRaw = rawItems[rawItems.length - 1] as GameRow | undefined;
   const nextCursor =
     hasMore && lastRaw

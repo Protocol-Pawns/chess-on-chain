@@ -81,7 +81,6 @@ export const GameMoveSchema = z.object({
 export type GameMove = z.infer<typeof GameMoveSchema>;
 
 export const GameSchema = CreateGameSchema.extend({
-  moves: MoveSchema.array(),
   fen: z.string().nullable().optional(),
   status: GameStatusSchema.optional(),
   resigner: ColorSchema.nullable().optional(),
@@ -92,7 +91,6 @@ export const GameSchema = CreateGameSchema.extend({
 export type Game = z.infer<typeof GameSchema>;
 
 export const GameOverviewSchema = CreateGameSchema.extend({
-  moves: MoveSchema.array().optional(),
   fen: z.string().nullable().optional(),
   status: GameStatusSchema.optional(),
   resigner: ColorSchema.nullable().optional(),

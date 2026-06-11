@@ -120,8 +120,7 @@ app.openapi(getGameRoute, async c => {
   const db = c.get('DB');
   const game = await getGame(db, gameIdJson);
   if (!game) return c.json({ error: 'Not found' } as const, 404);
-  const { moves: _m, ...overview } = game;
-  return c.json(overview, 200);
+  return c.json(game, 200);
 });
 
 app.openapi(getGameMovesRoute, async c => {
@@ -133,23 +132,20 @@ app.openapi(getGameMovesRoute, async c => {
 
 app.openapi(queryGamesRoute, async c => {
   const db = c.get('DB');
-  const { gameIds, includeMoves } = c.req.valid('json');
+  const { gameIds } = c.req.valid('json');
   const gameIdStrings = gameIds.map((id: unknown) => JSON.stringify(id));
-  const result = await queryGames(db, gameIdStrings, includeMoves ?? false);
+  const result = await queryGames(db, gameIdStrings);
   return c.json(result, 200);
 });
 
 app.openapi(getGamesRoute, async c => {
-  const { status, cursor, limit, include_moves, page, exclude_ai } =
-    c.req.valid('query');
-  const includeMoves = include_moves === '1' || include_moves === 'true';
+  const { status, cursor, limit, page, exclude_ai } = c.req.valid('query');
   const db = c.get('DB');
   const result = await getGames(
     db,
     status,
     cursor ?? null,
     Number(limit) || 25,
-    includeMoves,
     page ? Number(page) : undefined,
     exclude_ai
   );

@@ -12,7 +12,6 @@ import {
   GameIdSchema,
   GameMoveSchema,
   GameOverviewSchema,
-  GameSchema,
   GlobalStatsSchema,
   InfoSchema,
   PaginatedBetsSchema,
@@ -87,8 +86,7 @@ export const queryGamesRoute = createRoute({
       content: {
         'application/json': {
           schema: z.object({
-            gameIds: GameIdSchema.array(),
-            includeMoves: z.boolean().optional()
+            gameIds: GameIdSchema.array()
           })
         }
       }
@@ -110,7 +108,6 @@ export const getGamesRoute = createRoute({
       status: z.enum(['active', 'finished']).optional().default('active'),
       cursor: z.string().optional(),
       limit: z.string().optional(),
-      include_moves: z.string().optional(),
       page: z.string().optional(),
       exclude_ai: z
         .enum(['true', '1'])
@@ -134,7 +131,7 @@ export const getActiveGameRoute = createRoute({
   },
   responses: {
     200: {
-      content: { 'application/json': { schema: GameSchema } },
+      content: { 'application/json': { schema: GameOverviewSchema } },
       description: 'Returns the active game for an account'
     },
     404: {
