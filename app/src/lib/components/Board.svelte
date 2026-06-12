@@ -178,7 +178,7 @@
 
     let overlay = '';
     if (selected && selected[0] === ar && selected[1] === ac) {
-      overlay = 'ring-2 ring-inset ring-primary-green';
+      overlay = 'bg-yellow-400/40 ring-2 ring-inset ring-yellow-400';
     }
     if (dragFrom && dragFrom[0] === ar && dragFrom[1] === ac) {
       overlay = 'opacity-60';
@@ -190,13 +190,13 @@
       dragFrom &&
       !(dragFrom[0] === ar && dragFrom[1] === ac)
     ) {
-      overlay = 'ring-2 ring-inset ring-primary-green';
+      overlay = 'bg-yellow-400/40 ring-2 ring-inset ring-yellow-400';
     }
 
     let dot = '';
     if (selected && isLegalTarget(ar, ac)) {
       if (sq.piece) {
-        dot = 'ring-2 ring-inset ring-primary-green/70';
+        dot = 'ring-3 ring-inset ring-red-500/80';
       } else {
         dot =
           'after:content-[""] after:absolute after:w-[30%] after:h-[30%] after:rounded-full after:bg-black/20';
