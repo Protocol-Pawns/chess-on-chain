@@ -690,204 +690,211 @@
     >
       &larr; Back
     </button>
-    <div class="card">
-      <div class="flex justify-between items-center mb-2 gap-1">
-        <span
-          class="min-w-0 inline-flex items-center gap-1 text-sm px-2 py-1 rounded transition-all {currentTurn ===
-          'White'
-            ? 'bg-white/20 font-bold ring-1 ring-white/50'
-            : 'text-white/60'}"
-        >
-          <span class="shrink-0 w-3 h-3 rounded-full bg-white"></span>
-          <span class="truncate max-w-24 sm:max-w-none">
-            {game.white.type === 'Human'
-              ? truncateAddr(game.white.value)
-              : `AI (${game.white.value})`}
-          </span>
-          {#if currentTurn === 'White'}
-            <span class="shrink-0 text-xs text-primary-green">&#9654;</span>
-          {/if}
-        </span>
-        <span
-          class="shrink-0 text-xs sm:text-sm px-1.5 sm:px-2 py-0.5 rounded whitespace-nowrap {game.status ===
-          'in_progress'
-            ? 'bg-primary-bgOk text-primary-green'
-            : game.status === 'finished'
-              ? 'bg-white/10 text-white/50'
-              : 'bg-primary-bgErr text-primary-err'}"
-        >
-          {#if isSpectating}
-            <span class="sm:hidden">Spec.</span><span class="hidden sm:inline"
-              >Spectating</span
-            >
-          {:else if game.status === 'in_progress'}
-            <span class="sm:hidden">Live</span><span class="hidden sm:inline"
-              >in progress</span
-            >
-          {:else if game.status === 'waiting'}
-            <span class="sm:hidden">Wait</span><span class="hidden sm:inline"
-              >waiting</span
-            >
-          {:else if game.status === 'finished'}
-            <span class="sm:hidden">Done</span><span class="hidden sm:inline"
-              >finished</span
-            >
-          {:else}
-            {game.status?.replace('_', ' ') ?? 'unknown'}
-          {/if}
-        </span>
-        <span
-          class="min-w-0 inline-flex items-center gap-1 text-sm px-2 py-1 rounded transition-all {currentTurn ===
-          'Black'
-            ? 'bg-white/20 font-bold ring-1 ring-gray-400'
-            : 'text-white/60'}"
-        >
-          {#if currentTurn === 'Black'}
-            <span class="shrink-0 text-xs text-primary-green">&#9654;</span>
-          {/if}
-          <span class="truncate max-w-24 sm:max-w-none">
-            {game.black?.type === 'Human'
-              ? truncateAddr(game.black.value ?? '')
-              : game.black?.type?.toLowerCase() === 'ai'
-                ? `AI (${game.black.value})`
-                : '...'}
+    <div class="flex flex-col lg:flex-row lg:items-start lg:gap-6">
+      <div class="card lg:flex-1">
+        <div class="flex justify-between items-center mb-2 gap-1">
+          <span
+            class="min-w-0 inline-flex items-center gap-1 text-sm px-2 py-1 rounded transition-all {currentTurn ===
+            'White'
+              ? 'bg-white/20 font-bold ring-1 ring-white/50'
+              : 'text-white/60'}"
+          >
+            <span class="shrink-0 w-3 h-3 rounded-full bg-white"></span>
+            <span class="truncate max-w-24 sm:max-w-none">
+              {game.white.type === 'Human'
+                ? truncateAddr(game.white.value)
+                : `AI (${game.white.value})`}
+            </span>
+            {#if currentTurn === 'White'}
+              <span class="shrink-0 text-xs text-primary-green">&#9654;</span>
+            {/if}
           </span>
           <span
-            class="shrink-0 w-3 h-3 rounded-full bg-gray-700 border border-gray-500"
-          ></span>
-        </span>
-      </div>
-
-      {#if game.created_at}
-        <div class="text-xs text-white/40 text-center mt-1">
-          Started {dayjs(game.created_at).format('lll')}
-        </div>
-      {/if}
-
-      <div class="flex justify-center relative">
-        <Board
-          board={displayBoard}
-          fen={displayFen}
-          onMove={handleMove}
-          disabled={game.status !== 'in_progress' ||
-            submitting ||
-            !indexed ||
-            !isMyTurn ||
-            !isViewingCurrent}
-          loading={submitting}
-          {flipped}
-          lastMove={displayLastMove}
-        />
-        {#if !indexed}
-          <div
-            class="absolute inset-0 flex items-center justify-center bg-black/60 rounded z-10"
+            class="shrink-0 text-xs sm:text-sm px-1.5 sm:px-2 py-0.5 rounded whitespace-nowrap {game.status ===
+            'in_progress'
+              ? 'bg-primary-bgOk text-primary-green'
+              : game.status === 'finished'
+                ? 'bg-white/10 text-white/50'
+                : 'bg-primary-bgErr text-primary-err'}"
           >
-            <div class="flex flex-col items-center gap-2">
-              <div
-                class="w-6 h-6 border-2 border-white/30 border-t-white rounded-full animate-spin"
-              ></div>
-              <span class="text-sm text-white/70">Setting up game...</span>
+            {#if isSpectating}
+              <span class="sm:hidden">Spec.</span><span class="hidden sm:inline"
+                >Spectating</span
+              >
+            {:else if game.status === 'in_progress'}
+              <span class="sm:hidden">Live</span><span class="hidden sm:inline"
+                >in progress</span
+              >
+            {:else if game.status === 'waiting'}
+              <span class="sm:hidden">Wait</span><span class="hidden sm:inline"
+                >waiting</span
+              >
+            {:else if game.status === 'finished'}
+              <span class="sm:hidden">Done</span><span class="hidden sm:inline"
+                >finished</span
+              >
+            {:else}
+              {game.status?.replace('_', ' ') ?? 'unknown'}
+            {/if}
+          </span>
+          <span
+            class="min-w-0 inline-flex items-center gap-1 text-sm px-2 py-1 rounded transition-all {currentTurn ===
+            'Black'
+              ? 'bg-white/20 font-bold ring-1 ring-gray-400'
+              : 'text-white/60'}"
+          >
+            {#if currentTurn === 'Black'}
+              <span class="shrink-0 text-xs text-primary-green">&#9654;</span>
+            {/if}
+            <span class="truncate max-w-24 sm:max-w-none">
+              {game.black?.type === 'Human'
+                ? truncateAddr(game.black.value ?? '')
+                : game.black?.type?.toLowerCase() === 'ai'
+                  ? `AI (${game.black.value})`
+                  : '...'}
+            </span>
+            <span
+              class="shrink-0 w-3 h-3 rounded-full bg-gray-700 border border-gray-500"
+            ></span>
+          </span>
+        </div>
+
+        {#if game.created_at}
+          <div class="text-xs text-white/40 text-center mt-1">
+            Started {dayjs(game.created_at).format('lll')}
+          </div>
+        {/if}
+
+        <div class="flex justify-center relative">
+          <Board
+            board={displayBoard}
+            fen={displayFen}
+            onMove={handleMove}
+            disabled={game.status !== 'in_progress' ||
+              submitting ||
+              !indexed ||
+              !isMyTurn ||
+              !isViewingCurrent}
+            loading={submitting}
+            {flipped}
+            lastMove={displayLastMove}
+          />
+          {#if !indexed}
+            <div
+              class="absolute inset-0 flex items-center justify-center bg-black/60 rounded z-10"
+            >
+              <div class="flex flex-col items-center gap-2">
+                <div
+                  class="w-6 h-6 border-2 border-white/30 border-t-white rounded-full animate-spin"
+                ></div>
+                <span class="text-sm text-white/70">Setting up game...</span>
+              </div>
             </div>
+          {/if}
+        </div>
+
+        {#if game.status === 'in_progress'}
+          <div class="text-center mt-2">
+            {#if isMyTurn}
+              <span
+                class="inline-block text-sm font-bold px-3 py-1 rounded bg-primary-bgOk text-primary-green animate-pulse"
+              >
+                Your turn!
+              </span>
+            {:else if $accountStore}
+              <span class="text-sm text-white/50">
+                Waiting for {currentTurn ?? 'opponent'}...
+              </span>
+            {:else}
+              <span class="text-sm text-white/50">
+                {currentTurn ?? 'Unknown'}'s turn
+              </span>
+            {/if}
+          </div>
+        {/if}
+
+        {#if game.outcome}
+          <div class="text-center mt-2 font-semibold">
+            {#if game.outcome.result === 'Stalemate'}
+              Draw &mdash; Stalemate
+            {:else if game.resigner}
+              {game.outcome.color} wins by resignation!
+            {:else}
+              {game.outcome.color} wins by checkmate!
+            {/if}
+          </div>
+        {/if}
+
+        {#if canResign || canCancel || canPublicCancel}
+          <div class="flex gap-2 mt-3 justify-center">
+            {#if canResign}
+              <button
+                class="btn text-sm text-primary-err border border-primary-err hover:bg-primary-bgErr"
+                onclick={handleResign}
+              >
+                Resign
+              </button>
+            {/if}
+            {#if canCancel}
+              <button class="btn-secondary text-sm" onclick={handleCancel}>
+                Cancel Game
+              </button>
+            {/if}
+            {#if canPublicCancel}
+              <button
+                class="btn-secondary text-sm text-primary-warn border border-primary-warn/50"
+                onclick={handlePublicCancel}
+              >
+                Cancel Stale Game
+              </button>
+            {/if}
           </div>
         {/if}
       </div>
 
-      {#if game.status === 'in_progress'}
-        <div class="text-center mt-2">
-          {#if isMyTurn}
-            <span
-              class="inline-block text-sm font-bold px-3 py-1 rounded bg-primary-bgOk text-primary-green animate-pulse"
-            >
-              Your turn!
-            </span>
-          {:else if $accountStore}
-            <span class="text-sm text-white/50">
-              Waiting for {currentTurn ?? 'opponent'}...
-            </span>
-          {:else}
-            <span class="text-sm text-white/50">
-              {currentTurn ?? 'Unknown'}'s turn
-            </span>
-          {/if}
-        </div>
-      {/if}
+      <div class="flex flex-col gap-4 lg:w-80 lg:shrink-0">
+        <MoveHistory
+          {moves}
+          selectedMoveIndex={viewingMoveIndex}
+          onSelectMove={selectMove}
+          {isViewingCurrent}
+          isLiveMyTurn={isMyTurn}
+        />
 
-      {#if game.outcome}
-        <div class="text-center mt-2 font-semibold">
-          {#if game.outcome.result === 'Stalemate'}
-            Draw &mdash; Stalemate
-          {:else if game.resigner}
-            {game.outcome.color} wins by resignation!
-          {:else}
-            {game.outcome.color} wins by checkmate!
-          {/if}
-        </div>
-      {/if}
-
-      {#if canResign || canCancel || canPublicCancel}
-        <div class="flex gap-2 mt-3 justify-center">
-          {#if canResign}
-            <button
-              class="btn text-sm text-primary-err border border-primary-err hover:bg-primary-bgErr"
-              onclick={handleResign}
-            >
-              Resign
-            </button>
-          {/if}
-          {#if canCancel}
-            <button class="btn-secondary text-sm" onclick={handleCancel}>
-              Cancel Game
-            </button>
-          {/if}
-          {#if canPublicCancel}
-            <button
-              class="btn-secondary text-sm text-primary-warn border border-primary-warn/50"
-              onclick={handlePublicCancel}
-            >
-              Cancel Stale Game
-            </button>
-          {/if}
-        </div>
-      {/if}
-    </div>
-
-    <MoveHistory
-      {moves}
-      selectedMoveIndex={viewingMoveIndex}
-      onSelectMove={selectMove}
-      {isViewingCurrent}
-      isLiveMyTurn={isMyTurn}
-    />
-
-    {#if gameBets.length > 0}
-      <div class="card space-y-2">
-        <h3 class="text-sm font-semibold">Game Bets ({gameBets.length})</h3>
-        <div class="space-y-1.5">
-          {#each gameBets as bet}
-            <div class="flex items-center justify-between text-xs">
-              <div class="truncate mr-2">
-                <span class="text-white/70">{truncateAddr(bet.bettor)}</span>
-                <span class="text-white/40 ml-1">bet {bet.amount} on</span>
-                <span class="text-primary ml-1">{truncateAddr(bet.winner)}</span
-                >
-              </div>
-              <div class="shrink-0 flex items-center gap-2">
-                <span
-                  class="px-1.5 py-0.5 rounded {bet.status === 'pending'
-                    ? 'bg-yellow-400/20 text-yellow-400'
-                    : bet.status === 'locked'
-                      ? 'bg-blue-400/20 text-blue-400'
-                      : 'bg-green-400/20 text-green-400'}">{bet.status}</span
-                >
-                {#if bet.payout}
-                  <span class="text-green-400">+{bet.payout}</span>
-                {/if}
-              </div>
+        {#if gameBets.length > 0}
+          <div class="card space-y-2">
+            <h3 class="text-sm font-semibold">Game Bets ({gameBets.length})</h3>
+            <div class="space-y-1.5">
+              {#each gameBets as bet}
+                <div class="flex items-center justify-between text-xs">
+                  <div class="truncate mr-2">
+                    <span class="text-white/70">{truncateAddr(bet.bettor)}</span
+                    >
+                    <span class="text-white/40 ml-1">bet {bet.amount} on</span>
+                    <span class="text-primary ml-1"
+                      >{truncateAddr(bet.winner)}</span
+                    >
+                  </div>
+                  <div class="shrink-0 flex items-center gap-2">
+                    <span
+                      class="px-1.5 py-0.5 rounded {bet.status === 'pending'
+                        ? 'bg-yellow-400/20 text-yellow-400'
+                        : bet.status === 'locked'
+                          ? 'bg-blue-400/20 text-blue-400'
+                          : 'bg-green-400/20 text-green-400'}"
+                      >{bet.status}</span
+                    >
+                    {#if bet.payout}
+                      <span class="text-green-400">+{bet.payout}</span>
+                    {/if}
+                  </div>
+                </div>
+              {/each}
             </div>
-          {/each}
-        </div>
+          </div>
+        {/if}
       </div>
-    {/if}
+    </div>
   </div>
 {/if}
 
