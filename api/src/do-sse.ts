@@ -11,8 +11,8 @@ export class SSEHub implements DurableObject {
   private ensureHeartbeat() {
     if (this.heartbeatTimer) return;
     this.heartbeatTimer = setInterval(() => {
-      this.sendAll(': heartbeat\n\n');
-    }, 30000);
+      this.sendAll('event: heartbeat\ndata: {}\n\n');
+    }, 5000);
   }
 
   private stopHeartbeat() {

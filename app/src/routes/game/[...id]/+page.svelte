@@ -17,7 +17,13 @@
   import { loadGameFromContract, boardToFen, parseGamePath } from '$lib/game';
   import type { GameId, ContractGameData } from '$lib/game';
   import type { SSEEventData } from '$lib/sse';
-  import { subscribe, updateWatermark } from '$lib/sse';
+  import {
+    subscribe,
+    updateWatermark,
+    onReconnect,
+    connectSSE
+  } from '$lib/sse';
+  import { get } from 'svelte/store';
   import Board from '$lib/components/Board.svelte';
   import MoveHistory from '$lib/components/MoveHistory.svelte';
   import ConfirmModal from '$lib/components/ConfirmModal.svelte';
@@ -51,7 +57,9 @@
   let moves = $state<GameMove[]>([]);
   let loading = $state(true);
   let error = $state<string | null>(null);
+  let waiting = $state(false);
   let submitting = $state(false);
+  let indexed = $state(false);
   let gameBets = $state<Bet[]>([]);
   let showResignModal = $state(false);
   let showCancelModal = $state(false);
@@ -175,13 +183,15 @@
   }
 
   let localMoveCount = $state(0);
-
   async function load() {
     try {
       const [g, m] = await Promise.all([
         api.game(gameIdStr),
         api.gameMoves(gameIdStr)
       ]);
+      error = null;
+      waiting = false;
+      indexed = true;
       if (game && game.status !== 'in_progress' && game.status !== g.status) {
         return;
       }
@@ -206,9 +216,15 @@
       const sigs = new Set<string>();
       for (const mv of m) sigs.add(moveSig(mv.color, mv.move_notation));
       appliedMoveSigs = sigs;
-      gameBets = await api.gameBets(gameIdStr).catch(() => []);
+      if (!localAhead) {
+        gameBets = await api.gameBets(gameIdStr).catch(() => []);
+      }
+      if (g.status === 'finished' || g.status === 'cancelled') {
+        stopPolling();
+      }
     } catch (e) {
       if (game?.status !== 'in_progress' && game?.status !== undefined) return;
+
       console.warn('[game] API load failed, falling back to contract:', e);
       try {
         const contractGame = await loadFromContract();
@@ -217,9 +233,11 @@
         moves = [];
         localMoveCount = 0;
         gameBets = [];
+        waiting = false;
+        indexed = false;
       } catch (e2) {
-        console.error('[game] contract fallback also failed:', e2);
-        error = 'Failed to load game';
+        console.warn('[game] contract fallback also failed, will retry:', e2);
+        if (!game) waiting = true;
       }
     } finally {
       loading = false;
@@ -277,7 +295,7 @@
   }
 
   function handleMove(from: string, to: string) {
-    if (!game || submitting) return;
+    if (!game || submitting || !indexed) return;
     submitting = true;
     const isAiGame = game.white.type === 'Ai' || game.black?.type === 'Ai';
     contract
@@ -353,6 +371,7 @@
   function confirmResign() {
     if (!game) return;
     showResignModal = false;
+    submitting = true;
     showToast('info', 'Resigning...');
     contract
       .resign($state.snapshot(game.game_id))
@@ -385,6 +404,9 @@
           'Resign failed',
           err instanceof Error ? err.message : String(err)
         );
+      })
+      .finally(() => {
+        submitting = false;
       });
   }
 
@@ -395,6 +417,7 @@
   function confirmCancel() {
     if (!game) return;
     showCancelModal = false;
+    submitting = true;
     showToast('info', 'Cancelling...');
     contract
       .cancel($state.snapshot(game.game_id))
@@ -425,6 +448,9 @@
           'Cancel failed',
           err instanceof Error ? err.message : String(err)
         );
+      })
+      .finally(() => {
+        submitting = false;
       });
   }
 
@@ -435,6 +461,7 @@
   function confirmPublicCancel() {
     if (!game) return;
     showPublicCancelModal = false;
+    submitting = true;
     showToast('info', 'Cancelling stale game...');
     contract
       .cancel($state.snapshot(game.game_id))
@@ -466,6 +493,9 @@
         } else {
           showToast('error', 'Cancel failed', msg);
         }
+      })
+      .finally(() => {
+        submitting = false;
       });
   }
 
@@ -557,6 +587,15 @@
     showToast('info', 'Game was cancelled');
   }
 
+  function handleSSECreateGame(event: SSEEventData) {
+    const data = event.event_data;
+    const eventGameId = gameIdFromData(data);
+    if (eventGameId !== gameIdStr) return;
+
+    updateWatermark(event.trigger_block_height);
+    load();
+  }
+
   function gameIdFromData(data: Record<string, unknown>): string {
     return typeof data.game_id === 'string'
       ? data.game_id
@@ -564,20 +603,52 @@
   }
 
   let pollInterval: ReturnType<typeof setInterval> | null = null;
+  let fastPollRemaining = 0;
+
+  function stopPolling() {
+    if (pollInterval) {
+      clearInterval(pollInterval);
+      pollInterval = null;
+    }
+  }
 
   onMount(() => {
+    const account = get(accountStore);
+    if (account) connectSSE(account);
+
+    const unsubAccount = accountStore.subscribe(a => {
+      if (a) connectSSE(a);
+    });
+
     load();
 
-    pollInterval = setInterval(load, 5_000);
+    fastPollRemaining = 6;
+    pollInterval = setInterval(() => {
+      if (game?.status === 'finished' || game?.status === 'cancelled') {
+        stopPolling();
+        return;
+      }
+      load();
+      if (fastPollRemaining > 0) {
+        fastPollRemaining--;
+        if (fastPollRemaining === 0 && pollInterval) {
+          clearInterval(pollInterval);
+          pollInterval = setInterval(load, 5_000);
+        }
+      }
+    }, 2_500);
 
     const unsubs = [
       subscribe('play_move', handleSSEPlayMove),
       subscribe('resign_game', handleSSEResignGame),
-      subscribe('cancel_game', handleSSECancelGame)
+      subscribe('cancel_game', handleSSECancelGame),
+      subscribe('create_game', handleSSECreateGame),
+      onReconnect(() => load())
     ];
 
     return () => {
-      if (pollInterval) clearInterval(pollInterval);
+      stopPolling();
+      unsubAccount();
       for (const u of unsubs) u();
     };
   });
@@ -607,6 +678,10 @@
   </div>
 {:else if error}
   <div class="text-center py-12 text-primary-err">{error}</div>
+{:else if waiting}
+  <div class="text-center py-12 text-white/50">
+    <div class="animate-pulse">Waiting for game to be indexed...</div>
+  </div>
 {:else if game}
   <div class="flex flex-col gap-4">
     <button
@@ -689,19 +764,32 @@
         </div>
       {/if}
 
-      <div class="flex justify-center">
+      <div class="flex justify-center relative">
         <Board
           board={displayBoard}
           fen={displayFen}
           onMove={handleMove}
           disabled={game.status !== 'in_progress' ||
             submitting ||
+            !indexed ||
             !isMyTurn ||
             !isViewingCurrent}
           loading={submitting}
           {flipped}
           lastMove={displayLastMove}
         />
+        {#if !indexed}
+          <div
+            class="absolute inset-0 flex items-center justify-center bg-black/60 rounded z-10"
+          >
+            <div class="flex flex-col items-center gap-2">
+              <div
+                class="w-6 h-6 border-2 border-white/30 border-t-white rounded-full animate-spin"
+              ></div>
+              <span class="text-sm text-white/70">Setting up game...</span>
+            </div>
+          </div>
+        {/if}
       </div>
 
       {#if game.status === 'in_progress'}

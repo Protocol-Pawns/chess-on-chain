@@ -8,7 +8,7 @@
   import dayjs from 'dayjs';
   import localizedFormat from 'dayjs/plugin/localizedFormat';
   import { registerServiceWorker, initPwaInstallPrompt } from '$lib/pwa';
-  import { accountStore, isLoggedIn } from '$lib/near/account';
+  import { accountStore } from '$lib/near/account';
   import { connectSSE, disconnectSSE } from '$lib/sse';
   import 'virtual:uno.css';
   import '@unocss/reset/tailwind.css';
@@ -39,14 +39,19 @@
   onMount(function () {
     registerServiceWorker();
     initPwaInstallPrompt();
-  });
 
-  $effect(() => {
-    if ($isLoggedIn && $accountStore) {
-      connectSSE($accountStore);
-    } else {
+    const unsub = accountStore.subscribe(account => {
+      if (account) {
+        connectSSE(account);
+      } else {
+        disconnectSSE();
+      }
+    });
+
+    return () => {
+      unsub();
       disconnectSSE();
-    }
+    };
   });
 </script>
 

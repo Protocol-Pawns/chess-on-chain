@@ -8,15 +8,46 @@ export interface SSEEventData {
 }
 
 export type SSEEventHandler = (event: SSEEventData) => void;
+export type ReconnectHandler = () => void;
 
 let es: EventSource | null = null;
 let accountId: string | null = null;
 let reconnectDelay = 1000;
 let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
 const handlers: Map<string, Set<SSEEventHandler>> = new Map();
+const reconnectHandlers: Set<ReconnectHandler> = new Set();
 let blockHeightWatermark = 0;
 let globalHandler: ((eventType: string, data: SSEEventData) => void) | null =
   null;
+
+let lastHeartbeat = 0;
+let heartbeatTimer: ReturnType<typeof setInterval> | null = null;
+const HEARTBEAT_TIMEOUT_MS = 10000;
+
+function startHeartbeatMonitor() {
+  stopHeartbeatMonitor();
+  lastHeartbeat = Date.now();
+  heartbeatTimer = setInterval(() => {
+    if (Date.now() - lastHeartbeat > HEARTBEAT_TIMEOUT_MS) {
+      console.warn('[SSE] heartbeat timeout, reconnecting');
+      reconnect();
+    }
+  }, 3000);
+}
+
+function stopHeartbeatMonitor() {
+  if (heartbeatTimer) {
+    clearInterval(heartbeatTimer);
+    heartbeatTimer = null;
+  }
+}
+
+function reconnect() {
+  disconnect();
+  reconnectDelay = 1000;
+  connect();
+  for (const h of reconnectHandlers) h();
+}
 
 function connect() {
   if (!accountId) return;
@@ -26,15 +57,22 @@ function connect() {
 
   es.onopen = () => {
     reconnectDelay = 1000;
+    startHeartbeatMonitor();
   };
 
   es.onerror = () => {
+    stopHeartbeatMonitor();
     disconnect();
     reconnectTimer = setTimeout(() => {
       reconnectDelay = Math.min(reconnectDelay * 2, 30000);
       connect();
+      for (const h of reconnectHandlers) h();
     }, reconnectDelay);
   };
+
+  es.addEventListener('heartbeat', () => {
+    lastHeartbeat = Date.now();
+  });
 
   es.onmessage = e => {
     if (e.data === '' || e.data === '{}') return;
@@ -73,6 +111,7 @@ export function connectSSE(account: string) {
 export function disconnectSSE() {
   accountId = null;
   blockHeightWatermark = 0;
+  stopHeartbeatMonitor();
   disconnect();
 }
 
@@ -101,6 +140,13 @@ export function subscribe(
   return () => {
     set!.delete(handler);
     if (set!.size === 0) handlers.delete(eventType);
+  };
+}
+
+export function onReconnect(handler: ReconnectHandler): () => void {
+  reconnectHandlers.add(handler);
+  return () => {
+    reconnectHandlers.delete(handler);
   };
 }
 
