@@ -87,7 +87,9 @@
         : null)
   );
 
-  let isViewingCurrent = $derived(viewingMoveIndex === null);
+  let isViewingCurrent = $derived(
+    viewingMoveIndex === null || viewingMoveIndex === moves.length - 1
+  );
 
   let displayFen = $derived.by(() => {
     if (isViewingCurrent) return game?.fen ?? undefined;
