@@ -462,7 +462,7 @@
       <h2 class="text-base font-semibold">My Bets</h2>
 
       {#if betStats && !statsLoading}
-        <div class="grid grid-cols-4 gap-3">
+        <div class="grid grid-cols-2 gap-3">
           <div class="text-center bg-primary-transparent2 rounded p-2">
             <div class="text-lg font-bold text-primary">
               {betStats.total_bets}
@@ -470,24 +470,33 @@
             <div class="text-xs text-white/50">Total</div>
           </div>
           <div class="text-center bg-primary-transparent2 rounded p-2">
-            <div class="text-lg font-bold text-primary-warn">
-              {betStats.total_wagered}
-            </div>
-            <div class="text-xs text-white/50">Wagered</div>
-          </div>
-          <div class="text-center bg-primary-transparent2 rounded p-2">
             <div class="text-lg font-bold text-primary-green">
               {betStats.won_bets}
             </div>
             <div class="text-xs text-white/50">Won</div>
           </div>
-          <div class="text-center bg-primary-transparent2 rounded p-2">
-            <div class="text-lg font-bold text-primary-green">
-              {betStats.total_won}
-            </div>
-            <div class="text-xs text-white/50">Earned</div>
-          </div>
         </div>
+        {#if Object.keys(betStats.by_token).length > 0}
+          <div class="card space-y-1">
+            <h3 class="text-sm font-semibold">Wagered / Earned by Token</h3>
+            {#each Object.entries(betStats.by_token) as [tokenId, ts]}
+              <div class="flex items-center justify-between text-sm">
+                <span class="text-white/70 truncate mr-2"
+                  >{tokenLabel(tokenId)}</span
+                >
+                <div class="flex items-center gap-3 shrink-0">
+                  <span class="text-primary-warn"
+                    >{formatTokenAmount(ts.wagered, tokenId)}</span
+                  >
+                  <span class="text-white/30">/</span>
+                  <span class="text-primary-green"
+                    >{formatTokenAmount(ts.won, tokenId)}</span
+                  >
+                </div>
+              </div>
+            {/each}
+          </div>
+        {/if}
       {/if}
 
       {#if tokenBalances.length > 0}

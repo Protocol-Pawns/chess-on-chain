@@ -206,21 +206,25 @@ export const PaginatedBetsSchema = z.object({
 });
 export type PaginatedBets = z.infer<typeof PaginatedBetsSchema>;
 
+export const TokenBetStatsSchema = z.object({
+  wagered: z.string(),
+  won: z.string()
+});
+export type TokenBetStats = z.infer<typeof TokenBetStatsSchema>;
+
 export const BetStatsSchema = z.object({
   account_id: z.string(),
-  total_wagered: z.string(),
-  total_won: z.string(),
   total_bets: z.number(),
-  won_bets: z.number()
+  won_bets: z.number(),
+  by_token: z.record(z.string(), TokenBetStatsSchema)
 });
 export type BetStats = z.infer<typeof BetStatsSchema>;
 
 export const BetLeaderboardEntrySchema = z.object({
   account_id: z.string(),
-  total_wagered: z.string(),
-  total_won: z.string(),
   total_bets: z.number(),
-  won_bets: z.number()
+  won_bets: z.number(),
+  by_token: z.record(z.string(), TokenBetStatsSchema)
 });
 export type BetLeaderboardEntry = z.infer<typeof BetLeaderboardEntrySchema>;
 

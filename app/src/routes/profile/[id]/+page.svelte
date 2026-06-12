@@ -488,7 +488,7 @@
     {#if betStats && betStats.total_bets > 0}
       <section class="card">
         <h3 class="text-base font-semibold mb-2">Betting Stats</h3>
-        <div class="grid grid-cols-4 gap-3">
+        <div class="grid grid-cols-2 gap-3">
           <div class="text-center">
             <div class="text-lg font-bold text-primary">
               {betStats.total_bets}
@@ -496,24 +496,31 @@
             <div class="text-xs text-white/50">Total</div>
           </div>
           <div class="text-center">
-            <div class="text-lg font-bold text-primary-warn">
-              {betStats.total_wagered}
-            </div>
-            <div class="text-xs text-white/50">Wagered</div>
-          </div>
-          <div class="text-center">
             <div class="text-lg font-bold text-primary-green">
               {betStats.won_bets}
             </div>
             <div class="text-xs text-white/50">Won</div>
           </div>
-          <div class="text-center">
-            <div class="text-lg font-bold text-primary-green">
-              {betStats.total_won}
-            </div>
-            <div class="text-xs text-white/50">Earned</div>
-          </div>
         </div>
+        {#if Object.keys(betStats.by_token).length > 0}
+          <div class="mt-3 space-y-1">
+            <h4 class="text-sm font-semibold text-white/70">
+              Wagered / Earned by Token
+            </h4>
+            {#each Object.entries(betStats.by_token) as [tokenId, ts]}
+              <div class="flex items-center justify-between text-sm">
+                <span class="text-white/70 truncate mr-2"
+                  >{shortToken(tokenId)}</span
+                >
+                <div class="flex items-center gap-3 shrink-0">
+                  <span class="text-primary-warn">{ts.wagered}</span>
+                  <span class="text-white/30">/</span>
+                  <span class="text-primary-green">{ts.won}</span>
+                </div>
+              </div>
+            {/each}
+          </div>
+        {/if}
       </section>
     {/if}
 

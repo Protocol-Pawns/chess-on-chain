@@ -235,8 +235,6 @@
             <tr class="text-white/50 text-xs">
               <th class="pb-2 text-left">#</th>
               <th class="pb-2 text-left">Bettor</th>
-              <th class="pb-2 text-right">Wagered</th>
-              <th class="pb-2 text-right">Won</th>
               <th class="pb-2 text-right">Bets</th>
               <th class="pb-2 text-right">Win Rate</th>
             </tr>
@@ -251,13 +249,17 @@
                     class="text-primary hover:underline text-xs"
                     >{truncateAddr(entry.account_id)}</a
                   >
+                  {#if Object.keys(entry.by_token).length > 0}
+                    <div class="text-[10px] text-white/40 mt-0.5">
+                      {#each Object.entries(entry.by_token) as [tokenId, ts], ti}
+                        {#if ti > 0}<span class="text-white/20"> · </span>{/if}
+                        <span class="text-primary-warn">{ts.wagered}</span>
+                        <span class="text-white/20">/</span>
+                        <span class="text-primary-green">{ts.won}</span>
+                      {/each}
+                    </div>
+                  {/if}
                 </td>
-                <td class="py-1.5 text-right text-white/70"
-                  >{entry.total_wagered}</td
-                >
-                <td class="py-1.5 text-right text-primary-green"
-                  >{entry.total_won}</td
-                >
                 <td class="py-1.5 text-right text-white/70"
                   >{entry.total_bets}</td
                 >

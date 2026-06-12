@@ -675,20 +675,36 @@ export async function getBetStats(
 ): Promise<BetStats> {
   const rows = await db`
     SELECT
-      COALESCE(SUM(amount::numeric), 0) AS total_wagered,
-      COALESCE(SUM(payout::numeric), 0) AS total_won,
       COUNT(*) AS total_bets,
       COUNT(*) FILTER (WHERE payout IS NOT NULL AND payout::numeric > 0) AS won_bets
     FROM bets
     WHERE bettor = ${accountId}
   `;
   const r = rows[0] as unknown as Record<string, string>;
+
+  const tokenRows = await db`
+    SELECT
+      token_id,
+      COALESCE(SUM(amount::numeric), 0) AS wagered,
+      COALESCE(SUM(payout::numeric), 0) AS won
+    FROM bets
+    WHERE bettor = ${accountId}
+    GROUP BY token_id
+  `;
+
+  const byToken: Record<string, { wagered: string; won: string }> = {};
+  for (const tr of tokenRows as unknown as Record<string, string>[]) {
+    byToken[tr.token_id] = {
+      wagered: tr.wagered,
+      won: tr.won
+    };
+  }
+
   return {
     account_id: accountId,
-    total_wagered: r.total_wagered,
-    total_won: r.total_won,
     total_bets: Number(r.total_bets),
-    won_bets: Number(r.won_bets)
+    won_bets: Number(r.won_bets),
+    by_token: byToken
   };
 }
 
@@ -703,27 +719,23 @@ export async function getBetLeaderboard(
     rows = await db`
       SELECT
         bettor AS account_id,
-        SUM(amount::numeric) AS total_wagered,
-        COALESCE(SUM(payout::numeric), 0) AS total_won,
         COUNT(*) AS total_bets,
         COUNT(*) FILTER (WHERE payout IS NOT NULL AND payout::numeric > 0) AS won_bets
       FROM bets
       WHERE bettor < ${cursor}
       GROUP BY bettor
-      ORDER BY total_won DESC, total_wagered ASC
+      ORDER BY won_bets DESC, total_bets ASC
       LIMIT ${actualLimit + 1}
     `;
   } else {
     rows = await db`
       SELECT
         bettor AS account_id,
-        SUM(amount::numeric) AS total_wagered,
-        COALESCE(SUM(payout::numeric), 0) AS total_won,
         COUNT(*) AS total_bets,
         COUNT(*) FILTER (WHERE payout IS NOT NULL AND payout::numeric > 0) AS won_bets
       FROM bets
       GROUP BY bettor
-      ORDER BY total_won DESC, total_wagered ASC
+      ORDER BY won_bets DESC, total_bets ASC
       LIMIT ${actualLimit + 1}
     `;
   }
@@ -733,12 +745,35 @@ export async function getBetLeaderboard(
     const row = r as Record<string, string>;
     return {
       account_id: row.account_id,
-      total_wagered: row.total_wagered,
-      total_won: row.total_won,
       total_bets: Number(row.total_bets),
-      won_bets: Number(row.won_bets)
+      won_bets: Number(row.won_bets),
+      by_token: {} as Record<string, { wagered: string; won: string }>
     } satisfies BetLeaderboardEntry;
   });
+
+  if (items.length > 0) {
+    const accountIds = items.map(i => i.account_id);
+    const tokenRows = await db`
+      SELECT
+        bettor,
+        token_id,
+        COALESCE(SUM(amount::numeric), 0) AS wagered,
+        COALESCE(SUM(payout::numeric), 0) AS won
+      FROM bets
+      WHERE bettor = ANY(${accountIds})
+      GROUP BY bettor, token_id
+    `;
+    for (const tr of tokenRows as unknown as Record<string, string>[]) {
+      const item = items.find(i => i.account_id === tr.bettor);
+      if (item) {
+        item.by_token[tr.token_id] = {
+          wagered: tr.wagered,
+          won: tr.won
+        };
+      }
+    }
+  }
+
   const lastItem = items[items.length - 1] as
     | { account_id: string }
     | undefined;

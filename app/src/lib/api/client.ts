@@ -114,20 +114,23 @@ export interface Bet {
   resolved_at: string | null;
 }
 
+export interface TokenBetStats {
+  wagered: string;
+  won: string;
+}
+
 export interface BetStats {
   account_id: string;
-  total_wagered: string;
-  total_won: string;
   total_bets: number;
   won_bets: number;
+  by_token: Record<string, TokenBetStats>;
 }
 
 export interface BetLeaderboardEntry {
   account_id: string;
-  total_wagered: string;
-  total_won: string;
   total_bets: number;
   won_bets: number;
+  by_token: Record<string, TokenBetStats>;
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
