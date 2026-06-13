@@ -862,11 +862,18 @@
               : 'text-white/60'}"
           >
             <span class="shrink-0 w-3 h-3 rounded-full bg-white"></span>
-            <span class="truncate max-w-24 sm:max-w-none">
-              {game.white.type === 'Human'
-                ? truncateAddr(game.white.value)
-                : `AI (${game.white.value})`}
-            </span>
+            {#if game.white.type === 'Human'}
+              <a
+                href="/profile/{game.white.value}"
+                class="text-primary hover:underline truncate max-w-24 sm:max-w-none"
+              >
+                {truncateAddr(game.white.value)}
+              </a>
+            {:else}
+              <span class="truncate max-w-24 sm:max-w-none"
+                >AI ({game.white.value})</span
+              >
+            {/if}
             {#if currentTurn === 'White'}
               <span class="shrink-0 text-xs text-primary-green">&#9654;</span>
             {/if}
@@ -908,13 +915,20 @@
             {#if currentTurn === 'Black'}
               <span class="shrink-0 text-xs text-primary-green">&#9654;</span>
             {/if}
-            <span class="truncate max-w-24 sm:max-w-none">
-              {game.black?.type === 'Human'
-                ? truncateAddr(game.black.value ?? '')
-                : game.black?.type?.toLowerCase() === 'ai'
-                  ? `AI (${game.black.value})`
-                  : '...'}
-            </span>
+            {#if game.black?.type === 'Human'}
+              <a
+                href="/profile/{game.black.value}"
+                class="text-primary hover:underline truncate max-w-24 sm:max-w-none"
+              >
+                {truncateAddr(game.black.value ?? '')}
+              </a>
+            {:else if game.black?.type?.toLowerCase() === 'ai'}
+              <span class="truncate max-w-24 sm:max-w-none"
+                >AI ({game.black.value})</span
+              >
+            {:else}
+              <span class="truncate max-w-24 sm:max-w-none">...</span>
+            {/if}
             <span
               class="shrink-0 w-3 h-3 rounded-full bg-gray-700 border border-gray-500"
             ></span>
