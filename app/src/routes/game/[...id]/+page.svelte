@@ -16,6 +16,7 @@
   import { showToast } from '$lib/toast';
   import { truncateAddr } from '$lib/format';
   import { loadGameFromContract, boardToFen, parseGamePath } from '$lib/game';
+  import { renderGameCard } from '$lib/chess/render-card';
   import type { GameId, ContractGameData } from '$lib/game';
   import type { SSEEventData } from '$lib/sse';
   import {
@@ -28,6 +29,7 @@
   import Board from '$lib/components/Board.svelte';
   import CapturedPieces from '$lib/components/CapturedPieces.svelte';
   import MoveHistory from '$lib/components/MoveHistory.svelte';
+  import Modal from '$lib/components/Modal.svelte';
   import ConfirmModal from '$lib/components/ConfirmModal.svelte';
   import { getCapturedPieces } from '$lib/chess/captured';
 
@@ -70,6 +72,30 @@
   let pendingLastMove = $state<{ from: string; to: string } | null>(null);
   let viewingMoveIndex = $state<number | null>(null);
   let appliedMoveSigs = $state<Set<string>>(new Set());
+
+  let showShareModal = $state(false);
+  let shareImageBlob = $state<Blob | null>(null);
+  let copyingImage = $state(false);
+  let wasInProgress = $state(false);
+  let eloMap = $state<Record<string, number>>({});
+
+  $effect(() => {
+    if (game?.status === 'in_progress') {
+      wasInProgress = true;
+    }
+    if (
+      wasInProgress &&
+      game?.status === 'finished' &&
+      game?.outcome &&
+      !showShareModal
+    ) {
+      setTimeout(() => {
+        showShareModal = true;
+        generateShareBlob();
+      }, 600);
+      wasInProgress = false;
+    }
+  });
 
   function moveSig(color: string, mv: string): string {
     return `${color}:${mv}`;
@@ -250,6 +276,7 @@
       if (g.status === 'finished' || g.status === 'cancelled') {
         stopPolling();
       }
+      loadElos();
     } catch (e) {
       if (game?.status !== 'in_progress' && game?.status !== undefined) return;
 
@@ -269,6 +296,23 @@
       }
     } finally {
       loading = false;
+    }
+  }
+
+  async function loadElos() {
+    if (!game) return;
+    const ids: string[] = [];
+    if (game.white.type === 'Human') ids.push(game.white.value);
+    if (game.black?.type === 'Human' && game.black.value)
+      ids.push(game.black.value);
+    if (ids.length === 0) return;
+    try {
+      const ratings = await contract.getEloRatingsByIds(ids);
+      const map: Record<string, number> = {};
+      for (const [id, elo] of ratings) map[id] = elo;
+      eloMap = map;
+    } catch {
+      // ELOs are non-critical
     }
   }
 
@@ -661,6 +705,141 @@
       });
   }
 
+  function openShareModal() {
+    showShareModal = true;
+    if (!shareImageBlob) generateShareBlob();
+  }
+
+  async function generateShareBlob() {
+    if (!game) return;
+    try {
+      shareImageBlob = await renderGameCard({
+        board: game.board,
+        fen: game.fen,
+        whiteName:
+          game.white.type === 'Human'
+            ? truncateAddr(game.white.value)
+            : 'AI (' + game.white.value + ')',
+        whiteElo:
+          game.white.type === 'Human'
+            ? (eloMap[game.white.value] ?? null)
+            : null,
+        blackName:
+          game.black?.type === 'Human'
+            ? truncateAddr(game.black.value ?? '')
+            : game.black?.type === 'Ai'
+              ? 'AI (' + game.black.value + ')'
+              : 'Unknown',
+        blackElo:
+          game.black?.type === 'Human'
+            ? (eloMap[game.black.value ?? ''] ?? null)
+            : null,
+        result: resultText(),
+        lastMove: lastMove ?? undefined
+      });
+    } catch (e) {
+      console.error('Failed to generate share image:', e);
+    }
+  }
+
+  function resultText(): string {
+    if (!game?.outcome) return '';
+    if (game.outcome.result === 'Stalemate') return 'Draw \u2014 Stalemate';
+    if (game.resigner) return game.outcome.color + ' wins by resignation!';
+    return game.outcome.color + ' wins by checkmate!';
+  }
+
+  function shareOnX() {
+    if (!game) return;
+    const wn =
+      game.white.type === 'Human'
+        ? truncateAddr(game.white.value)
+        : 'AI (' + game.white.value + ')';
+    const bn =
+      game.black?.type === 'Human'
+        ? truncateAddr(game.black.value ?? '')
+        : game.black?.type === 'Ai'
+          ? 'AI (' + game.black.value + ')'
+          : 'Unknown';
+    const we =
+      game.white.type === 'Human' ? (eloMap[game.white.value] ?? null) : null;
+    const be =
+      game.black?.type === 'Human'
+        ? (eloMap[game.black.value ?? ''] ?? null)
+        : null;
+
+    const movesN = Math.ceil(moves.length / 2);
+    const url = window.location.href;
+    let text: string;
+
+    if (game.outcome?.result === 'Stalemate') {
+      const wText = wn + (we != null ? ' (' + we + ')' : '');
+      const bText = bn + (be != null ? ' (' + be + ')' : '');
+      text =
+        'Stalemate after ' +
+        movesN +
+        ' moves between ' +
+        wText +
+        ' and ' +
+        bText +
+        ' on Protocol Pawns. Replay here: ' +
+        url;
+    } else {
+      const isWhite = game.outcome?.color === 'White';
+      const winner = isWhite ? wn : bn;
+      const loser = isWhite ? bn : wn;
+      const wElo = isWhite ? we : be;
+      const lElo = isWhite ? be : we;
+      const wText = winner + (wElo != null ? ' (' + wElo + ')' : '');
+      const lText = loser + (lElo != null ? ' (' + lElo + ')' : '');
+      if (game.resigner) {
+        text =
+          lText +
+          ' resigned after ' +
+          movesN +
+          ' moves on Protocol Pawns \u2014 ' +
+          wText +
+          ' wins. Replay here: ' +
+          url;
+      } else {
+        text =
+          'Checkmate in ' +
+          movesN +
+          '! ' +
+          wText +
+          ' defeated ' +
+          lText +
+          ' on Protocol Pawns. Replay here: ' +
+          url;
+      }
+    }
+
+    window.open(
+      'https://x.com/intent/tweet?text=' + encodeURIComponent(text),
+      'share-x',
+      'width=550,height=420'
+    );
+  }
+
+  async function copyImage() {
+    if (!shareImageBlob) await generateShareBlob();
+    if (!shareImageBlob) {
+      showToast('error', 'Failed to generate image');
+      return;
+    }
+    copyingImage = true;
+    try {
+      await navigator.clipboard.write([
+        new ClipboardItem({ 'image/png': shareImageBlob })
+      ]);
+      showToast('success', 'Image copied to clipboard');
+    } catch {
+      showToast('error', 'Failed to copy image');
+    } finally {
+      copyingImage = false;
+    }
+  }
+
   function applySSEMove(data: Record<string, unknown>) {
     const board = data.board as string[] | undefined;
     if (!board || !game) return;
@@ -856,9 +1035,9 @@
       <div class="card lg:flex-1">
         <div class="flex justify-between items-center mb-2 gap-1">
           <span
-            class="min-w-0 inline-flex items-center gap-1 text-sm px-2 py-1 rounded transition-all {currentTurn ===
+            class="min-w-0 inline-flex items-center gap-1.5 text-sm rounded transition-all {currentTurn ===
             'White'
-              ? 'bg-white/20 font-bold ring-1 ring-white/50'
+              ? 'bg-white/10'
               : 'text-white/60'}"
           >
             <span class="shrink-0 w-3 h-3 rounded-full bg-white"></span>
@@ -869,13 +1048,15 @@
               >
                 {truncateAddr(game.white.value)}
               </a>
+              {#if eloMap[game.white.value] != null}
+                <span class="text-xs text-white/40 tabular-nums"
+                  >({eloMap[game.white.value]})</span
+                >
+              {/if}
             {:else}
               <span class="truncate max-w-24 sm:max-w-none"
                 >AI ({game.white.value})</span
               >
-            {/if}
-            {#if currentTurn === 'White'}
-              <span class="shrink-0 text-xs text-primary-green">&#9654;</span>
             {/if}
           </span>
           <span
@@ -907,14 +1088,11 @@
             {/if}
           </span>
           <span
-            class="min-w-0 inline-flex items-center gap-1 text-sm px-2 py-1 rounded transition-all {currentTurn ===
+            class="min-w-0 inline-flex items-center gap-1.5 text-sm rounded transition-all {currentTurn ===
             'Black'
-              ? 'bg-white/20 font-bold ring-1 ring-gray-400'
+              ? 'bg-white/10'
               : 'text-white/60'}"
           >
-            {#if currentTurn === 'Black'}
-              <span class="shrink-0 text-xs text-primary-green">&#9654;</span>
-            {/if}
             {#if game.black?.type === 'Human'}
               <a
                 href="/profile/{game.black.value}"
@@ -922,6 +1100,11 @@
               >
                 {truncateAddr(game.black.value ?? '')}
               </a>
+              {#if eloMap[game.black.value ?? ''] != null}
+                <span class="text-xs text-white/40 tabular-nums"
+                  >({eloMap[game.black.value ?? '']})</span
+                >
+              {/if}
             {:else if game.black?.type?.toLowerCase() === 'ai'}
               <span class="truncate max-w-24 sm:max-w-none"
                 >AI ({game.black.value})</span
@@ -984,85 +1167,92 @@
           {/if}
         </div>
 
-        {#if game.status === 'in_progress'}
-          <div class="text-center mt-2">
-            {#if isMyTurn}
-              <span
-                class="inline-flex items-center gap-2 text-sm font-bold px-3 py-1 rounded bg-primary-bgOk text-primary-green animate-pulse"
-              >
-                Your turn!
-                {#if isInCheck}
-                  <span
-                    class="text-red-400 bg-red-500/20 px-1.5 py-0.5 rounded text-xs"
-                  >
-                    Check!
-                  </span>
-                {/if}
-              </span>
-            {:else if $accountStore}
-              <span
-                class="inline-flex items-center gap-2 text-sm text-white/50"
-              >
-                Waiting for {currentTurn ?? 'opponent'}...
-                {#if isInCheck}
-                  <span
-                    class="text-red-400 bg-red-500/20 px-1.5 py-0.5 rounded text-xs font-bold animate-pulse"
-                  >
-                    Check!
-                  </span>
-                {/if}
-              </span>
-            {:else}
-              <span
-                class="inline-flex items-center gap-2 text-sm text-white/50"
-              >
-                {currentTurn ?? 'Unknown'}'s turn
-                {#if isInCheck}
-                  <span
-                    class="text-red-400 bg-red-500/20 px-1.5 py-0.5 rounded text-xs font-bold animate-pulse"
-                  >
-                    Check!
-                  </span>
-                {/if}
-              </span>
-            {/if}
-          </div>
-        {/if}
-
         {#if game.outcome}
-          <div class="text-center mt-2 font-semibold">
-            {#if game.outcome.result === 'Stalemate'}
-              Draw &mdash; Stalemate
-            {:else if game.resigner}
-              {game.outcome.color} wins by resignation!
-            {:else}
-              {game.outcome.color} wins by checkmate!
-            {/if}
+          <div class="flex justify-between items-center mt-2 gap-2">
+            <span class="font-semibold">
+              {#if game.outcome.result === 'Stalemate'}
+                Draw &mdash; Stalemate
+              {:else if game.resigner}
+                {game.outcome.color} wins by resignation!
+              {:else}
+                {game.outcome.color} wins by checkmate!
+              {/if}
+            </span>
+            <button
+              class="btn text-sm bg-white/5 shrink-0"
+              onclick={openShareModal}
+            >
+              Share
+            </button>
           </div>
-        {/if}
-
-        {#if canResign || canCancel || canPublicCancel}
-          <div class="flex gap-2 mt-3 justify-center">
-            {#if canResign}
-              <button
-                class="btn text-sm text-primary-err border border-primary-err hover:bg-primary-bgErr"
-                onclick={handleResign}
-              >
-                Resign
-              </button>
-            {/if}
-            {#if canCancel}
-              <button class="btn-secondary text-sm" onclick={handleCancel}>
-                Cancel Game
-              </button>
-            {/if}
-            {#if canPublicCancel}
-              <button
-                class="btn-secondary text-sm text-primary-warn border border-primary-warn/50"
-                onclick={handlePublicCancel}
-              >
-                Cancel Stale Game
-              </button>
+        {:else if game.status === 'in_progress'}
+          <div class="flex justify-between items-center mt-2 gap-2">
+            <span>
+              {#if isMyTurn}
+                <span
+                  class="inline-flex items-center gap-2 text-sm font-bold px-3 py-1 rounded bg-primary-bgOk text-primary-green animate-pulse"
+                >
+                  Your turn!
+                  {#if isInCheck}
+                    <span
+                      class="text-red-400 bg-red-500/20 px-1.5 py-0.5 rounded text-xs"
+                    >
+                      Check!
+                    </span>
+                  {/if}
+                </span>
+              {:else if $accountStore}
+                <span
+                  class="inline-flex items-center gap-2 text-sm text-white/50"
+                >
+                  Waiting for {currentTurn ?? 'opponent'}...
+                  {#if isInCheck}
+                    <span
+                      class="text-red-400 bg-red-500/20 px-1.5 py-0.5 rounded text-xs font-bold animate-pulse"
+                    >
+                      Check!
+                    </span>
+                  {/if}
+                </span>
+              {:else}
+                <span
+                  class="inline-flex items-center gap-2 text-sm text-white/50"
+                >
+                  {currentTurn ?? 'Unknown'}'s turn
+                  {#if isInCheck}
+                    <span
+                      class="text-red-400 bg-red-500/20 px-1.5 py-0.5 rounded text-xs font-bold animate-pulse"
+                    >
+                      Check!
+                    </span>
+                  {/if}
+                </span>
+              {/if}
+            </span>
+            {#if canResign || canCancel || canPublicCancel}
+              <div class="flex gap-2 shrink-0">
+                {#if canResign}
+                  <button
+                    class="btn text-sm text-primary-err border border-primary-err hover:bg-primary-bgErr"
+                    onclick={handleResign}
+                  >
+                    Resign
+                  </button>
+                {/if}
+                {#if canCancel}
+                  <button class="btn-secondary text-sm" onclick={handleCancel}>
+                    Cancel Game
+                  </button>
+                {/if}
+                {#if canPublicCancel}
+                  <button
+                    class="btn-secondary text-sm text-primary-warn border border-primary-warn/50"
+                    onclick={handlePublicCancel}
+                  >
+                    Cancel Stale Game
+                  </button>
+                {/if}
+              </div>
             {/if}
           </div>
         {/if}
@@ -1140,3 +1330,31 @@
   onconfirm={confirmPublicCancel}
   onclose={() => (showPublicCancelModal = false)}
 />
+
+<Modal open={showShareModal} onclose={() => (showShareModal = false)}>
+  <div
+    class="w-80 sm:w-96 p-6 rounded-lg bg-surface shadow-xl border border-white/20"
+  >
+    <h2 class="text-lg font-semibold text-white mb-4">Share Game</h2>
+
+    <button
+      class="btn w-full mb-2 flex items-center justify-center gap-2 bg-white/5"
+      onclick={shareOnX}
+    >
+      Share on X
+    </button>
+
+    <button
+      class="btn w-full flex items-center justify-center gap-2 bg-white/5"
+      onclick={copyImage}
+      disabled={copyingImage}
+    >
+      {copyingImage ? 'Generating...' : 'Copy Image'}
+    </button>
+
+    <p class="text-xs text-white/40 mt-4 text-center leading-relaxed">
+      Share the game result on X, or copy an image of the final position to
+      share anywhere.
+    </p>
+  </div>
+</Modal>
