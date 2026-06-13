@@ -778,7 +778,7 @@
         wText +
         ' and ' +
         bText +
-        ' on Protocol Pawns. Replay here: ' +
+        ' on @ProtocolPawns. Replay here: ' +
         url;
     } else {
       const isWhite = game.outcome?.color === 'White';
@@ -793,7 +793,7 @@
           lText +
           ' resigned after ' +
           movesN +
-          ' moves on Protocol Pawns \u2014 ' +
+          ' moves on @ProtocolPawns \u2014 ' +
           wText +
           ' wins. Replay here: ' +
           url;
@@ -805,7 +805,7 @@
           wText +
           ' defeated ' +
           lText +
-          ' on Protocol Pawns. Replay here: ' +
+          ' on @ProtocolPawns. Replay here: ' +
           url;
       }
     }
