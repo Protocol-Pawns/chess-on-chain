@@ -1,15 +1,33 @@
 <script lang="ts">
-  import { swUpdateAvailable } from '$lib/pwa';
+  import { swUpdateAvailable, swVersion } from '$lib/pwa';
+  import { get } from 'svelte/store';
 
   let dismissed = $state(false);
 
   function handleRefresh() {
+    const version = get(swVersion);
+    if (version) {
+      localStorage.setItem('sw_acknowledged_version', version);
+    }
     location.reload();
   }
 
   function handleDismiss() {
     dismissed = true;
+    const version = get(swVersion);
+    if (version) {
+      localStorage.setItem('sw_acknowledged_version', version);
+    }
   }
+
+  $effect(() => {
+    if ($swUpdateAvailable && $swVersion) {
+      const acknowledged = localStorage.getItem('sw_acknowledged_version');
+      if ($swVersion === acknowledged) {
+        dismissed = true;
+      }
+    }
+  });
 </script>
 
 {#if $swUpdateAvailable && !dismissed}

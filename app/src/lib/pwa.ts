@@ -3,6 +3,7 @@ import { writable } from 'svelte/store';
 export const pwaInstallAvailable = writable(false);
 export const pwaInstalled = writable(false);
 export const swUpdateAvailable = writable(false);
+export const swVersion = writable<string | null>(null);
 
 let deferredPrompt: BeforeInstallPromptEvent | null = null;
 
@@ -45,8 +46,18 @@ export function registerServiceWorker() {
     });
 
   navigator.serviceWorker.addEventListener('message', function (event) {
-    if (hadController && event.data?.type === 'SW_UPDATE_READY') {
-      swUpdateAvailable.set(true);
+    if (event.data?.type === 'SW_UPDATE_READY') {
+      const version: string | undefined = event.data.version;
+
+      if (version) {
+        swVersion.set(version);
+        const acknowledged = localStorage.getItem('sw_acknowledged_version');
+        if (version !== acknowledged) {
+          swUpdateAvailable.set(true);
+        }
+      } else if (hadController) {
+        swUpdateAvailable.set(true);
+      }
     }
   });
 }

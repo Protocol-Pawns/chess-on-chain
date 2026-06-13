@@ -78,7 +78,10 @@ self.addEventListener('activate', function (event) {
       .then(function (clientList) {
         if (!clientList) return;
         clientList.forEach(function (client) {
-          client.postMessage({ type: 'SW_UPDATE_READY' });
+          client.postMessage({
+            type: 'SW_UPDATE_READY',
+            version: CACHE_VERSION
+          });
         });
       })
   );
