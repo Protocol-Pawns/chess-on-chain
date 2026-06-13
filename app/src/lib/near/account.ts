@@ -101,7 +101,7 @@ export async function connect() {
       allowMethods: {
         anyMethod: true
       },
-      gasAllowance: { kind: 'unlimited' }
+      gasAllowance: { kind: 'limited', amount: '1000000000000000000000000' }
     }
   });
 }
