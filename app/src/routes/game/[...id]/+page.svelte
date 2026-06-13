@@ -382,6 +382,7 @@
             appliedMoveSigs.add(moveSig(m.color, m.mv));
           }
           localMoveCount += parsed.parsedMoves.length;
+          const preMoveFen = game.fen;
           if (parsed.outcome && parsed.board) {
             game = {
               ...game,
@@ -457,6 +458,54 @@
               };
             }
           }
+          const newMoves: GameMove[] = [];
+          let runningFen = preMoveFen;
+          for (let i = 0; i < parsed.parsedMoves.length; i++) {
+            const pm = parsed.parsedMoves[i];
+            let moveFen: string;
+            if (runningFen) {
+              try {
+                const c = new Chess(runningFen);
+                c.move({
+                  from: pm.from,
+                  to: pm.to,
+                  promotion: pm.promotion ? pMap[pm.promotion] : undefined
+                });
+                moveFen = c.fen();
+                runningFen = moveFen;
+              } catch {
+                moveFen =
+                  game.fen ??
+                  (parsed.board
+                    ? boardToFen(
+                        parsed.board,
+                        pm.color === 'White' ? 'Black' : 'White'
+                      )
+                    : STARTING_FEN);
+              }
+            } else {
+              moveFen =
+                game.fen ??
+                (parsed.board
+                  ? boardToFen(
+                      parsed.board,
+                      pm.color === 'White' ? 'Black' : 'White'
+                    )
+                  : STARTING_FEN);
+            }
+            newMoves.push({
+              move_number: moves.length + i + 1,
+              color: pm.color,
+              move_notation: pm.mv,
+              fen: moveFen,
+              outcome: null
+            });
+          }
+          if (parsed.outcome && newMoves.length > 0) {
+            newMoves[newMoves.length - 1].outcome =
+              parsed.outcome as GameMove['outcome'];
+          }
+          moves = [...moves, ...newMoves];
         }
       })
       .catch((err: unknown) => {
