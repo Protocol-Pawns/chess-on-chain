@@ -46,17 +46,18 @@
     selectedMoveIndex !== null && selectedMoveIndex < moves.length - 1
   );
 
+  let scrollTargetIdx = $derived(
+    selectedMoveIndex !== null && selectedMoveIndex >= 0
+      ? selectedMoveIndex
+      : isViewingCurrent && moves.length > 0
+        ? moves.length - 1
+        : null
+  );
+
   $effect(() => {
-    if (!containerEl) return;
-    const idx =
-      selectedMoveIndex !== null && selectedMoveIndex >= 0
-        ? selectedMoveIndex
-        : isViewingCurrent && moves.length > 0
-          ? moves.length - 1
-          : null;
-    if (idx === null) return;
+    if (!containerEl || scrollTargetIdx === null) return;
     const el = containerEl.querySelector(
-      `[data-move-idx="${idx}"]`
+      `[data-move-idx="${scrollTargetIdx}"]`
     ) as HTMLElement;
     if (el) {
       el.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
