@@ -15,6 +15,7 @@ const NETWORK = import.meta.env.VITE_NETWORK_ID || 'mainnet';
 const CONTRACT_ID = import.meta.env.VITE_CONTRACT_ID || 'app.chess-game.near';
 const RPC_URL = import.meta.env.VITE_RPC_URL || 'https://rpc.shitzuapes.xyz';
 const GAS = BigInt('30000000000000');
+const GAS_HIGH = BigInt('300000000000000');
 const WRAP_NEAR_ID = NETWORK === 'testnet' ? 'wrap.testnet' : 'wrap.near';
 
 let connector: NearConnector | undefined;
@@ -91,13 +92,14 @@ export async function getTxLogs(txHash: string): Promise<string[]> {
 async function sendTransaction(
   methodName: string,
   args: Record<string, unknown>,
-  deposit: string = '0'
+  deposit: string = '0',
+  gas: bigint = GAS
 ) {
   if (deposit === '0') {
-    const localResult = await tryLocalSign(methodName, args, deposit);
+    const localResult = await tryLocalSign(methodName, args, deposit, gas);
     if (localResult) return localResult;
   }
-  const GAS_STR = '30000000000000';
+  const GAS_STR = gas.toString();
   const c = getConnector();
   const wallet = await c.wallet();
   return wallet.signAndSendTransaction({
@@ -114,7 +116,8 @@ async function sendTransaction(
 async function tryLocalSign(
   methodName: string,
   args: Record<string, unknown>,
-  deposit: string
+  deposit: string,
+  gas: bigint = GAS
 ): Promise<unknown | null> {
   try {
     const { getLocalKeyPair } = await import('./account');
@@ -133,7 +136,7 @@ async function tryLocalSign(
     console.log('[connector] local sign via Account for', methodName);
     const result = await account.signAndSendTransaction({
       receiverId: CONTRACT_ID,
-      actions: [actions.functionCall(methodName, args, GAS, BigInt(deposit))]
+      actions: [actions.functionCall(methodName, args, gas, BigInt(deposit))]
     });
     console.log('[connector] local sign result:', result);
     return result;
@@ -285,15 +288,15 @@ export const contract = {
   },
 
   playMove(gameId: unknown, mv: string) {
-    return sendTransaction('play_move', { game_id: gameId, mv });
+    return sendTransaction('play_move', { game_id: gameId, mv }, '0', GAS_HIGH);
   },
 
   resign(gameId: unknown) {
-    return sendTransaction('resign', { game_id: gameId });
+    return sendTransaction('resign', { game_id: gameId }, '0', GAS_HIGH);
   },
 
   cancel(gameId: unknown) {
-    return sendTransaction('cancel', { game_id: gameId });
+    return sendTransaction('cancel', { game_id: gameId }, '0', GAS_HIGH);
   },
 
   challengeWithRegistration(challenged: string) {
