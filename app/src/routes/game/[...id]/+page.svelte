@@ -25,8 +25,10 @@
   } from '$lib/sse';
   import { get } from 'svelte/store';
   import Board from '$lib/components/Board.svelte';
+  import CapturedPieces from '$lib/components/CapturedPieces.svelte';
   import MoveHistory from '$lib/components/MoveHistory.svelte';
   import ConfirmModal from '$lib/components/ConfirmModal.svelte';
+  import { getCapturedPieces } from '$lib/chess/captured';
 
   import dayjs from 'dayjs';
 
@@ -124,6 +126,12 @@
     return null;
   });
 
+  let captured = $derived.by(() => {
+    const src = displayFen ?? displayBoard;
+    if (!src) return { whiteCaptured: [], blackCaptured: [] };
+    return getCapturedPieces(src);
+  });
+
   function selectMove(index: number | null) {
     viewingMoveIndex = index;
   }
@@ -152,6 +160,13 @@
 
   let flipped = $derived(
     !!(game && $accountStore && game.black?.value === $accountStore)
+  );
+
+  let topCaptured = $derived(
+    flipped ? captured.whiteCaptured : captured.blackCaptured
+  );
+  let bottomCaptured = $derived(
+    flipped ? captured.blackCaptured : captured.whiteCaptured
   );
 
   let canResign = $derived(
@@ -773,7 +788,14 @@
           </div>
         {/if}
 
-        <div class="flex justify-center relative">
+        <div class="flex flex-col items-center gap-1 relative">
+          <div
+            class="flex justify-center w-full"
+            style="width: min(100%, 30rem);"
+          >
+            <CapturedPieces pieces={topCaptured} />
+          </div>
+
           <Board
             board={displayBoard}
             fen={displayFen}
@@ -787,6 +809,14 @@
             {flipped}
             lastMove={displayLastMove}
           />
+
+          <div
+            class="flex justify-center w-full"
+            style="width: min(100%, 30rem);"
+          >
+            <CapturedPieces pieces={bottomCaptured} />
+          </div>
+
           {#if !indexed}
             <div
               class="absolute inset-0 flex items-center justify-center bg-black/60 rounded z-10"
