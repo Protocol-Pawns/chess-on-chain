@@ -751,8 +751,8 @@
         <div class="h-4 w-24 rounded bg-white/10"></div>
       </div>
       <div
-        class="mx-auto bg-board-dark rounded aspect-square"
-        style="width: min(100%, 30rem);"
+        class="mx-auto bg-board-dark rounded aspect-square max-lg:max-w-[26rem]"
+        style="width: 100%;"
       ></div>
     </div>
     <div class="card">
@@ -855,8 +855,8 @@
 
         <div class="flex flex-col items-center gap-1 relative">
           <div
-            class="flex justify-center w-full"
-            style="width: min(100%, 30rem);"
+            class="flex justify-center w-full max-lg:max-w-[26rem]"
+            style="width: 100%;"
           >
             <CapturedPieces pieces={topCaptured} />
           </div>
@@ -876,8 +876,8 @@
           />
 
           <div
-            class="flex justify-center w-full"
-            style="width: min(100%, 30rem);"
+            class="flex justify-center w-full max-lg:max-w-[26rem]"
+            style="width: 100%;"
           >
             <CapturedPieces pieces={bottomCaptured} />
           </div>

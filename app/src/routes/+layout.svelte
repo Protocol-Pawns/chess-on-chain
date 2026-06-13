@@ -130,7 +130,7 @@
       <div
         class="w-full"
         style="max-width: {page.url.pathname.startsWith('/game')
-          ? 'min(100%, 48rem)'
+          ? 'min(100%, 51rem)'
           : 'min(100%, 30rem)'};"
       >
         {@render children()}

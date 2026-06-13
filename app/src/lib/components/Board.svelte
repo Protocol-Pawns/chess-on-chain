@@ -303,7 +303,7 @@
   const files = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'];
 </script>
 
-<div class="relative" style="width: min(100%, 30rem);">
+<div class="relative max-lg:max-w-[26rem]" style="width: 100%;">
   {#if loading}
     <div
       class="absolute inset-0 flex items-center justify-center bg-black/40 z-10 rounded"
