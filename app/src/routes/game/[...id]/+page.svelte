@@ -420,8 +420,17 @@
                 game = { ...game, fen: c.fen() };
               } catch {
                 if (parsed.board) {
-                  const turn = game.fen ? colorFromFEN(game.fen) : 'White';
-                  const nextTurn = turn === 'White' ? 'Black' : 'White';
+                  const lastMove =
+                    parsed.parsedMoves[parsed.parsedMoves.length - 1];
+                  const nextTurn = lastMove
+                    ? lastMove.color === 'White'
+                      ? 'Black'
+                      : 'White'
+                    : game.fen
+                      ? colorFromFEN(game.fen) === 'White'
+                        ? 'Black'
+                        : 'White'
+                      : 'White';
                   game = {
                     ...game,
                     board: parsed.board,
@@ -430,8 +439,17 @@
                 }
               }
             } else if (parsed.board) {
-              const turn = game.fen ? colorFromFEN(game.fen) : 'White';
-              const nextTurn = turn === 'White' ? 'Black' : 'White';
+              const lastMove =
+                parsed.parsedMoves[parsed.parsedMoves.length - 1];
+              const nextTurn = lastMove
+                ? lastMove.color === 'White'
+                  ? 'Black'
+                  : 'White'
+                : game.fen
+                  ? colorFromFEN(game.fen) === 'White'
+                    ? 'Black'
+                    : 'White'
+                  : 'White';
               game = {
                 ...game,
                 board: parsed.board,
