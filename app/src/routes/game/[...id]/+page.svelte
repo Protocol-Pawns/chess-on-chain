@@ -926,7 +926,10 @@
 
     updateWatermark(event.trigger_block_height);
     load().then(() => {
-      api.gameBets(gameIdStr).then(b => (gameBets = b)).catch(() => []);
+      api
+        .gameBets(gameIdStr)
+        .then(b => (gameBets = b))
+        .catch(() => []);
       loadElos();
     });
   }
@@ -956,7 +959,10 @@
     });
 
     load().then(() => {
-      api.gameBets(gameIdStr).then(b => (gameBets = b)).catch(() => []);
+      api
+        .gameBets(gameIdStr)
+        .then(b => (gameBets = b))
+        .catch(() => []);
       loadElos();
     });
 
@@ -1175,10 +1181,7 @@
                 {game.outcome.color} wins by checkmate!
               {/if}
             </span>
-            <button
-              class="btn text-sm bg-white/5 shrink-0"
-              onclick={openShareModal}
-            >
+            <button class="btn-ghost text-sm shrink-0" onclick={openShareModal}>
               Share
             </button>
           </div>
@@ -1335,14 +1338,14 @@
     <h2 class="text-lg font-semibold text-white mb-4">Share Game</h2>
 
     <button
-      class="btn w-full mb-2 flex items-center justify-center gap-2 bg-white/5"
+      class="btn-ghost w-full mb-2 flex items-center justify-center gap-2"
       onclick={shareOnX}
     >
       Share on X
     </button>
 
     <button
-      class="btn w-full flex items-center justify-center gap-2 bg-white/5"
+      class="btn-ghost w-full flex items-center justify-center gap-2"
       onclick={copyImage}
       disabled={copyingImage}
     >

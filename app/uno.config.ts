@@ -42,6 +42,7 @@ export default defineConfig({
       'btn text-primary bg-primary-transparent hover:bg-[rgba(174,213,129,0.15)]',
     'btn-secondary':
       'btn text-white hover:bg-white/10 bg-transparent border border-white/10',
+    'btn-ghost': 'btn bg-white/5 hover:bg-white/10',
     card: 'rounded border border-white/10 bg-white/[0.03] p-3',
     'card-hover': 'card hover:bg-white/5 hover:border-white/20 cursor-pointer',
     'card-accent':
