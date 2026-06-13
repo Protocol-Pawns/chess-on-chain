@@ -11,6 +11,12 @@ export class PushError extends Error {
   }
 }
 
+function urlBase64ToUint8Array(base64url: string): Uint8Array<ArrayBuffer> {
+  const base64 = base64url.replace(/-/g, '+').replace(/_/g, '/');
+  const raw = atob(base64);
+  return Uint8Array.from(raw, c => c.charCodeAt(0));
+}
+
 export async function registerPushNotifications(
   accountId: string
 ): Promise<boolean> {
@@ -49,9 +55,10 @@ export async function registerPushNotifications(
       } catch {
         throw new PushError('api', 'Could not reach the notification service.');
       }
+      const key = urlBase64ToUint8Array(publicKey);
       subscription = await registration.pushManager.subscribe({
         userVisibleOnly: true,
-        applicationServerKey: publicKey
+        applicationServerKey: key
       });
     }
 

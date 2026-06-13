@@ -44,7 +44,15 @@
             );
             break;
           default:
-            showToast('error', 'Failed to enable notifications', e.message);
+            if (e.message === 'Registration failed - push service error') {
+              showToast(
+                'error',
+                'Push service unavailable',
+                'The browser push service is not available right now. Try again later or use a different browser.'
+              );
+            } else {
+              showToast('error', 'Failed to enable notifications', e.message);
+            }
         }
       } else {
         showToast(
