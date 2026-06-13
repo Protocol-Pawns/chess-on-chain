@@ -22,7 +22,7 @@
     { href: '/', label: 'Home' },
     { href: '/leaderboard', label: 'Leaderboard' },
     { href: '/challenges', label: 'Challenges' },
-    { href: '/bets', label: 'Bets' },
+    // { href: '/bets', label: 'Bets' },
     { href: '/about', label: 'About' }
   ];
 
