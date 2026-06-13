@@ -361,8 +361,14 @@
           }
         }
       })
-      .catch(() => {
+      .catch((err: unknown) => {
         submitting = false;
+        pendingLastMove = null;
+        showToast(
+          'error',
+          'Move failed',
+          err instanceof Error ? err.message : String(err)
+        );
       });
   }
 

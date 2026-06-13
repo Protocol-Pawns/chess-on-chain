@@ -119,31 +119,31 @@ async function tryLocalSign(
   deposit: string,
   gas: bigint = GAS
 ): Promise<unknown | null> {
+  let keyPair;
   try {
     const { getLocalKeyPair } = await import('./account');
-    const keyPair = getLocalKeyPair();
-    if (!keyPair) {
-      console.log('[connector] no local fc keypair, falling back to wallet');
-      return null;
-    }
-
-    const accountId = await getAccountId();
-    if (!accountId) return null;
-
-    const signer = new KeyPairSigner(keyPair);
-    const account = new Account(accountId, getProvider(), signer);
-
-    console.log('[connector] local sign via Account for', methodName);
-    const result = await account.signAndSendTransaction({
-      receiverId: CONTRACT_ID,
-      actions: [actions.functionCall(methodName, args, gas, BigInt(deposit))]
-    });
-    console.log('[connector] local sign result:', result);
-    return result;
-  } catch (e) {
-    console.warn('[connector] local sign failed, falling back to wallet:', e);
+    keyPair = getLocalKeyPair();
+  } catch {
     return null;
   }
+  if (!keyPair) {
+    console.log('[connector] no local fc keypair, falling back to wallet');
+    return null;
+  }
+
+  const accountId = await getAccountId();
+  if (!accountId) return null;
+
+  const signer = new KeyPairSigner(keyPair);
+  const account = new Account(accountId, getProvider(), signer);
+
+  console.log('[connector] local sign via Account for', methodName);
+  const result = await account.signAndSendTransaction({
+    receiverId: CONTRACT_ID,
+    actions: [actions.functionCall(methodName, args, gas, BigInt(deposit))]
+  });
+  console.log('[connector] local sign result:', result);
+  return result;
 }
 
 async function getAccountId(): Promise<string | null> {
