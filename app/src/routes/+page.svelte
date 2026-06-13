@@ -27,6 +27,7 @@
   import PushSettings from '$lib/components/PushSettings.svelte';
   import PwaInstallCard from '$lib/components/PwaInstallCard.svelte';
   import ConfirmModal from '$lib/components/ConfirmModal.svelte';
+  import { formatWager, formatWagerText } from '$lib/wager';
 
   const PER_PAGE = 10;
 
@@ -45,6 +46,26 @@
   let acceptTarget = $state<Challenge | null>(null);
   let rejectTarget = $state<Challenge | null>(null);
   let cancelTarget = $state<Challenge | null>(null);
+
+  let acceptWagerText = $state('');
+
+  $effect(() => {
+    const target = acceptTarget;
+    acceptWagerText = '';
+    if (
+      target?.wager_token &&
+      target?.wager_amount &&
+      target.wager_amount !== '0'
+    ) {
+      let cancelled = false;
+      formatWager(target.wager_amount, target.wager_token).then(d => {
+        if (!cancelled) acceptWagerText = formatWagerText(d);
+      });
+      return () => {
+        cancelled = true;
+      };
+    }
+  });
 
   async function loadMyGames() {
     if (!$accountStore) {
@@ -565,7 +586,9 @@
   message={acceptTarget
     ? `Accept the challenge from ${acceptTarget.challenger}?` +
       (acceptTarget.wager_token && acceptTarget.wager_amount
-        ? ` This includes a wager of ${acceptTarget.wager_amount}.`
+        ? acceptWagerText
+          ? ` This includes a wager of ${acceptWagerText}.`
+          : ` This includes a wager.`
         : '')
     : ''}
   confirmLabel="Accept"

@@ -84,6 +84,13 @@ export async function getTokenPrice(
   return price;
 }
 
+const STABLECOIN_SYMBOLS = new Set(['USDC', 'USDT', 'DAI', 'FRAX', 'BUSD']);
+
+export function isStablecoin(symbol?: string): boolean {
+  if (!symbol) return false;
+  return STABLECOIN_SYMBOLS.has(symbol.toUpperCase());
+}
+
 export function estimateUsd(
   amount: string,
   price: number | undefined

@@ -5,6 +5,7 @@
   import { truncateAddr } from '$lib/format';
   import { MAX_OPEN_GAMES, gameUrl } from '$lib/game';
   import { accountStore } from '$lib/near/account';
+  import { formatWager, formatWagerText, type WagerDisplay } from '$lib/wager';
 
   interface Props {
     challenge: Challenge;
@@ -56,6 +57,23 @@
           ? 'Black'
           : null;
     return turn === myColor;
+  });
+
+  let wagerDisplay = $state<WagerDisplay | null>(null);
+
+  $effect(() => {
+    const token = challenge.wager_token;
+    const amount = challenge.wager_amount;
+    wagerDisplay = null;
+    if (token && amount && amount !== '0') {
+      let cancelled = false;
+      formatWager(amount, token).then(d => {
+        if (!cancelled) wagerDisplay = d;
+      });
+      return () => {
+        cancelled = true;
+      };
+    }
   });
 </script>
 
@@ -117,9 +135,9 @@
       </span>
       <span>
         {#if challenge.wager_token && challenge.wager_amount}
-          <span class="text-yellow-400 mr-2"
-            >Wager: {challenge.wager_amount}</span
-          >
+          <span class="text-yellow-400 mr-2">
+            Wager: {wagerDisplay ? formatWagerText(wagerDisplay) : '...'}
+          </span>
         {/if}
         {#if challenge.created_at}
           {dayjs(challenge.created_at).format('lll')}
@@ -143,7 +161,7 @@
         {challenge.status}
         {#if challenge.wager_token && challenge.wager_amount}
           <span class="text-yellow-400 ml-1">
-            Wager: {challenge.wager_amount}
+            Wager: {wagerDisplay ? formatWagerText(wagerDisplay) : '...'}
           </span>
         {/if}
       </div>

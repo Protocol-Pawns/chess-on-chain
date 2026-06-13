@@ -15,6 +15,7 @@
   import ConfirmModal from '$lib/components/ConfirmModal.svelte';
   import Pagination from '$lib/components/Pagination.svelte';
   import { getTokenPrice, estimateUsd } from '$lib/prices';
+  import { formatWager, formatWagerText } from '$lib/wager';
 
   const MAX_OPEN_CHALLENGES = 25;
   const PER_PAGE = 25;
@@ -42,6 +43,26 @@
   let cancelTarget = $state<Challenge | null>(null);
   let showSendConfirm = $state(false);
   let wagerUsd = $state<string | undefined>(undefined);
+
+  let acceptWagerText = $state('');
+
+  $effect(() => {
+    const target = acceptTarget;
+    acceptWagerText = '';
+    if (
+      target?.wager_token &&
+      target?.wager_amount &&
+      target.wager_amount !== '0'
+    ) {
+      let cancelled = false;
+      formatWager(target.wager_amount, target.wager_token).then(d => {
+        if (!cancelled) acceptWagerText = formatWagerText(d);
+      });
+      return () => {
+        cancelled = true;
+      };
+    }
+  });
 
   $effect(() => {
     if (wagerEnabled && wagerToken && wagerAmount) {
@@ -461,7 +482,9 @@
   message={acceptTarget
     ? `Accept the challenge from ${acceptTarget.challenger}?` +
       (acceptTarget.wager_token && acceptTarget.wager_amount
-        ? ` This includes a wager of ${acceptTarget.wager_amount}.`
+        ? acceptWagerText
+          ? ` This includes a wager of ${acceptWagerText}.`
+          : ` This includes a wager.`
         : '')
     : ''}
   confirmLabel="Accept"
