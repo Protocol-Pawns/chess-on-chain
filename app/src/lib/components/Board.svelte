@@ -366,7 +366,7 @@
 </div>
 <Modal open={!!pendingPromotion} onclose={() => (pendingPromotion = null)}>
   <div
-    class="flex flex-col gap-3 p-4 rounded-xl bg-gray-900/95 shadow-2xl border border-white/20"
+    class="grid grid-cols-2 gap-3 p-4 rounded-xl bg-gray-900/95 shadow-2xl border border-white/20"
   >
     <p class="text-center text-sm font-semibold text-white/80 mb-1">
       Promote to
