@@ -138,9 +138,7 @@ impl Chess {
             .iter()
             .skip(skip.unwrap_or_default())
             .take(limit.unwrap_or(100))
-            .filter_map(|(account_id, account)| {
-                account.get_elo().map(|elo| (account_id.clone(), elo))
-            })
+            .map(|(account_id, account)| (account_id.clone(), account.get_elo().unwrap_or(1_000.)))
             .collect()
     }
 
@@ -150,10 +148,14 @@ impl Chess {
     ) -> Vec<(AccountId, EloRating)> {
         account_ids
             .iter()
-            .filter_map(|account_id| {
-                self.accounts
-                    .get(account_id)
-                    .and_then(|account| account.get_elo().map(|elo| (account_id.clone(), elo)))
+            .map(|account_id| {
+                (
+                    account_id.clone(),
+                    self.accounts
+                        .get(account_id)
+                        .and_then(|account| account.get_elo())
+                        .unwrap_or(1_000.),
+                )
             })
             .collect()
     }

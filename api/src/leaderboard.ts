@@ -51,7 +51,7 @@ export async function fetchAndCacheLeaderboard(
     if (result.length === 0) break;
     allEntries.push(...result);
     if (result.length < PAGE_SIZE) break;
-    skip += result.length;
+    skip += PAGE_SIZE;
   }
 
   allEntries.sort((a, b) => b[1] - a[1]);
@@ -150,6 +150,17 @@ export async function getEloRankingPage(
   dir: 'desc' | 'asc' = 'desc'
 ): Promise<RankingPage> {
   let eloEntries = await getCachedEloEntries(kv, rpcUrl, contractId);
+
+  const allAccountIds = eloEntries.map(e => e.account_id);
+  const statsList = await getAccountStatsBatch(db, allAccountIds);
+  const statsMap = new Map<string, AccountStats>();
+  for (const s of statsList) statsMap.set(s.account_id, s);
+
+  eloEntries = eloEntries.filter(e => {
+    const stats = statsMap.get(e.account_id);
+    return (stats?.total_games ?? 0) > 0;
+  });
+
   if (dir === 'asc') eloEntries = [...eloEntries].reverse();
 
   const total = eloEntries.length;
@@ -158,15 +169,13 @@ export async function getEloRankingPage(
   const start = (safePage - 1) * perPage;
   const pageEntries = eloEntries.slice(start, start + perPage);
 
-  const accountIds = pageEntries.map(e => e.account_id);
+  const pageAccountIds = pageEntries.map(e => e.account_id);
 
-  const [pppMap, statsList] = await Promise.all([
-    fetchPppBalancesByIds(rpcUrl, contractId, accountIds),
-    getAccountStatsBatch(db, accountIds)
-  ]);
-
-  const statsMap = new Map<string, AccountStats>();
-  for (const s of statsList) statsMap.set(s.account_id, s);
+  const pppMap = await fetchPppBalancesByIds(
+    rpcUrl,
+    contractId,
+    pageAccountIds
+  );
 
   const entries: RankingEntry[] = pageEntries.map((e, i) => {
     const stats = statsMap.get(e.account_id);
