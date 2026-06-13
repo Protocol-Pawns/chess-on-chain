@@ -93,6 +93,23 @@
     }
   });
 
+  let inCheck = $derived(chess?.inCheck() ?? false);
+
+  let checkSquare: [number, number] | null = $derived.by(() => {
+    if (!inCheck || !chess) return null;
+    const b = chess.board();
+    const turn = chess.turn();
+    for (let r = 0; r < 8; r++) {
+      for (let c = 0; c < 8; c++) {
+        const piece = b[r][c];
+        if (piece && piece.type === 'k' && piece.color === turn) {
+          return [r, c];
+        }
+      }
+    }
+    return null;
+  });
+
   function isLegalTarget(r: number, c: number): boolean {
     const pos = posToAlgebraic(r, c);
     return legalTargets.has(pos);
@@ -217,6 +234,14 @@
       const pos = posToAlgebraic(ar, ac);
       if (lastMove.from === pos || lastMove.to === pos) {
         bg = isLight ? 'bg-[#b6da95]/60' : 'bg-[#6a9f4b]/60';
+      }
+    }
+
+    if (checkSquare) {
+      const pos = posToAlgebraic(checkSquare[0], checkSquare[1]);
+      const cellPos = posToAlgebraic(ar, ac);
+      if (pos === cellPos) {
+        bg = isLight ? 'bg-[#e06b6b]/80' : 'bg-[#cc3333]/80';
       }
     }
 

@@ -169,6 +169,16 @@
     flipped ? captured.blackCaptured : captured.whiteCaptured
   );
 
+  let isInCheck = $derived.by(() => {
+    if (!displayFen || game?.status !== 'in_progress') return false;
+    try {
+      const c = new Chess(displayFen);
+      return c.inCheck();
+    } catch {
+      return false;
+    }
+  });
+
   let canResign = $derived(
     game?.status === 'in_progress' &&
       $accountStore &&
@@ -867,6 +877,15 @@
               </span>
             {/if}
           </div>
+          {#if isInCheck}
+            <div class="text-center mt-1">
+              <span
+                class="inline-block text-sm font-bold px-3 py-1 rounded bg-red-500/20 text-red-400 animate-pulse"
+              >
+                Check!
+              </span>
+            </div>
+          {/if}
         {/if}
 
         {#if game.outcome}
