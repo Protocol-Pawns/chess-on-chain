@@ -23,6 +23,10 @@
     inputValue = value || '';
   });
 
+  $effect(() => {
+    inputValue = value || '';
+  });
+
   function handleInput() {
     const q = inputValue.trim();
     value = q;

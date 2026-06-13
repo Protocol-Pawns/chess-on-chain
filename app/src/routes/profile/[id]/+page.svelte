@@ -400,6 +400,16 @@
         </a>
       </div>
 
+      {#if $accountStore && $accountStore !== accountId}
+        <button
+          class="btn-primary text-sm w-full mt-3"
+          onclick={() =>
+            goto('/challenges?target=' + encodeURIComponent(accountId))}
+        >
+          Send Challenge
+        </button>
+      {/if}
+
       <div
         class="grid {points !== null
           ? 'grid-cols-2'

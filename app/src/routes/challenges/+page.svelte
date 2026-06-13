@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
+  import { page } from '$app/state';
   import { goto } from '$app/navigation';
   import { api, type Challenge, type GameOverview } from '$lib/api/client';
   import { accountStore, isLoggedIn } from '$lib/near/account';
@@ -360,6 +361,11 @@
   }
 
   onMount(() => {
+    const target = page.url.searchParams.get('target');
+    if (target) {
+      challengeTarget = target;
+      history.replaceState(null, '', page.url.pathname);
+    }
     const unsubs = [
       subscribe('challenge', handleSSEChallenge),
       subscribe('accept_challenge', handleSSEAcceptChallenge),
