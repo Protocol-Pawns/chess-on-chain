@@ -431,19 +431,11 @@ impl Account {
         };
         let current_timestamp = env::block_timestamp_ms();
         let quests = account.quest_cooldowns.get_mut();
-        if let Some(index) = quests
-            .iter()
-            .enumerate()
-            .find_map(|(index, (timestamp, cd))| {
-                if timestamp + cd.get_cooldown() < current_timestamp {
-                    Some(index)
-                } else {
-                    None
-                }
-            })
-        {
-            for _ in 0..index + 1 {
+        while let Some((timestamp, cd)) = quests.front() {
+            if *timestamp + cd.get_cooldown() < current_timestamp {
                 quests.pop_front();
+            } else {
+                break;
             }
         }
         let on_cooldown = quests.iter().any(|(_, cd)| cd == &quest);

@@ -89,8 +89,8 @@
     WeeklyChallenger: 'Weekly Challenge'
   };
 
-  function formatCooldown(timestampMs: number): string {
-    const remaining = timestampMs + 57600000 - Date.now();
+  function formatCooldown(timestampMs: number, cooldownMs: number): string {
+    const remaining = timestampMs + cooldownMs - Date.now();
     if (remaining <= 0) return 'Ready';
     const hours = Math.floor(remaining / 3600000);
     const mins = Math.floor((remaining % 3600000) / 60000);
@@ -593,7 +593,9 @@
         <div class="space-y-1.5">
           {#each questList as quest}
             {@const cooldown = questCooldowns.find(([, q]) => q === quest.name)}
-            {@const status = cooldown ? formatCooldown(cooldown[0]) : 'Ready'}
+            {@const status = cooldown
+              ? formatCooldown(cooldown[0], quest.cooldown)
+              : 'Ready'}
             <div class="flex justify-between items-center text-sm">
               <span class="text-white/70"
                 >{QUEST_LABELS[quest.name] ?? quest.name}</span

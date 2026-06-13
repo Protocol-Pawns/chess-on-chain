@@ -806,3 +806,79 @@ async fn test_ft_balance_of_unregistered_account() -> anyhow::Result<()> {
 
     Ok(())
 }
+
+#[tokio::test]
+async fn test_weekly_win_cooldown_not_wiped_by_daily_cleanup() -> anyhow::Result<()> {
+    let (worker, _, contract) = initialize_contracts(None).await?;
+
+    let player_a = worker.dev_create_account().await?;
+    let player_b = worker.dev_create_account().await?;
+
+    tokio::try_join!(
+        call::storage_deposit(&contract, &player_a, None, None),
+        call::storage_deposit(&contract, &player_b, None, None)
+    )?;
+
+    // Game 1: Player A wins -> WeeklyWin cooldown starts
+    call::challenge(&contract, &player_a, player_b.id()).await?;
+    let challenge_id = create_challenge_id(player_a.id(), player_b.id());
+    let (game_id, _) = call::accept_challenge(&contract, &player_b, &challenge_id).await?;
+    let game_id = GameId(
+        game_id.0,
+        player_a.id().clone(),
+        Some(player_b.id().clone()),
+    );
+
+    call::play_move(&contract, &player_a, &game_id, "e2e4".to_string()).await?;
+    call::play_move(&contract, &player_b, &game_id, "a7a6".to_string()).await?;
+    call::play_move(&contract, &player_a, &game_id, "d1f3".to_string()).await?;
+    call::play_move(&contract, &player_b, &game_id, "a6a5".to_string()).await?;
+    call::play_move(&contract, &player_a, &game_id, "f1c4".to_string()).await?;
+    call::play_move(&contract, &player_b, &game_id, "a5a4".to_string()).await?;
+    call::play_move(&contract, &player_a, &game_id, "f3f7".to_string()).await?;
+
+    let cooldowns = view::get_quest_cooldowns(&contract, player_a.id()).await?;
+    assert!(
+        cooldowns.iter().any(|(_, q)| q == &Quest::WeeklyWin),
+        "WeeklyWin should be on cooldown after win"
+    );
+
+    // Game 2: Start new game, play a move -> DailyPlayMove cooldown starts
+    call::challenge(&contract, &player_a, player_b.id()).await?;
+    let challenge_id = create_challenge_id(player_a.id(), player_b.id());
+    let (game_id, _) = call::accept_challenge(&contract, &player_b, &challenge_id).await?;
+    let game_id = GameId(
+        game_id.0,
+        player_a.id().clone(),
+        Some(player_b.id().clone()),
+    );
+
+    // call::play_move(&contract, &player_a, &game_id, "e2e4".to_string()).await?;
+
+    // let cooldowns = view::get_quest_cooldowns(&contract, player_a.id()).await?;
+    // assert!(
+    //     cooldowns.iter().any(|(_, q)| q == &Quest::WeeklyWin),
+    //     "WeeklyWin still on cooldown after second game"
+    // );
+    // assert!(
+    //     cooldowns.iter().any(|(_, q)| q == &Quest::DailyPlayMove),
+    //     "DailyPlayMove on cooldown after play_move"
+    // );
+
+    // Fast forward past DailyPlayMove cooldown (18s) but not WeeklyChallenger (126s) or WeeklyWin (126s)
+    worker.fast_forward(100).await?;
+
+    // A's play_move triggers cleanup on A's cooldowns
+    call::play_move(&contract, &player_a, &game_id, "e2e4".to_string()).await?;
+
+    // THE BUG (before fix): WeeklyChallenger (126s cooldown, valid) gets wiped
+    // because DailyPlayMove (18s) behind it expired and cleanup removed 0..=index
+    let cooldowns = view::get_quest_cooldowns(&contract, player_a.id()).await?;
+    assert!(
+        cooldowns.iter().any(|(_, q)| q == &Quest::WeeklyChallenger),
+        "WeeklyChallenger should still be on cooldown (126s) - not wiped by DailyPlayMove cleanup. Got: {:?}",
+        cooldowns
+    );
+
+    Ok(())
+}
