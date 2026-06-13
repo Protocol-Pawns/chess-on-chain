@@ -5,6 +5,7 @@
     posToAlgebraic,
     type Square
   } from '$lib/chess/board';
+  import { castlingRights } from '$lib/game';
   import Modal from './Modal.svelte';
 
   let {
@@ -70,10 +71,33 @@
 
   let squares = $derived(boardFromInput(board, fen));
 
-  let chess = $derived.by(() => {
+  let boardArr = $derived.by(() => {
+    if (board) return board;
     if (!fen) return null;
+    const placement = fen.split(' ')[0];
+    const parts = placement.split('/').reverse();
+    return parts.map(row => {
+      let s = '';
+      for (const ch of row) {
+        if (/\d/.test(ch)) s += ' '.repeat(parseInt(ch));
+        else s += ch;
+      }
+      return s;
+    });
+  });
+
+  let chessFen = $derived.by(() => {
+    if (!fen) return null;
+    if (!boardArr) return fen;
+    const parts = fen.split(' ');
+    parts[2] = castlingRights(boardArr);
+    return parts.join(' ');
+  });
+
+  let chess = $derived.by(() => {
+    if (!chessFen) return null;
     try {
-      const c = new Chess(fen);
+      const c = new Chess(chessFen);
       return c;
     } catch {
       return null;

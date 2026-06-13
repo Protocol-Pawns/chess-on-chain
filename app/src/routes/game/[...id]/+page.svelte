@@ -300,6 +300,19 @@
               mv: event.data.mv
             });
           }
+          if (event.data.mv === 'O-O' || event.data.mv === 'O-O-O') {
+            const color = event.data.color as string;
+            const isKingside = event.data.mv === 'O-O';
+            const from = color === 'White' ? 'e1' : 'e8';
+            const to = isKingside
+              ? color === 'White'
+                ? 'g1'
+                : 'g8'
+              : color === 'White'
+                ? 'c1'
+                : 'c8';
+            parsedMoves.push({ from, to, color, mv: event.data.mv });
+          }
           if (event.data.board) {
             board = event.data.board as string[];
           }
@@ -328,7 +341,19 @@
     if (!game || submitting || !indexed) return;
     submitting = true;
     const isAiGame = game.white.type === 'Ai' || game.black?.type === 'Ai';
-    const moveStr = promotion ? `${from} to ${to} ${promotion}` : from + to;
+    const isCastling =
+      (from === 'e1' && to === 'g1') ||
+      (from === 'e8' && to === 'g8') ||
+      (from === 'e1' && to === 'c1') ||
+      (from === 'e8' && to === 'c8');
+    let moveStr: string;
+    if (isCastling) {
+      moveStr = to === 'g1' || to === 'g8' ? 'O-O' : 'O-O-O';
+    } else if (promotion) {
+      moveStr = `${from} to ${to} ${promotion}`;
+    } else {
+      moveStr = from + to;
+    }
     contract
       .playMove($state.snapshot(game.game_id), moveStr)
       .then(async txResult => {
@@ -395,11 +420,23 @@
                 game = { ...game, fen: c.fen() };
               } catch {
                 if (parsed.board) {
-                  game = { ...game, board: parsed.board, fen: undefined };
+                  const turn = game.fen ? colorFromFEN(game.fen) : 'White';
+                  const nextTurn = turn === 'White' ? 'Black' : 'White';
+                  game = {
+                    ...game,
+                    board: parsed.board,
+                    fen: boardToFen(parsed.board, nextTurn)
+                  };
                 }
               }
             } else if (parsed.board) {
-              game = { ...game, board: parsed.board, fen: undefined };
+              const turn = game.fen ? colorFromFEN(game.fen) : 'White';
+              const nextTurn = turn === 'White' ? 'Black' : 'White';
+              game = {
+                ...game,
+                board: parsed.board,
+                fen: boardToFen(parsed.board, nextTurn)
+              };
             }
           }
         }

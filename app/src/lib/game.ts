@@ -27,6 +27,19 @@ export function parseGamePath(path: string): GameId {
   return [num, p1, p2];
 }
 
+export function castlingRights(board: string[]): string {
+  let cr = '';
+  if (board[0][4] === 'K') {
+    if (board[0][7] === 'R') cr += 'K';
+    if (board[0][0] === 'R') cr += 'Q';
+  }
+  if (board[7][4] === 'k') {
+    if (board[7][7] === 'r') cr += 'k';
+    if (board[7][0] === 'r') cr += 'q';
+  }
+  return cr || '-';
+}
+
 export function boardToFen(board: string[], turnColor: Color): string {
   const rows: string[] = [];
   for (let i = 7; i >= 0; i--) {
@@ -50,7 +63,7 @@ export function boardToFen(board: string[], turnColor: Color): string {
     rows.push(fenRow);
   }
   const turn = turnColor === 'White' ? 'w' : 'b';
-  return `${rows.join('/')} ${turn} - - 0 1`;
+  return `${rows.join('/')} ${turn} ${castlingRights(board)} - 0 1`;
 }
 
 export interface ContractGameData extends GameOverview {
