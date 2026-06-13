@@ -27,7 +27,7 @@ export interface Square {
 }
 
 export function parseBoard(board: string[]): Square[][] {
-  return board.map((row, r) =>
+  return [...board].reverse().map((row, r) =>
     [...row].map((piece, c) => ({
       piece: piece === ' ' ? null : piece,
       isLight: (r + c) % 2 === 0,
