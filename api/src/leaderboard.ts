@@ -208,17 +208,7 @@ export async function getPppRankingPage(
   page: number,
   perPage: number
 ): Promise<RankingPage> {
-  const [pppEntries, eloEntries] = await Promise.all([
-    getCachedPppEntries(kv),
-    getCachedEloEntries(kv, rpcUrl, contractId)
-  ]);
-
-  const eloMap = new Map<string, number>();
-  let rank = 1;
-  for (const e of eloEntries) {
-    eloMap.set(e.account_id, rank);
-    rank++;
-  }
+  const pppEntries = await getCachedPppEntries(kv);
 
   const total = pppEntries.length;
   const totalPages = Math.max(1, Math.ceil(total / perPage));
@@ -229,7 +219,7 @@ export async function getPppRankingPage(
   const accountIds = pageEntries.map(e => e.account_id);
 
   const [eloByIds, statsList] = await Promise.all([
-    fetchEloRatingsByIds(rpcUrl, contractId, accountIds),
+    fetchCachedEloRatingsByIds(kv, rpcUrl, contractId, accountIds),
     getAccountStatsBatch(db, accountIds)
   ]);
 
@@ -261,6 +251,52 @@ export async function getPppRankingPage(
     total_pages: totalPages,
     entries
   };
+}
+
+async function fetchCachedEloRatingsByIds(
+  kv: KVNamespace,
+  rpcUrl: string,
+  contractId: string,
+  accountIds: string[]
+): Promise<[string, number][]> {
+  if (accountIds.length === 0) return [];
+
+  const cached = new Map<string, number>();
+  const uncached: string[] = [];
+
+  const kvResults = await Promise.all(
+    accountIds.map(async id => {
+      const raw = await kv.get(`elo:${id}`, 'json');
+      return { id, raw };
+    })
+  );
+
+  for (const { id, raw } of kvResults) {
+    if (raw !== null) {
+      cached.set(id, raw as number);
+    } else {
+      uncached.push(id);
+    }
+  }
+
+  if (uncached.length > 0) {
+    const results = await fetchEloRatingsByIds(rpcUrl, contractId, uncached);
+    await Promise.all(
+      results.map(([id, elo]) =>
+        kv.put(`elo:${id}`, JSON.stringify(elo), { expirationTtl: 600 })
+      )
+    );
+    for (const [id, elo] of results) {
+      cached.set(id, elo);
+    }
+  }
+
+  return (
+    accountIds
+      .map(id => [id, cached.get(id)!] as [string, number])
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      .filter(([_, elo]) => elo !== undefined)
+  );
 }
 
 export async function fetchEloRatingsByIds(
