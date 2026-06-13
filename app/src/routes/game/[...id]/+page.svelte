@@ -265,6 +265,7 @@
     const parsedMoves: {
       from: string;
       to: string;
+      promotion?: string;
       color: string;
       mv: string;
     }[] = [];
@@ -280,9 +281,11 @@
         if (event.event === 'play_move') {
           const parts: string[] = event.data.mv.split(' to ');
           if (parts.length === 2) {
+            const toParts = parts[1].trim().split(/\s+/);
             parsedMoves.push({
               from: parts[0],
-              to: parts[1],
+              to: toParts[0],
+              promotion: toParts.length > 1 ? toParts[1] : undefined,
               color: event.data.color,
               mv: event.data.mv
             });
@@ -311,12 +314,13 @@
     return { moves, outcome, board, resigner, cancelled, parsedMoves };
   }
 
-  function handleMove(from: string, to: string) {
+  function handleMove(from: string, to: string, promotion?: string) {
     if (!game || submitting || !indexed) return;
     submitting = true;
     const isAiGame = game.white.type === 'Ai' || game.black?.type === 'Ai';
+    const moveStr = promotion ? `${from} to ${to} ${promotion}` : from + to;
     contract
-      .playMove($state.snapshot(game.game_id), from + to)
+      .playMove($state.snapshot(game.game_id), moveStr)
       .then(async txResult => {
         submitting = false;
         const tx = txResult as {
@@ -331,6 +335,12 @@
           }
         }
         let parsed = parseTxLogs(txLogs);
+        const pMap: Record<string, string> = {
+          queen: 'q',
+          rook: 'r',
+          bishop: 'b',
+          knight: 'n'
+        };
 
         if (game) {
           for (const m of parsed.parsedMoves) {
@@ -352,16 +362,24 @@
               isAiGame && parsed.moves.length > 1
                 ? parsed.moves[parsed.moves.length - 1]
                 : null;
+            const aiPromotion =
+              isAiGame && parsed.parsedMoves.length > 1
+                ? parsed.parsedMoves[parsed.parsedMoves.length - 1].promotion
+                : undefined;
             pendingLastMove = aiMove ?? { from, to };
             if (game.fen) {
               try {
                 const c = new Chess(game.fen);
-                c.move({ from, to, promotion: 'q' });
+                c.move({
+                  from,
+                  to,
+                  promotion: promotion ? pMap[promotion] : 'q'
+                });
                 if (aiMove) {
                   c.move({
                     from: aiMove.from,
                     to: aiMove.to,
-                    promotion: 'q'
+                    promotion: aiPromotion ? pMap[aiPromotion] : 'q'
                   });
                 }
                 game = { ...game, fen: c.fen() };

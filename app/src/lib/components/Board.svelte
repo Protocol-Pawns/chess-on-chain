@@ -5,6 +5,7 @@
     posToAlgebraic,
     type Square
   } from '$lib/chess/board';
+  import Modal from './Modal.svelte';
 
   let {
     board,
@@ -17,7 +18,7 @@
   }: {
     board?: string[];
     fen?: string;
-    onMove?: (from: string, to: string) => void;
+    onMove?: (from: string, to: string, promotion?: string) => void;
     flipped?: boolean;
     lastMove?: { from: string; to: string } | null;
     disabled?: boolean;
@@ -27,6 +28,45 @@
   let selected: [number, number] | null = $state(null);
   let dragFrom: [number, number] | null = $state(null);
   let dragOverPos: [number, number] | null = $state(null);
+  let pendingPromotion = $state<{
+    from: [number, number];
+    to: [number, number];
+  } | null>(null);
+
+  function isPromotion(from: [number, number], to: [number, number]): boolean {
+    if (!chess) return false;
+    const fromSq = posToAlgebraic(from[0], from[1]) as ChessSquare;
+    const toSq = posToAlgebraic(to[0], to[1]);
+    try {
+      const moves = chess.moves({ square: fromSq, verbose: true });
+      return moves.some(m => m.to === toSq && m.promotion);
+    } catch {
+      return false;
+    }
+  }
+
+  const PROMOTION_PIECES = ['q', 'r', 'b', 'n'] as const;
+  const PROMOTION_NAMES: Record<string, string> = {
+    q: 'queen',
+    r: 'rook',
+    b: 'bishop',
+    n: 'knight'
+  };
+  const PROMOTION_LABELS: Record<string, string> = {
+    q: 'Q',
+    r: 'R',
+    b: 'B',
+    n: 'N'
+  };
+
+  function selectPromotion(piece: string) {
+    if (!pendingPromotion) return;
+    const { from, to } = pendingPromotion;
+    const fromSq = posToAlgebraic(from[0], from[1]);
+    const toSq = posToAlgebraic(to[0], to[1]);
+    onMove?.(fromSq, toSq, PROMOTION_NAMES[piece]);
+    pendingPromotion = null;
+  }
 
   let squares = $derived(boardFromInput(board, fen));
 
@@ -98,6 +138,10 @@
     const toSq = posToAlgebraic(to[0], to[1]);
     if (fromSq === toSq) return;
     if (!isLegalTarget(to[0], to[1])) return;
+    if (isPromotion(from, to)) {
+      pendingPromotion = { from, to };
+      return;
+    }
     onMove?.(fromSq, toSq);
   }
 
@@ -271,3 +315,26 @@
     {/each}
   </div>
 </div>
+<Modal open={!!pendingPromotion} onclose={() => (pendingPromotion = null)}>
+  <div
+    class="flex flex-col gap-3 p-4 rounded-xl bg-gray-900/95 shadow-2xl border border-white/20"
+  >
+    <p class="text-center text-sm font-semibold text-white/80 mb-1">
+      Promote to
+    </p>
+    {#each PROMOTION_PIECES as piece}
+      {@const color = chess?.turn() === 'w' ? 'w' : 'b'}
+      <button
+        class="w-16 h-16 flex items-center justify-center rounded-lg bg-white/10 hover:bg-white/20 transition-colors border border-white/20 hover:border-white/50 cursor-pointer"
+        onclick={() => selectPromotion(piece)}
+      >
+        <img
+          src="/pieces/{color}{PROMOTION_LABELS[piece]}.webp"
+          alt={piece}
+          class="w-12 h-12 object-contain pointer-events-none"
+          draggable="false"
+        />
+      </button>
+    {/each}
+  </div>
+</Modal>
