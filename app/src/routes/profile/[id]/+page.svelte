@@ -21,7 +21,7 @@
   import ConfirmModal from '$lib/components/ConfirmModal.svelte';
   import PppIcon from '$lib/components/PppIcon.svelte';
 
-  const accountId = page.params.id ?? '';
+  let accountId = $state(page.params.id ?? '');
 
   let stats = $state<AccountStats | null>(null);
   let games = $state<GameOverview[]>([]);
@@ -227,15 +227,15 @@
     }).catch(() => {});
   }
 
-  onMount(async () => {
+  async function loadProfileData(id: string) {
     try {
       const [s, accountData, ach, qc, ql, bs] = await Promise.all([
-        api.accountStats(accountId),
-        contract.getAccount(accountId).catch(() => null),
-        contract.getAchievements(accountId).catch(() => []),
-        contract.getQuestCooldowns(accountId).catch(() => []),
+        api.accountStats(id),
+        contract.getAccount(id).catch(() => null),
+        contract.getAchievements(id).catch(() => []),
+        contract.getQuestCooldowns(id).catch(() => []),
         contract.getQuestList().catch(() => []),
-        api.betStats(accountId).catch(() => null)
+        api.betStats(id).catch(() => null)
       ]);
       stats = s;
       if (accountData) {
@@ -255,21 +255,22 @@
       questList = ql;
       betStats = bs;
 
-      const [tb] = await Promise.all([loadTokens()]);
+      await loadTokens();
       try {
         const [contractGameIds, accountData] = await Promise.all([
-          contract.getGameIds(accountId).catch((): GameId[] => []),
-          api
-            .account(accountId)
-            .catch(() => ({ finishedGameIds: [] as GameId[] }))
+          contract.getGameIds(id).catch((): GameId[] => []),
+          api.account(id).catch(() => ({ finishedGameIds: [] as GameId[] }))
         ]);
         const seen = new Set<string>();
         const allGameIds: GameId[] = [];
-        for (const id of [...contractGameIds, ...accountData.finishedGameIds]) {
-          const key = JSON.stringify(id);
+        for (const gid of [
+          ...contractGameIds,
+          ...accountData.finishedGameIds
+        ]) {
+          const key = JSON.stringify(gid);
           if (!seen.has(key)) {
             seen.add(key);
-            allGameIds.push(id);
+            allGameIds.push(gid);
           }
         }
         if (allGameIds.length > 0) {
@@ -281,11 +282,11 @@
             apiGames.map(g => JSON.stringify(g.game_id))
           );
           const missingIds = allGameIds.filter(
-            id => !foundIds.has(JSON.stringify(id))
+            gid => !foundIds.has(JSON.stringify(gid))
           );
           if (missingIds.length > 0) {
             const contractGames = await Promise.all(
-              missingIds.map(id => loadGameFromContract(id))
+              missingIds.map(gid => loadGameFromContract(gid))
             );
             apiGames = [...apiGames, ...contractGames];
           }
@@ -305,7 +306,38 @@
     } finally {
       loading = false;
     }
+  }
+
+  $effect(() => {
+    const newId = page.params.id ?? '';
+    if (newId !== accountId) {
+      stats = null;
+      games = [];
+      activeGames = [];
+      elo = null;
+      points = null;
+      wins = 0;
+      winStreak = 0;
+      maxWinStreak = 0;
+      betsPlaced = 0;
+      betsWon = 0;
+      wagersPlayed = 0;
+      wagerWins = 0;
+      challengesSent = 0;
+      achievements = [];
+      questCooldowns = [];
+      questList = [];
+      betStats = null;
+      tokenBalances = [];
+      pendingChallenges = [];
+      loading = true;
+
+      accountId = newId;
+      loadProfileData(accountId);
+    }
   });
+
+  onMount(() => loadProfileData(accountId));
 </script>
 
 {#if loading}
