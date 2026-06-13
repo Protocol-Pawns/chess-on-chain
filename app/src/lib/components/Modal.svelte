@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { fade } from 'svelte/transition';
+
   interface Props {
     open: boolean;
     onclose: () => void;
@@ -18,10 +20,13 @@
     class="fixed inset-0 z-50 flex items-center justify-center bg-black/60"
     onclick={onclose}
     onkeydown={e => e.key === 'Escape' && onclose()}
+    transition:fade={{ duration: 150 }}
   >
     <!-- svelte-ignore a11y_no_static_element_interactions -->
     <div class="mx-4" onclick={e => e.stopPropagation()}>
-      {@render children?.()}
+      <div class="shadow-xl">
+        {@render children?.()}
+      </div>
     </div>
   </div>
 {/if}

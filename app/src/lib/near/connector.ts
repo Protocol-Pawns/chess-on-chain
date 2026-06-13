@@ -291,10 +291,10 @@ export const contract = {
     let gas = GAS_HIGH;
     if (difficulty) {
       const gasMap: Record<Difficulty, bigint> = {
-        Easy: BigInt('50000000000000'),
-        Medium: BigInt('150000000000000'),
-        Hard: BigInt('300000000000000'),
-        VeryHard: BigInt('500000000000000')
+        Easy: BigInt('100000000000000'),
+        Medium: BigInt('300000000000000'),
+        Hard: BigInt('500000000000000'),
+        VeryHard: BigInt('800000000000000')
       };
       gas = gasMap[difficulty];
     }

@@ -26,6 +26,7 @@ export default defineConfig({
         bgErr: '#380505'
       },
       bg: '#222',
+      surface: '#2a2a2a',
       board: {
         light: '#ddd',
         dark: '#555'
@@ -46,6 +47,6 @@ export default defineConfig({
     'card-accent':
       'rounded border-2 border-primary-green bg-primary-green/10 p-3 hover:bg-primary-green/20 shadow-[0_0_12px_rgba(42,168,118,0.25)] cursor-pointer',
     dropdown:
-      'absolute rounded border border-white/15 bg-[#1a1a2e] p-1.5 shadow-xl z-50'
+      'absolute rounded border border-white/15 bg-surface p-1.5 shadow-xl z-50'
   }
 });

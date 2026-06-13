@@ -25,7 +25,7 @@
 </script>
 
 <Modal {open} {onclose}>
-  <div class="card max-w-sm w-full bg-[#1a1a2e]">
+  <div class="card max-w-sm w-full bg-surface">
     <h3 class="text-base font-semibold mb-2">{title}</h3>
     <p class="text-sm text-white/70 mb-4">{message}</p>
     <div class="flex gap-2 justify-end">

@@ -402,38 +402,95 @@
             class="fixed inset-0 z-40"
             onclick={() => (showAiMenu = false)}
           ></div>
-          <div class="dropdown right-0 top-full mt-1 min-w-28 space-y-0.5">
+          <div class="dropdown right-0 top-full mt-1 min-w-36 space-y-0.5">
             <button
-              class="btn-secondary w-full text-left text-sm"
+              class="btn-secondary w-full text-left text-sm flex items-center gap-2"
               onclick={() => {
                 selectedDifficulty = 'Easy';
                 showAiMenu = false;
                 showAiConfirm = true;
-              }}>Easy</button
+              }}
+              ><svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                ><circle cx="12" cy="12" r="7" /><circle
+                  cx="12"
+                  cy="12"
+                  r="3"
+                  fill="currentColor"
+                /></svg
+              >Easy</button
             >
             <button
-              class="btn-secondary w-full text-left text-sm"
+              class="btn-secondary w-full text-left text-sm flex items-center gap-2"
               onclick={() => {
                 selectedDifficulty = 'Medium';
                 showAiMenu = false;
                 showAiConfirm = true;
-              }}>Medium</button
+              }}
+              ><svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                ><polygon
+                  points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"
+                /></svg
+              >Medium</button
             >
             <button
-              class="btn-secondary w-full text-left text-sm"
+              class="btn-secondary w-full text-left text-sm flex items-center gap-2"
               onclick={() => {
                 selectedDifficulty = 'Hard';
                 showAiMenu = false;
                 showAiConfirm = true;
-              }}>Hard</button
+              }}
+              ><svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                ><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" /></svg
+              >Hard</button
             >
             <button
-              class="btn-secondary w-full text-left text-sm"
+              class="btn-secondary w-full text-left text-sm flex items-center gap-2"
               onclick={() => {
                 selectedDifficulty = 'VeryHard';
                 showAiMenu = false;
                 showAiConfirm = true;
-              }}>Very Hard</button
+              }}
+              ><svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                ><polygon
+                  points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"
+                /></svg
+              >Very Hard</button
             >
           </div>
         {/if}

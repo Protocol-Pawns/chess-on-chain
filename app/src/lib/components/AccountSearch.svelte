@@ -129,7 +129,7 @@
 
   {#if open || (loading && inputValue.trim().length >= 2)}
     <div
-      class="absolute z-50 left-0 right-0 mt-1 bg-[#1a1a2e] border border-white/15 rounded shadow-lg overflow-hidden"
+      class="absolute z-50 left-0 right-0 mt-1 bg-surface border border-white/15 rounded shadow-lg overflow-hidden"
       onmouseenter={() => {
         if (blurTimer) clearTimeout(blurTimer);
       }}
