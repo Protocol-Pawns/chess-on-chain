@@ -28,6 +28,7 @@
   import PwaInstallCard from '$lib/components/PwaInstallCard.svelte';
   import ConfirmModal from '$lib/components/ConfirmModal.svelte';
   import { formatWager, formatWagerText } from '$lib/wager';
+  import { fmtTGas, AI_MOVE_GAS_BUDGET } from '$lib/format';
 
   const PER_PAGE = 10;
 
@@ -636,7 +637,7 @@
 <ConfirmModal
   open={showAiConfirm}
   title="Start AI Game?"
-  message={`Start a ${selectedDifficulty.toLowerCase()} AI game? This will create an on-chain game.`}
+  message={`Start a ${selectedDifficulty.toLowerCase()} AI game? This will create an on-chain game. Each AI move consumes ${fmtTGas(AI_MOVE_GAS_BUDGET[selectedDifficulty])}.`}
   confirmLabel="Start Game"
   onconfirm={() => {
     showAiConfirm = false;

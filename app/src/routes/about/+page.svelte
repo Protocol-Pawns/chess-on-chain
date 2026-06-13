@@ -8,7 +8,12 @@
   } from '$lib/near/account';
   import { contract } from '$lib/near/connector';
   import { showTxToast } from '$lib/toast';
-  import { fmtPPP, fmtOneDecimal } from '$lib/format';
+  import {
+    fmtPPP,
+    fmtOneDecimal,
+    fmtTGas,
+    AI_MOVE_GAS_BUDGET
+  } from '$lib/format';
   import PppIcon from '$lib/components/PppIcon.svelte';
   import type { QuestInfo, AchievementInfo } from '$lib/near/contract-types';
 
@@ -114,21 +119,39 @@
         <div class="font-semibold text-primary mb-1">2. Start a Game</div>
         <p>
           Challenge another player by entering their wallet address, or start a
-          game against the AI with three difficulty levels:
+          game against the AI with four difficulty levels. AI moves cost gas per
+          move:
         </p>
-        <ul class="list-disc list-inside mt-1 text-white/60">
+        <ul class="list-disc list-inside mt-1 text-white/60 space-y-0.5">
           <li>
-            <span class="text-primary-green">Easy</span> — casual play, low gas (~8
-            TGas)
+            <span class="text-primary-green">Easy</span> — casual play (<span
+              class="font-mono text-white/80"
+              >{fmtTGas(AI_MOVE_GAS_BUDGET.Easy)}</span
+            >/move)
           </li>
           <li>
-            <span class="text-primary-warn">Medium</span> — balanced challenge (~30
-            TGas)
+            <span class="text-primary-warn">Medium</span> — balanced challenge (<span
+              class="font-mono text-white/80"
+              >{fmtTGas(AI_MOVE_GAS_BUDGET.Medium)}</span
+            >/move)
           </li>
           <li>
-            <span class="text-primary-err">Hard</span> — strong opponent (~110 TGas)
+            <span class="text-primary-err">Hard</span> — strong opponent (<span
+              class="font-mono text-white/80"
+              >{fmtTGas(AI_MOVE_GAS_BUDGET.Hard)}</span
+            >/move)
+          </li>
+          <li>
+            <span class="text-primary-err font-semibold">Very Hard</span> — max
+            difficulty (<span class="font-mono text-white/80"
+              >{fmtTGas(AI_MOVE_GAS_BUDGET.VeryHard)}</span
+            >/move)
           </li>
         </ul>
+        <p class="text-xs text-white/40 mt-2">
+          Human-vs-human moves are free for the responding player — only the AI
+          is billed for its replies.
+        </p>
       </div>
       <div class="card">
         <div class="font-semibold text-primary mb-1">3. Make Your Moves</div>

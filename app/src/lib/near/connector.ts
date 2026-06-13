@@ -1,6 +1,7 @@
 import { NearConnector } from '@hot-labs/near-connect';
 import { JsonRpcProvider, Account, KeyPairSigner, actions } from 'near-api-js';
 
+import { AI_MOVE_GAS } from '$lib/format';
 import type {
   AccountInfo,
   GameInfo,
@@ -290,13 +291,7 @@ export const contract = {
   playMove(gameId: unknown, mv: string, difficulty?: Difficulty) {
     let gas = GAS_HIGH;
     if (difficulty) {
-      const gasMap: Record<Difficulty, bigint> = {
-        Easy: BigInt('100000000000000'),
-        Medium: BigInt('300000000000000'),
-        Hard: BigInt('500000000000000'),
-        VeryHard: BigInt('800000000000000')
-      };
-      gas = gasMap[difficulty];
+      gas = AI_MOVE_GAS[difficulty];
     }
     return sendTransaction('play_move', { game_id: gameId, mv }, '0', gas);
   },
