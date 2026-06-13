@@ -900,29 +900,45 @@
           <div class="text-center mt-2">
             {#if isMyTurn}
               <span
-                class="inline-block text-sm font-bold px-3 py-1 rounded bg-primary-bgOk text-primary-green animate-pulse"
+                class="inline-flex items-center gap-2 text-sm font-bold px-3 py-1 rounded bg-primary-bgOk text-primary-green animate-pulse"
               >
                 Your turn!
+                {#if isInCheck}
+                  <span
+                    class="text-red-400 bg-red-500/20 px-1.5 py-0.5 rounded text-xs"
+                  >
+                    Check!
+                  </span>
+                {/if}
               </span>
             {:else if $accountStore}
-              <span class="text-sm text-white/50">
+              <span
+                class="inline-flex items-center gap-2 text-sm text-white/50"
+              >
                 Waiting for {currentTurn ?? 'opponent'}...
+                {#if isInCheck}
+                  <span
+                    class="text-red-400 bg-red-500/20 px-1.5 py-0.5 rounded text-xs font-bold animate-pulse"
+                  >
+                    Check!
+                  </span>
+                {/if}
               </span>
             {:else}
-              <span class="text-sm text-white/50">
+              <span
+                class="inline-flex items-center gap-2 text-sm text-white/50"
+              >
                 {currentTurn ?? 'Unknown'}'s turn
+                {#if isInCheck}
+                  <span
+                    class="text-red-400 bg-red-500/20 px-1.5 py-0.5 rounded text-xs font-bold animate-pulse"
+                  >
+                    Check!
+                  </span>
+                {/if}
               </span>
             {/if}
           </div>
-          {#if isInCheck}
-            <div class="text-center mt-1">
-              <span
-                class="inline-block text-sm font-bold px-3 py-1 rounded bg-red-500/20 text-red-400 animate-pulse"
-              >
-                Check!
-              </span>
-            </div>
-          {/if}
         {/if}
 
         {#if game.outcome}
