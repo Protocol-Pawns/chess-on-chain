@@ -4,7 +4,7 @@ use chess_lib::{
     AcceptChallengeMsg, BetMsg, ChallengeId, ChallengeMsg, Difficulty, FtReceiverMsg, GameId,
     GameOutcome, MoveStr,
 };
-use near_sdk::json_types::U128;
+use near_sdk::{json_types::U128, Gas};
 use near_workspaces::{
     result::{ExecutionFinalResult, ExecutionResult, Value},
     types::NearToken,
@@ -308,6 +308,24 @@ pub async fn play_move(
             .await?,
     )?;
     Ok((res.json()?, res.receipt_outcomes()[0].block_hash, events))
+}
+
+pub async fn play_move_raw(
+    contract: &Contract,
+    sender: &Account,
+    game_id: &GameId,
+    mv: MoveStr,
+) -> anyhow::Result<(ExecutionResult<Value>, Vec<ContractEvent>)> {
+    log_tx_result(
+        Some("play_move"),
+        sender
+            .call(contract.id(), "play_move")
+            .args_json((game_id, mv))
+            // .max_gas()
+            .gas(Gas::from_tgas(1000))
+            .transact()
+            .await?,
+    )
 }
 
 pub async fn resign(

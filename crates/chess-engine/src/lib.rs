@@ -15,7 +15,10 @@ use near_sdk::{
 use std::convert::TryFrom;
 
 mod board;
-pub use board::{Board, BoardBuilder};
+pub use board::{
+    Board, BoardBuilder, FLAG_CHECK_EXTENSIONS, FLAG_MOVE_ORDERING, FLAG_NULL_MOVE_PRUNING,
+    FLAG_QUIESCENCE,
+};
 
 mod game;
 pub use game::{Game, GameAction, GameError, GameOver};

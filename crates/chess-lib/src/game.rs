@@ -1,11 +1,28 @@
-use crate::{Account, Chess, ChessEvent, ContractError, Wager};
-use chess_engine::{Board, Color, GameResult, Move, Piece, Position};
+use crate::{
+    Account, Chess, ChessEvent, ContractError, Wager, AI_EASY_GAS, AI_HARD_GAS, AI_MEDIUM_GAS,
+    AI_VERY_HARD_GAS,
+};
+use chess_engine::{
+    Board, Color, GameResult, Move, Piece, Position, FLAG_CHECK_EXTENSIONS, FLAG_MOVE_ORDERING,
+    FLAG_NULL_MOVE_PRUNING, FLAG_QUIESCENCE,
+};
 use near_sdk::{
     borsh::{BorshDeserialize, BorshSerialize},
     env,
     serde::{Deserialize, Serialize},
     AccountId, NearSchema,
 };
+
+#[cfg(not(feature = "integration-test"))]
+const AI_MAX_DEPTHS_EASY: &[u8] = &[20, 16, 12];
+#[cfg(feature = "integration-test")]
+const AI_MAX_DEPTHS_EASY: &[u8] = &[24];
+const AI_MAX_DEPTHS_MEDIUM: &[u8] = &[22, 20, 18];
+const AI_MAX_DEPTHS_HARD: &[u8] = &[20, 18, 16, 14];
+const AI_MAX_DEPTHS_VERY_HARD: &[u8] = &[18, 16, 14, 12, 10];
+const AI_PIECE_COUNT_CLAMP_MIN: f64 = 4.0;
+const AI_PIECE_COUNT_CLAMP_MAX: f64 = 32.0;
+const AI_PIECE_SCALE_DIVISOR: f64 = 16.0;
 
 /// Unique game ID, which consists of:
 ///
@@ -75,6 +92,13 @@ impl Player {
 /// - Easy: ~8TGas
 /// - Medium: ~30TGas
 /// - Hard: ~110TGas
+/// - VeryHard: ~280TGas
+///
+/// Each difficulty has a gas cap:
+/// - Easy: 30 TGas
+/// - Medium: 80 TGas
+/// - Hard: 150 TGas
+/// - VeryHard: 300 TGas
 #[derive(BorshDeserialize, BorshSerialize, Clone, Debug, Deserialize, Serialize, NearSchema)]
 #[serde(crate = "near_sdk::serde")]
 #[borsh(crate = "near_sdk::borsh")]
@@ -82,6 +106,31 @@ pub enum Difficulty {
     Easy,
     Medium,
     Hard,
+    VeryHard,
+}
+
+impl Difficulty {
+    pub fn to_flags(&self) -> u8 {
+        #[cfg(feature = "integration-test")]
+        if matches!(self, Self::Easy) {
+            return 0;
+        }
+        match self {
+            // Easy:       check extensions only
+            // Normal:     + null-move pruning
+            // Hard:       + move ordering (MVV-LVA)
+            // Very Hard:  + quiescence search
+            Self::Easy => FLAG_CHECK_EXTENSIONS,
+            Self::Medium => FLAG_CHECK_EXTENSIONS | FLAG_NULL_MOVE_PRUNING,
+            Self::Hard => FLAG_CHECK_EXTENSIONS | FLAG_NULL_MOVE_PRUNING | FLAG_MOVE_ORDERING,
+            Self::VeryHard => {
+                FLAG_CHECK_EXTENSIONS
+                    | FLAG_NULL_MOVE_PRUNING
+                    | FLAG_MOVE_ORDERING
+                    | FLAG_QUIESCENCE
+            }
+        }
+    }
 }
 
 #[derive(BorshDeserialize, BorshSerialize)]
@@ -309,14 +358,37 @@ impl Game {
 
         let mut outcome_with_board = outcome.map(|outcome| (outcome, board_state));
         if let (Player::Ai(difficulty), Some(board)) = (&game.black, board) {
-            let depths = match difficulty {
-                Difficulty::Easy => vec![24],
-                Difficulty::Medium => vec![20, 16],
-                Difficulty::Hard => vec![16, 12, 8],
+            let max_depths: &[u8] = match difficulty {
+                Difficulty::Easy => AI_MAX_DEPTHS_EASY,
+                Difficulty::Medium => AI_MAX_DEPTHS_MEDIUM,
+                Difficulty::Hard => AI_MAX_DEPTHS_HARD,
+                Difficulty::VeryHard => AI_MAX_DEPTHS_VERY_HARD,
             };
 
+            let piece_count = (board.count_pieces() as f64)
+                .clamp(AI_PIECE_COUNT_CLAMP_MIN, AI_PIECE_COUNT_CLAMP_MAX);
+            let scale = (AI_PIECE_SCALE_DIVISOR / piece_count).min(1.0);
+            let depths: Vec<u8> = max_depths
+                .iter()
+                .map(|d| (*d as f64 * scale).round().max(1.0) as u8)
+                .collect();
+
+            let gas_budget = match difficulty {
+                Difficulty::Easy => AI_EASY_GAS,
+                Difficulty::Medium => AI_MEDIUM_GAS,
+                Difficulty::Hard => AI_HARD_GAS,
+                Difficulty::VeryHard => AI_VERY_HARD_GAS,
+            };
+
+            let flags = difficulty.to_flags();
+
             let turn_color = game.board.get_turn_color();
-            let (ai_mv, _, _) = board.get_next_move(&depths, env::random_seed_array());
+            let (ai_mv, _, _) = if flags == 0 {
+                let mv = board.get_legal_moves().next().unwrap_or(Move::Resign);
+                (mv, 0, 0.0)
+            } else {
+                board.get_next_move(&depths, env::random_seed_array(), gas_budget, flags)
+            };
             let (outcome, board_state) = match board.play_move(ai_mv) {
                 GameResult::Continuing(board) => {
                     game.board = board;

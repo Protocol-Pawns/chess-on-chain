@@ -287,8 +287,18 @@ export const contract = {
     return viewFunction('storage_balance_of', { account_id: accountId });
   },
 
-  playMove(gameId: unknown, mv: string) {
-    return sendTransaction('play_move', { game_id: gameId, mv }, '0', GAS_HIGH);
+  playMove(gameId: unknown, mv: string, difficulty?: Difficulty) {
+    let gas = GAS_HIGH;
+    if (difficulty) {
+      const gasMap: Record<Difficulty, bigint> = {
+        Easy: BigInt('50000000000000'),
+        Medium: BigInt('150000000000000'),
+        Hard: BigInt('300000000000000'),
+        VeryHard: BigInt('500000000000000')
+      };
+      gas = gasMap[difficulty];
+    }
+    return sendTransaction('play_move', { game_id: gameId, mv }, '0', gas);
   },
 
   resign(gameId: unknown) {

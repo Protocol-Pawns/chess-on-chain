@@ -10,6 +10,7 @@
     type GameOverview
   } from '$lib/api/client';
   import { contract, getTxLogs } from '$lib/near/connector';
+  import type { Difficulty } from '$lib/near/contract-types';
   import { accountStore } from '$lib/near/account';
   import { colorFromFEN } from '$lib/chess/board';
   import { showToast } from '$lib/toast';
@@ -341,6 +342,12 @@
     if (!game || submitting || !indexed) return;
     submitting = true;
     const isAiGame = game.white.type === 'Ai' || game.black?.type === 'Ai';
+    const aiDifficulty: Difficulty | undefined =
+      game.white.type === 'Ai'
+        ? (game.white.value as Difficulty)
+        : game.black?.type === 'Ai'
+          ? (game.black.value as Difficulty)
+          : undefined;
     const isCastling =
       (from === 'e1' && to === 'g1') ||
       (from === 'e8' && to === 'g8') ||
@@ -355,7 +362,7 @@
       moveStr = from + to;
     }
     contract
-      .playMove($state.snapshot(game.game_id), moveStr)
+      .playMove($state.snapshot(game.game_id), moveStr, aiDifficulty)
       .then(async txResult => {
         submitting = false;
         const tx = txResult as {

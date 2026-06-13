@@ -1,9 +1,17 @@
 use super::*;
 use either::Either;
-use near_sdk::borsh::{BorshDeserialize, BorshSerialize};
+use near_sdk::{
+    borsh::{BorshDeserialize, BorshSerialize},
+    env, Gas,
+};
 use rand::{seq::IteratorRandom, SeedableRng};
 use rand_chacha::ChaCha20Rng;
 use std::cmp::Ordering;
+
+pub const FLAG_CHECK_EXTENSIONS: u8 = 0b0001;
+pub const FLAG_NULL_MOVE_PRUNING: u8 = 0b0010;
+pub const FLAG_MOVE_ORDERING: u8 = 0b0100;
+pub const FLAG_QUIESCENCE: u8 = 0b1000;
 
 pub struct BoardBuilder {
     board: Board,
@@ -280,6 +288,7 @@ impl Board {
                 false,
                 color,
                 &mut board_count,
+                0,
             );
             if child_board_value >= best_move_value {
                 best_move = m;
@@ -290,7 +299,13 @@ impl Board {
         (best_move, board_count, best_move_value)
     }
 
-    pub fn get_next_move(&self, depths: &[u8], seed: [u8; 32]) -> (Move, u64, f64) {
+    pub fn get_next_move(
+        &self,
+        depths: &[u8],
+        seed: [u8; 32],
+        gas_budget: Gas,
+        flags: u8,
+    ) -> (Move, u64, f64) {
         let mut rng = ChaCha20Rng::from_seed(seed);
         let legal_moves = self.get_legal_moves().sample(&mut rng, depths[0].into());
         let mut best_move_value = -999999.0;
@@ -300,6 +315,9 @@ impl Board {
 
         let mut board_count = 0;
         for m in legal_moves {
+            if env::used_gas() >= gas_budget {
+                break;
+            }
             let child_board_value = self.apply_eval_move(m).minimax(
                 Either::Right((&depths[1..], rng.clone())),
                 -1000000.0,
@@ -307,6 +325,7 @@ impl Board {
                 false,
                 color,
                 &mut board_count,
+                flags,
             );
             if child_board_value >= best_move_value {
                 best_move = m;
@@ -343,6 +362,7 @@ impl Board {
                 true,
                 !color,
                 &mut board_count,
+                0,
             );
 
             if child_board_value >= best_move_value {
@@ -354,13 +374,142 @@ impl Board {
         (best_move, board_count, best_move_value)
     }
 
-    /// Perform minimax on a certain position, and get the minimum or maximum value
-    /// for a board. To get the best move, you minimize the values of the possible outcomes from your
-    /// own position, and maximize the values of the replies made by the other player.
+    /// Score a move for MVV-LVA ordering (higher = search first)
+    fn score_move_for_ordering(&self, m: Move) -> i32 {
+        match m {
+            Move::Piece(from, to) => {
+                if let Some(victim) = self.get_piece(to) {
+                    let attacker = self.get_piece(from).unwrap();
+                    victim.get_material_value() * 10 - attacker.get_material_value()
+                } else {
+                    -1
+                }
+            }
+            Move::Promotion(_, _, piece) => piece.get_material_value() * 10,
+            _ => 0,
+        }
+    }
+
+    /// Sort moves in-place by MVV-LVA (best captures first)
+    fn order_moves(&self, moves: &mut [Move]) {
+        moves.sort_by(|a, b| {
+            let sa = self.score_move_for_ordering(*a);
+            let sb = self.score_move_for_ordering(*b);
+            sb.cmp(&sa)
+        });
+    }
+
+    /// Is this move a capture (including en-passant)?
+    fn is_capture(&self, m: Move) -> bool {
+        match m {
+            Move::Piece(from, to) => {
+                if let Some(en_passant) = self.en_passant {
+                    if let Some(Piece::Pawn(color, _)) = self.get_piece(from) {
+                        if color == self.turn && to == en_passant {
+                            return true;
+                        }
+                    }
+                }
+                self.has_enemy_piece(to, self.turn)
+            }
+            Move::Promotion(_, to, _) => self.has_enemy_piece(to, self.turn),
+            _ => false,
+        }
+    }
+
+    /// Quiet stand-pat: evaluate then search only captures.
+    fn quiesce(
+        &self,
+        mut alpha: f64,
+        mut beta: f64,
+        is_maximizing: bool,
+        getting_move_for: Color,
+        board_count: &mut u64,
+        depth: u8,
+    ) -> f64 {
+        *board_count += 1;
+
+        let stand_pat = self.value_for(getting_move_for);
+
+        if is_maximizing {
+            if stand_pat >= beta {
+                return beta;
+            }
+            if stand_pat > alpha {
+                alpha = stand_pat;
+            }
+        } else {
+            if stand_pat <= alpha {
+                return alpha;
+            }
+            if stand_pat < beta {
+                beta = stand_pat;
+            }
+        }
+
+        if depth >= 3 {
+            return stand_pat;
+        }
+
+        let mut captures: Vec<Move> = self
+            .get_legal_moves()
+            .filter(|m| self.is_capture(*m))
+            .collect();
+        self.order_moves(&mut captures);
+
+        let mut best = if is_maximizing { -999999.0 } else { 999999.0 };
+
+        for m in &captures {
+            let child = self.apply_eval_move(*m);
+            let val = child.quiesce(
+                alpha,
+                beta,
+                !is_maximizing,
+                getting_move_for,
+                board_count,
+                depth + 1,
+            );
+
+            if is_maximizing {
+                if val > best {
+                    best = val;
+                }
+                if best > alpha {
+                    alpha = best;
+                }
+            } else {
+                if val < best {
+                    best = val;
+                }
+                if best < beta {
+                    beta = best;
+                }
+            }
+
+            if beta <= alpha {
+                break;
+            }
+        }
+
+        if is_maximizing {
+            if best == -999999.0 {
+                stand_pat
+            } else {
+                best
+            }
+        } else {
+            if best == 999999.0 {
+                stand_pat
+            } else {
+                best
+            }
+        }
+    }
+
+    /// Perform minimax on a certain position with alpha-beta pruning.
     ///
-    /// In other words, choose moves with the assumption that your opponent will make the
-    /// best possible replies to your moves. Moves that are seemingly good, but are easily countered,
-    /// are categorically eliminated by this algorithm.
+    /// `flags` enables optional features per difficulty (check extensions,
+    /// null-move pruning, move ordering, quiescence search).
     pub fn minimax(
         &self,
         depth: Either<u8, (&[u8], ChaCha20Rng)>,
@@ -369,19 +518,93 @@ impl Board {
         is_maximizing: bool,
         getting_move_for: Color,
         board_count: &mut u64,
+        flags: u8,
     ) -> f64 {
         *board_count += 1;
 
         let (mut next_depth, max_moves) = match depth {
             Either::Left(0) => {
+                if (flags & FLAG_QUIESCENCE) != 0 {
+                    return self.quiesce(
+                        alpha,
+                        beta,
+                        is_maximizing,
+                        getting_move_for,
+                        board_count,
+                        0,
+                    );
+                }
                 return self.value_for(getting_move_for);
             }
             Either::Right(([], _)) => {
+                if (flags & FLAG_QUIESCENCE) != 0 {
+                    return self.quiesce(
+                        alpha,
+                        beta,
+                        is_maximizing,
+                        getting_move_for,
+                        board_count,
+                        0,
+                    );
+                }
                 return self.value_for(getting_move_for);
             }
-            Either::Left(depth) => (Either::Left(depth - 1), None),
-            Either::Right((depth, rng)) => (Either::Right((&depth[1..], rng)), Some(depth[0])),
+            Either::Left(d) => {
+                if (flags & FLAG_CHECK_EXTENSIONS) != 0
+                    && self.is_in_check(self.get_current_player_color())
+                {
+                    (Either::Left(d), None)
+                } else {
+                    (Either::Left(d - 1), None)
+                }
+            }
+            Either::Right((d, rng)) => {
+                if (flags & FLAG_CHECK_EXTENSIONS) != 0
+                    && self.is_in_check(self.get_current_player_color())
+                {
+                    (Either::Right((d, rng)), Some(d[0]))
+                } else {
+                    (Either::Right((&d[1..], rng)), Some(d[0]))
+                }
+            }
         };
+
+        // Null-move pruning (skip turn, see if position is still crushing)
+        if (flags & FLAG_NULL_MOVE_PRUNING) != 0
+            && is_maximizing
+            && self.count_pieces() >= 6
+            && !self.is_in_check(self.get_current_player_color())
+        {
+            let enough_depth = match next_depth {
+                Either::Left(d) => d >= 3,
+                Either::Right((d, _)) => !d.is_empty() && d[0] >= 3,
+            };
+            if enough_depth {
+                let null_board = self.change_turn();
+                let null_depth: Either<u8, (&[u8], ChaCha20Rng)> = match next_depth {
+                    Either::Left(d) => Either::Left(d - 2),
+                    Either::Right((d, ref rng)) => {
+                        if d.len() <= 1 {
+                            Either::Right((d, rng.clone()))
+                        } else {
+                            Either::Right((&d[1..], rng.clone()))
+                        }
+                    }
+                };
+                let null_score = null_board.minimax(
+                    null_depth,
+                    beta - 1.0,
+                    beta,
+                    false,
+                    getting_move_for,
+                    board_count,
+                    flags,
+                );
+                if null_score >= beta {
+                    return beta;
+                }
+            }
+        }
 
         let mut best_move_value;
 
@@ -392,14 +615,19 @@ impl Board {
                 let Either::Right((_, rng)) = &mut next_depth else {
                     panic!();
                 };
-                for m in self.get_legal_moves().sample(rng, max_moves as usize) {
-                    let child_board_value = self.apply_eval_move(m).minimax(
+                let mut moves: Vec<Move> = self.get_legal_moves().collect();
+                if (flags & FLAG_MOVE_ORDERING) != 0 {
+                    self.order_moves(&mut moves);
+                }
+                for m in moves.iter().sample(rng, max_moves as usize) {
+                    let child_board_value = self.apply_eval_move(*m).minimax(
                         next_depth.clone(),
                         alpha,
                         beta,
                         !is_maximizing,
                         getting_move_for,
                         board_count,
+                        flags,
                     );
 
                     if child_board_value > best_move_value {
@@ -415,7 +643,14 @@ impl Board {
                     }
                 }
             } else {
-                for m in self.get_legal_moves() {
+                let moves: Vec<Move> = if (flags & FLAG_MOVE_ORDERING) != 0 {
+                    let mut m = self.get_legal_moves().collect::<Vec<_>>();
+                    self.order_moves(&mut m);
+                    m
+                } else {
+                    self.get_legal_moves().collect()
+                };
+                for m in moves {
                     let child_board_value = self.apply_eval_move(m).minimax(
                         next_depth.clone(),
                         alpha,
@@ -423,6 +658,7 @@ impl Board {
                         !is_maximizing,
                         getting_move_for,
                         board_count,
+                        flags,
                     );
 
                     if child_board_value > best_move_value {
@@ -445,14 +681,19 @@ impl Board {
                 let Either::Right((_, rng)) = &mut next_depth else {
                     panic!();
                 };
-                for m in self.get_legal_moves().sample(rng, max_moves as usize) {
-                    let child_board_value = self.apply_eval_move(m).minimax(
+                let mut moves: Vec<Move> = self.get_legal_moves().collect();
+                if (flags & FLAG_MOVE_ORDERING) != 0 {
+                    self.order_moves(&mut moves);
+                }
+                for m in moves.iter().sample(rng, max_moves as usize) {
+                    let child_board_value = self.apply_eval_move(*m).minimax(
                         next_depth.clone(),
                         alpha,
                         beta,
                         !is_maximizing,
                         getting_move_for,
                         board_count,
+                        flags,
                     );
                     if child_board_value < best_move_value {
                         best_move_value = child_board_value;
@@ -467,7 +708,14 @@ impl Board {
                     }
                 }
             } else {
-                for m in self.get_legal_moves() {
+                let moves: Vec<Move> = if (flags & FLAG_MOVE_ORDERING) != 0 {
+                    let mut m = self.get_legal_moves().collect::<Vec<_>>();
+                    self.order_moves(&mut m);
+                    m
+                } else {
+                    self.get_legal_moves().collect()
+                };
+                for m in moves {
                     let child_board_value = self.apply_eval_move(m).minimax(
                         next_depth.clone(),
                         alpha,
@@ -475,6 +723,7 @@ impl Board {
                         !is_maximizing,
                         getting_move_for,
                         board_count,
+                        flags,
                     );
                     if child_board_value < best_move_value {
                         best_move_value = child_board_value;
@@ -680,6 +929,12 @@ impl Board {
         let mut result = *self;
         result.turn = color;
         result
+    }
+
+    /// Count all pieces on the board
+    #[inline]
+    pub fn count_pieces(&self) -> u32 {
+        self.squares.iter().filter(|s| !s.is_empty()).count() as u32
     }
 
     /// Get the value of the material advantage of a certain player

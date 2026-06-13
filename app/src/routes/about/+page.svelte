@@ -37,6 +37,7 @@
     FirstWinAiEasy: 'First Win vs AI (Easy)',
     FirstWinAiMedium: 'First Win vs AI (Medium)',
     FirstWinAiHard: 'First Win vs AI (Hard)',
+    FirstWinAiVeryHard: 'First Win vs AI (Very Hard)',
     Wins10: '10 Wins',
     Wins50: '50 Wins',
     Wins100: '100 Wins',

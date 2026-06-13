@@ -10,7 +10,7 @@
       "compiler": "rustc 1.86.0",
       "builder": "cargo-near cargo-near-build 0.11.3"
     },
-    "wasm_hash": "EbMxtMHJyWVTbpwwie4YW7kQ7WMADQtQxwPZVStniUBg"
+    "wasm_hash": "4S3grGB6pv1EG4b7SW33FHzAh6wPVZvmABn8VXhhrLkk"
   },
   "body": {
     "functions": [
@@ -1600,6 +1600,7 @@
             "FirstWinAiEasy",
             "FirstWinAiMedium",
             "FirstWinAiHard",
+            "FirstWinAiVeryHard",
             "Wins10",
             "Wins50",
             "Wins100",
@@ -1748,7 +1749,8 @@
           "enum": [
             "Easy",
             "Medium",
-            "Hard"
+            "Hard",
+            "VeryHard"
           ]
         },
         "FungibleTokenMetadata": {

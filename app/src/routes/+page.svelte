@@ -427,6 +427,14 @@
                 showAiConfirm = true;
               }}>Hard</button
             >
+            <button
+              class="btn-secondary w-full text-left text-sm"
+              onclick={() => {
+                selectedDifficulty = 'VeryHard';
+                showAiMenu = false;
+                showAiConfirm = true;
+              }}>Very Hard</button
+            >
           </div>
         {/if}
       </div>

@@ -173,6 +173,7 @@ impl Chess {
                     Player::Ai(Difficulty::Easy) => Some(Achievement::FirstWinAiEasy),
                     Player::Ai(Difficulty::Medium) => Some(Achievement::FirstWinAiMedium),
                     Player::Ai(Difficulty::Hard) => Some(Achievement::FirstWinAiHard),
+                    Player::Ai(Difficulty::VeryHard) => Some(Achievement::FirstWinAiVeryHard),
                 } {
                     minted += winner
                         .as_account_mut(self)
