@@ -270,13 +270,9 @@
       const sigs = new Set<string>();
       for (const mv of m) sigs.add(moveSig(mv.color, mv.move_notation));
       appliedMoveSigs = sigs;
-      if (!localAhead) {
-        gameBets = await api.gameBets(gameIdStr).catch(() => []);
-      }
       if (g.status === 'finished' || g.status === 'cancelled') {
         stopPolling();
       }
-      loadElos();
     } catch (e) {
       if (game?.status !== 'in_progress' && game?.status !== undefined) return;
 
@@ -876,11 +872,6 @@
 
     pendingLastMove = null;
     contractTurnColor = null;
-    gameBets = [];
-    api
-      .gameBets(gameIdStr)
-      .then(b => (gameBets = b))
-      .catch(() => {});
   }
 
   function handleSSEPlayMove(event: SSEEventData) {
@@ -934,7 +925,10 @@
     if (eventGameId !== gameIdStr) return;
 
     updateWatermark(event.trigger_block_height);
-    load();
+    load().then(() => {
+      api.gameBets(gameIdStr).then(b => (gameBets = b)).catch(() => []);
+      loadElos();
+    });
   }
 
   function gameIdFromData(data: Record<string, unknown>): string {
@@ -961,7 +955,10 @@
       if (a) connectSSE(a);
     });
 
-    load();
+    load().then(() => {
+      api.gameBets(gameIdStr).then(b => (gameBets = b)).catch(() => []);
+      loadElos();
+    });
 
     fastPollRemaining = 6;
     pollInterval = setInterval(() => {
