@@ -12,6 +12,11 @@ pub const FLAG_CHECK_EXTENSIONS: u8 = 0b0001;
 pub const FLAG_NULL_MOVE_PRUNING: u8 = 0b0010;
 pub const FLAG_MOVE_ORDERING: u8 = 0b0100;
 pub const FLAG_QUIESCENCE: u8 = 0b1000;
+pub const FLAG_KILLER_HEURISTIC: u8 = 0b0001_0000;
+pub const FLAG_LATE_MOVE_REDUCTION: u8 = 0b0010_0000;
+pub const FLAG_ITERATIVE_DEEPENING: u8 = 0b1000_0000;
+
+const MAX_PLY: usize = 64;
 
 pub struct BoardBuilder {
     board: Board,
@@ -280,6 +285,7 @@ impl Board {
         let color = self.get_current_player_color();
 
         let mut board_count = 0;
+        let mut killers = [[None; 2]; MAX_PLY];
         for m in legal_moves {
             let child_board_value = self.apply_eval_move(m).minimax(
                 Either::Left(depth),
@@ -289,6 +295,8 @@ impl Board {
                 color,
                 &mut board_count,
                 0,
+                1,
+                &mut killers,
             );
             if child_board_value >= best_move_value {
                 best_move = m;
@@ -306,30 +314,87 @@ impl Board {
         gas_budget: Gas,
         flags: u8,
     ) -> (Move, u64, f64) {
-        let mut rng = ChaCha20Rng::from_seed(seed);
-        let legal_moves = self.get_legal_moves().sample(&mut rng, depths[0].into());
+        let rng = ChaCha20Rng::from_seed(seed);
+        let mut legal_moves: Vec<Move> = self.get_legal_moves().collect();
+        if legal_moves.is_empty() {
+            return (Move::Resign, 0, 0.0);
+        }
+        if (flags & FLAG_MOVE_ORDERING) != 0 {
+            self.order_moves(&mut legal_moves, 0, flags, &[[None; 2]; MAX_PLY]);
+        }
+        let mut best_move = legal_moves[0];
         let mut best_move_value = -999999.0;
-        let mut best_move = Move::Resign;
 
         let color = self.get_current_player_color();
 
         let mut board_count = 0;
-        for m in legal_moves {
-            if env::used_gas() >= gas_budget {
-                break;
+
+        if (flags & FLAG_ITERATIVE_DEEPENING) != 0 {
+            let max_depth = depths.len().saturating_sub(1).max(1);
+            let mut last_best: Option<Move> = None;
+            for iter in 1..=max_depth {
+                if env::used_gas() >= gas_budget {
+                    break;
+                }
+                // Search the previous iteration's best move first.
+                if let Some(prev) = last_best {
+                    if let Some(pos) = legal_moves.iter().position(|&m| m == prev) {
+                        legal_moves.swap(0, pos);
+                    }
+                }
+                let mut iter_best = best_move;
+                let mut iter_best_value = -999999.0;
+                let mut killers = [[None; 2]; MAX_PLY];
+                let iter_depths = &depths[..=iter];
+                for m in &legal_moves {
+                    if env::used_gas() >= gas_budget {
+                        break;
+                    }
+                    let child_board_value = self.apply_eval_move(*m).minimax(
+                        Either::Right((&iter_depths[1..], rng.clone())),
+                        -1000000.0,
+                        1000000.0,
+                        false,
+                        color,
+                        &mut board_count,
+                        flags,
+                        1,
+                        &mut killers,
+                    );
+                    if child_board_value >= iter_best_value {
+                        iter_best = *m;
+                        iter_best_value = child_board_value;
+                    }
+                }
+                // Only commit this iteration's result if it completed without
+                // hitting the gas budget.
+                if env::used_gas() < gas_budget {
+                    best_move = iter_best;
+                    best_move_value = iter_best_value;
+                    last_best = Some(iter_best);
+                }
             }
-            let child_board_value = self.apply_eval_move(m).minimax(
-                Either::Right((&depths[1..], rng.clone())),
-                -1000000.0,
-                1000000.0,
-                false,
-                color,
-                &mut board_count,
-                flags,
-            );
-            if child_board_value >= best_move_value {
-                best_move = m;
-                best_move_value = child_board_value;
+        } else {
+            let mut killers = [[None; 2]; MAX_PLY];
+            for m in legal_moves {
+                if env::used_gas() >= gas_budget {
+                    break;
+                }
+                let child_board_value = self.apply_eval_move(m).minimax(
+                    Either::Right((&depths[1..], rng.clone())),
+                    -1000000.0,
+                    1000000.0,
+                    false,
+                    color,
+                    &mut board_count,
+                    flags,
+                    1,
+                    &mut killers,
+                );
+                if child_board_value >= best_move_value {
+                    best_move = m;
+                    best_move_value = child_board_value;
+                }
             }
         }
 
@@ -354,6 +419,7 @@ impl Board {
         let color = self.get_current_player_color();
 
         let mut board_count = 0;
+        let mut killers = [[None; 2]; MAX_PLY];
         for m in legal_moves {
             let child_board_value = self.apply_eval_move(m).minimax(
                 Either::Left(depth),
@@ -363,6 +429,8 @@ impl Board {
                 !color,
                 &mut board_count,
                 0,
+                1,
+                &mut killers,
             );
 
             if child_board_value >= best_move_value {
@@ -374,27 +442,56 @@ impl Board {
         (best_move, board_count, best_move_value)
     }
 
-    /// Score a move for MVV-LVA ordering (higher = search first)
-    fn score_move_for_ordering(&self, m: Move) -> i32 {
+    /// Score a move for ordering (higher = search first).
+    /// Captures/promotions first by MVV-LVA, then killer moves, then others.
+    fn score_move_for_ordering(
+        &self,
+        m: Move,
+        ply: u8,
+        flags: u8,
+        killers: &[[Option<Move>; 2]; MAX_PLY],
+    ) -> i32 {
         match m {
             Move::Piece(from, to) => {
                 if let Some(victim) = self.get_piece(to) {
                     let attacker = self.get_piece(from).unwrap();
-                    victim.get_material_value() * 10 - attacker.get_material_value()
+                    victim.get_material_value() * 1000 - attacker.get_material_value()
+                } else if (flags & FLAG_KILLER_HEURISTIC) != 0 && (ply as usize) < MAX_PLY {
+                    if killers[ply as usize][0] == Some(m) {
+                        500
+                    } else if killers[ply as usize][1] == Some(m) {
+                        400
+                    } else {
+                        -1
+                    }
                 } else {
                     -1
                 }
             }
-            Move::Promotion(_, _, piece) => piece.get_material_value() * 10,
+            Move::Promotion(_, to, piece) => {
+                let base = piece.get_material_value() * 1000;
+                if self.has_enemy_piece(to, self.turn) {
+                    base + 100
+                } else {
+                    base
+                }
+            }
+            Move::KingSideCastle | Move::QueenSideCastle => 50,
             _ => 0,
         }
     }
 
-    /// Sort moves in-place by MVV-LVA (best captures first)
-    fn order_moves(&self, moves: &mut [Move]) {
+    /// Sort moves in-place so alpha-beta cuts early.
+    fn order_moves(
+        &self,
+        moves: &mut [Move],
+        ply: u8,
+        flags: u8,
+        killers: &[[Option<Move>; 2]; MAX_PLY],
+    ) {
         moves.sort_by(|a, b| {
-            let sa = self.score_move_for_ordering(*a);
-            let sb = self.score_move_for_ordering(*b);
+            let sa = self.score_move_for_ordering(*a, ply, flags, killers);
+            let sb = self.score_move_for_ordering(*b, ply, flags, killers);
             sb.cmp(&sa)
         });
     }
@@ -426,6 +523,9 @@ impl Board {
         getting_move_for: Color,
         board_count: &mut u64,
         depth: u8,
+        ply: u8,
+        flags: u8,
+        killers: &[[Option<Move>; 2]; MAX_PLY],
     ) -> f64 {
         *board_count += 1;
 
@@ -447,7 +547,7 @@ impl Board {
             }
         }
 
-        if depth >= 3 {
+        if depth >= 2 {
             return stand_pat;
         }
 
@@ -455,7 +555,7 @@ impl Board {
             .get_legal_moves()
             .filter(|m| self.is_capture(*m))
             .collect();
-        self.order_moves(&mut captures);
+        self.order_moves(&mut captures, ply, flags, killers);
 
         let mut best = if is_maximizing { -999999.0 } else { 999999.0 };
 
@@ -468,6 +568,9 @@ impl Board {
                 getting_move_for,
                 board_count,
                 depth + 1,
+                ply + 1,
+                flags,
+                killers,
             );
 
             if is_maximizing {
@@ -509,7 +612,9 @@ impl Board {
     /// Perform minimax on a certain position with alpha-beta pruning.
     ///
     /// `flags` enables optional features per difficulty (check extensions,
-    /// null-move pruning, move ordering, quiescence search).
+    /// null-move pruning, move ordering, quiescence search, etc.).
+    /// `ply` is the distance from the root (0 = root).
+    /// `killers` stores quiet moves that caused beta cutoffs per ply.
     pub fn minimax(
         &self,
         depth: Either<u8, (&[u8], ChaCha20Rng)>,
@@ -519,6 +624,8 @@ impl Board {
         getting_move_for: Color,
         board_count: &mut u64,
         flags: u8,
+        ply: u8,
+        killers: &mut [[Option<Move>; 2]; MAX_PLY],
     ) -> f64 {
         *board_count += 1;
 
@@ -532,6 +639,9 @@ impl Board {
                         getting_move_for,
                         board_count,
                         0,
+                        ply,
+                        flags,
+                        killers,
                     );
                 }
                 return self.value_for(getting_move_for);
@@ -545,6 +655,9 @@ impl Board {
                         getting_move_for,
                         board_count,
                         0,
+                        ply,
+                        flags,
+                        killers,
                     );
                 }
                 return self.value_for(getting_move_for);
@@ -571,7 +684,6 @@ impl Board {
 
         // Null-move pruning (skip turn, see if position is still crushing)
         if (flags & FLAG_NULL_MOVE_PRUNING) != 0
-            && is_maximizing
             && self.count_pieces() >= 6
             && !self.is_in_check(self.get_current_player_color())
         {
@@ -591,17 +703,36 @@ impl Board {
                         }
                     }
                 };
-                let null_score = null_board.minimax(
-                    null_depth,
-                    beta - 1.0,
-                    beta,
-                    false,
-                    getting_move_for,
-                    board_count,
-                    flags,
-                );
-                if null_score >= beta {
-                    return beta;
+                if is_maximizing {
+                    let null_score = null_board.minimax(
+                        null_depth,
+                        beta - 1.0,
+                        beta,
+                        false,
+                        getting_move_for,
+                        board_count,
+                        flags,
+                        ply + 1,
+                        killers,
+                    );
+                    if null_score >= beta {
+                        return beta;
+                    }
+                } else {
+                    let null_score = null_board.minimax(
+                        null_depth,
+                        alpha,
+                        alpha + 1.0,
+                        true,
+                        getting_move_for,
+                        board_count,
+                        flags,
+                        ply + 1,
+                        killers,
+                    );
+                    if null_score <= alpha {
+                        return alpha;
+                    }
                 }
             }
         }
@@ -617,18 +748,64 @@ impl Board {
                 };
                 let mut moves: Vec<Move> = self.get_legal_moves().collect();
                 if (flags & FLAG_MOVE_ORDERING) != 0 {
-                    self.order_moves(&mut moves);
+                    self.order_moves(&mut moves, ply, flags, killers);
                 }
-                for m in moves.iter().sample(rng, max_moves as usize) {
-                    let child_board_value = self.apply_eval_move(*m).minimax(
-                        next_depth.clone(),
-                        alpha,
-                        beta,
-                        !is_maximizing,
-                        getting_move_for,
-                        board_count,
-                        flags,
-                    );
+                for (move_idx, m) in moves
+                    .iter()
+                    .sample(rng, max_moves as usize)
+                    .into_iter()
+                    .enumerate()
+                {
+                    let m = *m;
+                    let child = self.apply_eval_move(m);
+                    let child_board_value = if (flags & FLAG_LATE_MOVE_REDUCTION) != 0
+                        && move_idx >= 4
+                        && !self.is_capture(m)
+                        && !matches!(m, Move::Promotion(_, _, _))
+                        && !self.is_in_check(self.get_current_player_color())
+                        && !child.is_in_check(child.get_current_player_color())
+                        && Self::has_enough_depth_for_lmr(&next_depth)
+                    {
+                        let reduced = Self::reduce_depth(next_depth.clone());
+                        let reduced_value = child.minimax(
+                            reduced,
+                            alpha,
+                            beta,
+                            !is_maximizing,
+                            getting_move_for,
+                            board_count,
+                            flags,
+                            ply + 1,
+                            killers,
+                        );
+                        if reduced_value > alpha {
+                            child.minimax(
+                                next_depth.clone(),
+                                alpha,
+                                beta,
+                                !is_maximizing,
+                                getting_move_for,
+                                board_count,
+                                flags,
+                                ply + 1,
+                                killers,
+                            )
+                        } else {
+                            reduced_value
+                        }
+                    } else {
+                        child.minimax(
+                            next_depth.clone(),
+                            alpha,
+                            beta,
+                            !is_maximizing,
+                            getting_move_for,
+                            board_count,
+                            flags,
+                            ply + 1,
+                            killers,
+                        )
+                    };
 
                     if child_board_value > best_move_value {
                         best_move_value = child_board_value;
@@ -639,27 +816,78 @@ impl Board {
                     }
 
                     if beta <= alpha {
+                        if (flags & FLAG_KILLER_HEURISTIC) != 0
+                            && (ply as usize) < MAX_PLY
+                            && !self.is_capture(m)
+                        {
+                            let slot = &mut killers[ply as usize];
+                            if slot[0] != Some(m) {
+                                slot[1] = slot[0];
+                                slot[0] = Some(m);
+                            }
+                        }
                         return best_move_value;
                     }
                 }
             } else {
                 let moves: Vec<Move> = if (flags & FLAG_MOVE_ORDERING) != 0 {
                     let mut m = self.get_legal_moves().collect::<Vec<_>>();
-                    self.order_moves(&mut m);
+                    self.order_moves(&mut m, ply, flags, killers);
                     m
                 } else {
                     self.get_legal_moves().collect()
                 };
-                for m in moves {
-                    let child_board_value = self.apply_eval_move(m).minimax(
-                        next_depth.clone(),
-                        alpha,
-                        beta,
-                        !is_maximizing,
-                        getting_move_for,
-                        board_count,
-                        flags,
-                    );
+                for (move_idx, m) in moves.iter().enumerate() {
+                    let m = *m;
+                    let child = self.apply_eval_move(m);
+                    let child_board_value = if (flags & FLAG_LATE_MOVE_REDUCTION) != 0
+                        && move_idx >= 4
+                        && !self.is_capture(m)
+                        && !matches!(m, Move::Promotion(_, _, _))
+                        && !self.is_in_check(self.get_current_player_color())
+                        && !child.is_in_check(child.get_current_player_color())
+                        && Self::has_enough_depth_for_lmr(&next_depth)
+                    {
+                        let reduced = Self::reduce_depth(next_depth.clone());
+                        let reduced_value = child.minimax(
+                            reduced,
+                            alpha,
+                            beta,
+                            !is_maximizing,
+                            getting_move_for,
+                            board_count,
+                            flags,
+                            ply + 1,
+                            killers,
+                        );
+                        if reduced_value > alpha {
+                            child.minimax(
+                                next_depth.clone(),
+                                alpha,
+                                beta,
+                                !is_maximizing,
+                                getting_move_for,
+                                board_count,
+                                flags,
+                                ply + 1,
+                                killers,
+                            )
+                        } else {
+                            reduced_value
+                        }
+                    } else {
+                        child.minimax(
+                            next_depth.clone(),
+                            alpha,
+                            beta,
+                            !is_maximizing,
+                            getting_move_for,
+                            board_count,
+                            flags,
+                            ply + 1,
+                            killers,
+                        )
+                    };
 
                     if child_board_value > best_move_value {
                         best_move_value = child_board_value;
@@ -670,6 +898,16 @@ impl Board {
                     }
 
                     if beta <= alpha {
+                        if (flags & FLAG_KILLER_HEURISTIC) != 0
+                            && (ply as usize) < MAX_PLY
+                            && !self.is_capture(m)
+                        {
+                            let slot = &mut killers[ply as usize];
+                            if slot[0] != Some(m) {
+                                slot[1] = slot[0];
+                                slot[0] = Some(m);
+                            }
+                        }
                         return best_move_value;
                     }
                 }
@@ -683,18 +921,65 @@ impl Board {
                 };
                 let mut moves: Vec<Move> = self.get_legal_moves().collect();
                 if (flags & FLAG_MOVE_ORDERING) != 0 {
-                    self.order_moves(&mut moves);
+                    self.order_moves(&mut moves, ply, flags, killers);
                 }
-                for m in moves.iter().sample(rng, max_moves as usize) {
-                    let child_board_value = self.apply_eval_move(*m).minimax(
-                        next_depth.clone(),
-                        alpha,
-                        beta,
-                        !is_maximizing,
-                        getting_move_for,
-                        board_count,
-                        flags,
-                    );
+                for (move_idx, m) in moves
+                    .iter()
+                    .sample(rng, max_moves as usize)
+                    .into_iter()
+                    .enumerate()
+                {
+                    let m = *m;
+                    let child = self.apply_eval_move(m);
+                    let child_board_value = if (flags & FLAG_LATE_MOVE_REDUCTION) != 0
+                        && move_idx >= 4
+                        && !self.is_capture(m)
+                        && !matches!(m, Move::Promotion(_, _, _))
+                        && !self.is_in_check(self.get_current_player_color())
+                        && !child.is_in_check(child.get_current_player_color())
+                        && Self::has_enough_depth_for_lmr(&next_depth)
+                    {
+                        let reduced = Self::reduce_depth(next_depth.clone());
+                        let reduced_value = child.minimax(
+                            reduced,
+                            alpha,
+                            beta,
+                            !is_maximizing,
+                            getting_move_for,
+                            board_count,
+                            flags,
+                            ply + 1,
+                            killers,
+                        );
+                        if reduced_value < beta {
+                            child.minimax(
+                                next_depth.clone(),
+                                alpha,
+                                beta,
+                                !is_maximizing,
+                                getting_move_for,
+                                board_count,
+                                flags,
+                                ply + 1,
+                                killers,
+                            )
+                        } else {
+                            reduced_value
+                        }
+                    } else {
+                        child.minimax(
+                            next_depth.clone(),
+                            alpha,
+                            beta,
+                            !is_maximizing,
+                            getting_move_for,
+                            board_count,
+                            flags,
+                            ply + 1,
+                            killers,
+                        )
+                    };
+
                     if child_board_value < best_move_value {
                         best_move_value = child_board_value;
                     }
@@ -704,27 +989,79 @@ impl Board {
                     }
 
                     if beta <= alpha {
+                        if (flags & FLAG_KILLER_HEURISTIC) != 0
+                            && (ply as usize) < MAX_PLY
+                            && !self.is_capture(m)
+                        {
+                            let slot = &mut killers[ply as usize];
+                            if slot[0] != Some(m) {
+                                slot[1] = slot[0];
+                                slot[0] = Some(m);
+                            }
+                        }
                         return best_move_value;
                     }
                 }
             } else {
                 let moves: Vec<Move> = if (flags & FLAG_MOVE_ORDERING) != 0 {
                     let mut m = self.get_legal_moves().collect::<Vec<_>>();
-                    self.order_moves(&mut m);
+                    self.order_moves(&mut m, ply, flags, killers);
                     m
                 } else {
                     self.get_legal_moves().collect()
                 };
-                for m in moves {
-                    let child_board_value = self.apply_eval_move(m).minimax(
-                        next_depth.clone(),
-                        alpha,
-                        beta,
-                        !is_maximizing,
-                        getting_move_for,
-                        board_count,
-                        flags,
-                    );
+                for (move_idx, m) in moves.iter().enumerate() {
+                    let m = *m;
+                    let child = self.apply_eval_move(m);
+                    let child_board_value = if (flags & FLAG_LATE_MOVE_REDUCTION) != 0
+                        && move_idx >= 4
+                        && !self.is_capture(m)
+                        && !matches!(m, Move::Promotion(_, _, _))
+                        && !self.is_in_check(self.get_current_player_color())
+                        && !child.is_in_check(child.get_current_player_color())
+                        && Self::has_enough_depth_for_lmr(&next_depth)
+                    {
+                        let reduced = Self::reduce_depth(next_depth.clone());
+                        let reduced_value = child.minimax(
+                            reduced,
+                            alpha,
+                            beta,
+                            !is_maximizing,
+                            getting_move_for,
+                            board_count,
+                            flags,
+                            ply + 1,
+                            killers,
+                        );
+                        if reduced_value < beta {
+                            child.minimax(
+                                next_depth.clone(),
+                                alpha,
+                                beta,
+                                !is_maximizing,
+                                getting_move_for,
+                                board_count,
+                                flags,
+                                ply + 1,
+                                killers,
+                            )
+                        } else {
+                            reduced_value
+                        }
+                    } else {
+                        child.minimax(
+                            next_depth.clone(),
+                            alpha,
+                            beta,
+                            !is_maximizing,
+                            getting_move_for,
+                            board_count,
+                            flags,
+                            ply + 1,
+                            killers,
+                        )
+                    };
+
                     if child_board_value < best_move_value {
                         best_move_value = child_board_value;
                     }
@@ -734,6 +1071,16 @@ impl Board {
                     }
 
                     if beta <= alpha {
+                        if (flags & FLAG_KILLER_HEURISTIC) != 0
+                            && (ply as usize) < MAX_PLY
+                            && !self.is_capture(m)
+                        {
+                            let slot = &mut killers[ply as usize];
+                            if slot[0] != Some(m) {
+                                slot[1] = slot[0];
+                                slot[0] = Some(m);
+                            }
+                        }
                         return best_move_value;
                     }
                 }
@@ -741,6 +1088,28 @@ impl Board {
         }
 
         best_move_value
+    }
+
+    /// Reduce depth by one ply for LMR.
+    fn reduce_depth(depth: Either<u8, (&[u8], ChaCha20Rng)>) -> Either<u8, (&[u8], ChaCha20Rng)> {
+        match depth {
+            Either::Left(d) => Either::Left(d.saturating_sub(1).max(1)),
+            Either::Right((d, rng)) => {
+                if d.len() <= 1 {
+                    Either::Right((d, rng))
+                } else {
+                    Either::Right((&d[1..], rng))
+                }
+            }
+        }
+    }
+
+    /// Is there enough remaining depth to safely apply LMR?
+    fn has_enough_depth_for_lmr(depth: &Either<u8, (&[u8], ChaCha20Rng)>) -> bool {
+        match depth {
+            Either::Left(d) => *d >= 3,
+            Either::Right((d, _)) => !d.is_empty() && d[0] >= 3,
+        }
     }
 }
 

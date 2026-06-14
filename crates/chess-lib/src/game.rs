@@ -3,7 +3,8 @@ use crate::{
     AI_VERY_HARD_GAS,
 };
 use chess_engine::{
-    Board, Color, GameResult, Move, Piece, Position, FLAG_CHECK_EXTENSIONS, FLAG_MOVE_ORDERING,
+    Board, Color, GameResult, Move, Piece, Position, FLAG_CHECK_EXTENSIONS,
+    FLAG_ITERATIVE_DEEPENING, FLAG_KILLER_HEURISTIC, FLAG_LATE_MOVE_REDUCTION, FLAG_MOVE_ORDERING,
     FLAG_NULL_MOVE_PRUNING, FLAG_QUIESCENCE,
 };
 use near_sdk::{
@@ -14,12 +15,12 @@ use near_sdk::{
 };
 
 #[cfg(not(feature = "integration-test"))]
-const AI_MAX_DEPTHS_EASY: &[u8] = &[20, 16, 12];
+const AI_MAX_DEPTHS_EASY: &[u8] = &[26, 20];
 #[cfg(feature = "integration-test")]
-const AI_MAX_DEPTHS_EASY: &[u8] = &[24];
-const AI_MAX_DEPTHS_MEDIUM: &[u8] = &[22, 20, 18];
-const AI_MAX_DEPTHS_HARD: &[u8] = &[20, 18, 16, 14];
-const AI_MAX_DEPTHS_VERY_HARD: &[u8] = &[18, 16, 14, 12, 10];
+const AI_MAX_DEPTHS_EASY: &[u8] = &[1];
+const AI_MAX_DEPTHS_MEDIUM: &[u8] = &[30, 24];
+const AI_MAX_DEPTHS_HARD: &[u8] = &[18, 15, 12];
+const AI_MAX_DEPTHS_VERY_HARD: &[u8] = &[16, 14, 12, 10];
 const AI_PIECE_COUNT_CLAMP_MIN: f64 = 4.0;
 const AI_PIECE_COUNT_CLAMP_MAX: f64 = 32.0;
 const AI_PIECE_SCALE_DIVISOR: f64 = 16.0;
@@ -89,12 +90,12 @@ impl Player {
 /// The higher the difficulty the more moves will be calculated in advance.
 ///
 /// Please be aware, that gas usage increases on higher difficulties:
-/// - Easy: ~8TGas
-/// - Medium: ~30TGas
-/// - Hard: ~110TGas
-/// - VeryHard: ~280TGas
+/// - Easy: ~5TGas
+/// - Medium: ~75TGas
+/// - Hard: ~175TGas
+/// - VeryHard: ~310TGas
 ///
-/// Each difficulty has a gas cap:
+/// Each difficulty has a gas cap (enforced as a soft cutoff during search):
 /// - Easy: 30 TGas
 /// - Medium: 80 TGas
 /// - Hard: 150 TGas
@@ -116,18 +117,32 @@ impl Difficulty {
             return 0;
         }
         match self {
-            // Easy:       check extensions only
-            // Normal:     + null-move pruning
-            // Hard:       + move ordering (MVV-LVA)
-            // Very Hard:  + quiescence search
-            Self::Easy => FLAG_CHECK_EXTENSIONS,
-            Self::Medium => FLAG_CHECK_EXTENSIONS | FLAG_NULL_MOVE_PRUNING,
-            Self::Hard => FLAG_CHECK_EXTENSIONS | FLAG_NULL_MOVE_PRUNING | FLAG_MOVE_ORDERING,
+            // Easy:       check extensions + move ordering (MVV-LVA)
+            // Medium:     + null-move pruning + quiescence search
+            // Hard:       + iterative deepening
+            // Very Hard:  + killer heuristic + late-move reduction
+            Self::Easy => FLAG_CHECK_EXTENSIONS | FLAG_MOVE_ORDERING,
+            Self::Medium => {
+                FLAG_CHECK_EXTENSIONS
+                    | FLAG_NULL_MOVE_PRUNING
+                    | FLAG_MOVE_ORDERING
+                    | FLAG_QUIESCENCE
+            }
+            Self::Hard => {
+                FLAG_CHECK_EXTENSIONS
+                    | FLAG_NULL_MOVE_PRUNING
+                    | FLAG_MOVE_ORDERING
+                    | FLAG_QUIESCENCE
+                    | FLAG_ITERATIVE_DEEPENING
+            }
             Self::VeryHard => {
                 FLAG_CHECK_EXTENSIONS
                     | FLAG_NULL_MOVE_PRUNING
                     | FLAG_MOVE_ORDERING
                     | FLAG_QUIESCENCE
+                    | FLAG_ITERATIVE_DEEPENING
+                    | FLAG_KILLER_HEURISTIC
+                    | FLAG_LATE_MOVE_REDUCTION
             }
         }
     }
