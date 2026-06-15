@@ -16,3 +16,5 @@ abi-gen
 !.yarn/sdks
 !.yarn/versions
 .pnp.*
+
+.wrangler

@@ -1,4 +1,5 @@
 import { initWasm, Resvg } from '@resvg/resvg-wasm';
+import { Chess } from 'chess.js';
 
 import { FONT_BASE64 } from './generated/font';
 import { PIECES } from './generated/pieces';
@@ -36,6 +37,8 @@ const LM_L = '#b6da95';
 const LM_D = '#6a9f4b';
 const LABEL_LIGHT = '#5c4033';
 const LABEL_DARK = '#ffffff';
+const CHECK_LIGHT = 'rgba(224,107,107,0.85)';
+const CHECK_DARK = 'rgba(204,51,51,0.85)';
 
 const UNICODE: Record<string, string> = {
   K: '\u2654',
@@ -113,6 +116,7 @@ export interface RenderCardOpts {
   blackElo?: number | null;
   result: string;
   lastMove?: { from: string; to: string } | null;
+  inCheck?: { row: number; col: number } | null;
 }
 
 export async function renderGameCard(
@@ -121,6 +125,7 @@ export async function renderGameCard(
   await ensureWasm();
 
   const squares = boardFromInput(opts.board, opts.fen);
+  const checkSquare = opts.inCheck ?? findCheckSquare(opts.fen);
 
   const h = BOARD_T + BOARD + 60;
 
@@ -166,6 +171,10 @@ export async function renderGameCard(
 
       svg += `<rect x="${x}" y="${y}" width="${SQ}" height="${SQ}" fill="${fill}"/>`;
 
+      if (checkSquare && checkSquare.row === r && checkSquare.col === c) {
+        svg += `<rect x="${x}" y="${y}" width="${SQ}" height="${SQ}" fill="${light ? CHECK_LIGHT : CHECK_DARK}"/>`;
+      }
+
       if (sq.piece) {
         const b64 = PIECES[pieceKey(sq.piece)];
         if (b64) {
@@ -177,7 +186,7 @@ export async function renderGameCard(
       }
 
       if (c === 0) {
-        svg += `<text x="${x + 4}" y="${y + 4}" font-size="13" font-weight="bold" fill="${light ? LABEL_LIGHT : LABEL_DARK}">${8 - r}</text>`;
+        svg += `<text x="${x + 4}" y="${y + 3}" dominant-baseline="hanging" font-size="13" font-weight="bold" fill="${light ? LABEL_LIGHT : LABEL_DARK}">${8 - r}</text>`;
       }
       if (r === 7) {
         svg += `<text x="${x + SQ - 4}" y="${y + SQ - 4}" text-anchor="end" font-size="13" font-weight="bold" fill="${light ? LABEL_LIGHT : LABEL_DARK}">${String.fromCharCode(97 + c)}</text>`;
@@ -205,6 +214,27 @@ export async function renderGameCard(
 
 function pieceKey(piece: string): string {
   return `${piece === piece.toUpperCase() ? 'w' : 'b'}${piece.toUpperCase()}`;
+}
+
+function findCheckSquare(fen?: string): { row: number; col: number } | null {
+  if (!fen) return null;
+  try {
+    const c = new Chess(fen);
+    if (!c.inCheck()) return null;
+    const board = c.board();
+    const turn = c.turn();
+    for (let r = 0; r < 8; r++) {
+      for (let col = 0; col < 8; col++) {
+        const p = board[r][col];
+        if (p && p.type === 'k' && p.color === turn) {
+          return { row: r, col };
+        }
+      }
+    }
+  } catch {
+    // ignore
+  }
+  return null;
 }
 
 function escapeXml(str: string): string {

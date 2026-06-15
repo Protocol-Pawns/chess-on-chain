@@ -156,11 +156,36 @@ app.openapi(getGamePreviewRoute, async c => {
       : `AI (${game.black.value})`
     : 'Unknown';
 
+  let whiteElo: number | null = null;
+  let blackElo: number | null = null;
+  try {
+    const eloIds: string[] = [];
+    if (game.white.type === 'Human') eloIds.push(game.white.value);
+    if (game.black?.type === 'Human' && game.black.value)
+      eloIds.push(game.black.value);
+    if (eloIds.length > 0) {
+      const eloPairs = await fetchEloRatingsByIds(
+        c.env.RPC_URL,
+        c.env.CONTRACT_ID,
+        eloIds
+      );
+      const eloMap = new Map<string, number>(eloPairs);
+      if (game.white.type === 'Human')
+        whiteElo = eloMap.get(game.white.value) ?? null;
+      if (game.black?.type === 'Human' && game.black.value)
+        blackElo = eloMap.get(game.black.value) ?? null;
+    }
+  } catch {
+    // ELOs are optional for the preview
+  }
+
   const png = await renderGameCard({
     board: game.board,
     fen: game.fen ?? undefined,
     whiteName,
     blackName,
+    whiteElo,
+    blackElo,
     result: resultText(game),
     lastMove: lastMoveNotation
   });

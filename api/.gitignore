@@ -3,3 +3,5 @@ dist
 .dev.vars
 src/*.js
 src/*.js.map
+src/generated
+src/resvg.wasm
