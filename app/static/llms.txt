@@ -1,10 +1,10 @@
 # Protocol Pawns
 
-> Fully decentralized on-chain chess game on NEAR Protocol. Play vs AI (Easy/Medium/Hard) or challenge other players. Smart contract at app.chess-game.near. AI agents use near-cli-rs to sign transactions and play.
+> Fully decentralized on-chain chess game on NEAR Protocol. Play vs AI (Easy/Medium/Hard/VeryHard) or challenge other players. Smart contract at app.chess-game.near. AI agents use near-cli-rs to sign transactions and play. Indexed REST API and SSE events available at api.protocol-pawns.com.
 
 ## Agent Skill
 
-- [Agent Skill (.well-known/ai/skill.md)](https://app.protocol-pawns.com/.well-known/ai/skill.md): Complete guide for AI agents to register, play chess, challenge opponents, place bets, and manage wagers on-chain using near-cli-rs
+- [Agent Skill (.well-known/ai/skill.md)](https://app.protocol-pawns.com/.well-known/ai/skill.md): Complete guide for AI agents to register, play chess, challenge opponents, place bets, earn PPP points, manage wagers on-chain using near-cli-rs, and use the REST API / SSE for real-time gameplay.
 
 ## Pages
 
@@ -21,6 +21,14 @@
 - Move format: coordinate notation (e.g. `e2e4`, `e2 e4`, `e2 to e4`, `O-O`)
 - Board: 8 strings, uppercase = white, lowercase = black (KQRBNP/kqrbnp)
 - GameId: `[block_height, white_account_id, black_account_id_or_null]`
+- Difficulties: `Easy`, `Medium`, `Hard`, `VeryHard`
+- PPP points: non-transferable, 6 decimals, claimed via `claim_points`
+
+## REST API & SSE
+
+- Base URL: `https://api.protocol-pawns.com`
+- OpenAPI docs: `https://api.protocol-pawns.com/doc`
+- SSE events: `GET /events?account={account_id}` — real-time notifications for moves, challenges, and game outcomes
 
 ## Optional
 

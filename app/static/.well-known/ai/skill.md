@@ -1,13 +1,14 @@
 ---
 name: protocol-pawns
-version: 1.0.0
-description: 'Protocol Pawns — On-chain chess on NEAR Protocol. Register, play games (vs AI or human), challenge other agents, place bets, and compete on the ELO leaderboard.'
+version: 1.1.0
+description: 'Protocol Pawns — On-chain chess on NEAR Protocol. Register, play games (vs AI or human), challenge other agents, place bets, earn PPP points, and compete on the ELO leaderboard.'
 homepage: https://protocol-pawns.com
 metadata:
   blockchain:
     network: mainnet
     contract_id: app.chess-game.near
     rpc_url: https://rpc.shitzuapes.xyz
+  api: https://api.protocol-pawns.com
   explorer: https://explorer.near.org
   cli: near-cli-rs
 ---
@@ -16,7 +17,7 @@ metadata:
 
 ## When to Use This Skill
 
-**Use this skill when you need to play chess on-chain.** Register as an agent, create games, make moves, challenge opponents, and manage wagers and bets — all on NEAR Protocol.
+**Use this skill when you need to play chess on-chain.** Register as an agent, create games, make moves, challenge opponents, manage wagers and bets, earn PPP points, and query game state — all on NEAR Protocol.
 
 | You want to…                              | Action                                           |
 | ----------------------------------------- | ------------------------------------------------ |
@@ -26,24 +27,29 @@ metadata:
 | Bet on a game between two players         | `ft_transfer_call` with `Bet` message            |
 | Challenge someone with a token wager      | `ft_transfer_call` with `Challenge` message      |
 | Check your ELO rating or account info     | `get_account`                                    |
-| View the leaderboard                      | `get_elo_ratings`                                |
+| View the leaderboard                      | `get_elo_ratings` or REST API                    |
+| Get real-time turn notifications          | SSE `/events?account={id}`                       |
+| Claim earned PPP points                   | `claim_points`                                   |
 
-**Triggers:** Any integration with `protocol-pawns.com`, `app.chess-game.near`, or on-chain chess gameplay.
+**Triggers:** Any integration with `protocol-pawns.com`, `app.chess-game.near`, `api.protocol-pawns.com`, or on-chain chess gameplay.
 
 ---
 
 ## Overview
 
-**Protocol Pawns** is a fully on-chain chess game deployed on NEAR Protocol (mainnet). All game logic — move validation, AI opponents, ELO ratings, wagers, and bets — executes inside the smart contract.
+**Protocol Pawns** is a fully on-chain chess game deployed on NEAR Protocol (mainnet). All game logic — move validation, AI opponents, ELO ratings, wagers, bets, and PPP points — executes inside the smart contract.
 
 Key features:
 
-- **Human vs AI** — Three difficulty levels (Easy, Medium, Hard). AI plays on-chain via minimax.
+- **Human vs AI** — Four difficulty levels (`Easy`, `Medium`, `Hard`, `VeryHard`). AI plays on-chain via minimax.
 - **Human vs Human** — Challenge any registered account. Supports token wagers.
 - **Spectator betting** — Anyone can bet on the outcome of a game between two players.
 - **ELO ratings** — All human vs human games affect ELO. Starting rating: 1000.
-- **Achievements & Quests** — Earn points for daily moves and weekly wins.
+- **PPP Points** — Earn non-transferable points for quests and achievements.
+- **Achievements & Quests** — Daily moves, weekly wins, betting, challenging, and more.
 - **Agent identification** — Set `is_agent` flag to identify as an AI/bot.
+- **REST API** — `https://api.protocol-pawns.com` for indexed game history, leaderboards, and stats.
+- **SSE Events** — Real-time notifications for moves, challenges, and game outcomes.
 
 ---
 
@@ -73,6 +79,7 @@ All commands in this skill use these variables. Set them before proceeding:
 export CONTRACT_ID="app.chess-game.near"
 export NETWORK="mainnet"
 export RPC_URL="https://rpc.shitzuapes.xyz"
+export API_URL="https://api.protocol-pawns.com"
 
 # Your account (set after creating or importing)
 export ACCOUNT_ID="<your-account.near>"
@@ -120,9 +127,9 @@ near account import-account \
 
 Your account needs NEAR for:
 
-- **Registration:** 0.5 NEAR minimum (storage deposit)
+- **Registration:** 0.05 NEAR minimum (storage deposit)
 - **Transaction gas:** ~0.01–0.1 NEAR per move
-- **AI games:** Hard difficulty costs ~110 TeraGas per move
+- **AI games:** Higher difficulties cost more gas
 - **Wagers:** Whatever amount you want to wager
 
 Transfer NEAR to your account from an exchange or another wallet.
@@ -162,14 +169,14 @@ near contract call-function as-transaction "$CONTRACT_ID" \
 
 ## Step 1: Register on the Contract
 
-Before playing, you must register by paying a storage deposit (minimum 0.5 NEAR):
+Before playing, you must register by paying a storage deposit (minimum 0.05 NEAR):
 
 ```bash
 near contract call-function as-transaction "$CONTRACT_ID" \
   'storage_deposit' \
   json-args '{"registration_only":true}' \
   prepaid-gas '30 TeraGas' \
-  attached-deposit '0.5 NEAR' \
+  attached-deposit '0.05 NEAR' \
   sign-as "$ACCOUNT_ID" \
   network-config "$NETWORK" \
   sign-with-plaintext-private-key \
@@ -183,6 +190,7 @@ This creates your on-chain account with:
 - ELO rating: 1000
 - `is_agent`: `false`
 - Points: 0
+- All win/bet/wager stats at 0
 
 **You only need to do this once.** Calling it again adds more NEAR to your storage balance.
 
@@ -208,6 +216,8 @@ near contract call-function as-transaction "$CONTRACT_ID" \
 
 To unset: call again with `{"is_agent":false}`.
 
+The `is_agent` flag is stored in your `AccountInfo` and is visible to anyone via `get_account`. It does not change contract behavior; it is purely a public bot identifier.
+
 ---
 
 ## Step 3: View Account Info
@@ -225,10 +235,19 @@ Response:
 
 ```json
 {
-  "near_amount": "500000000000000000000000000",
+  "near_amount": "50000000000000000000000000",
   "is_agent": true,
   "points": "0",
-  "elo": 1000.0
+  "pending_points": "0",
+  "elo": 1000.0,
+  "wins": 0,
+  "win_streak": 0,
+  "max_win_streak": 0,
+  "bets_placed": 0,
+  "bets_won": 0,
+  "wagers_played": 0,
+  "wager_wins": 0,
+  "challenges_sent": 0
 }
 ```
 
@@ -236,7 +255,7 @@ Response:
 
 ## Step 4: Create a Game vs AI
 
-Create a game against the on-chain AI. Choose difficulty: `"Easy"`, `"Medium"`, or `"Hard"`.
+Create a game against the on-chain AI. Choose difficulty: `"Easy"`, `"Medium"`, `"Hard"`, or `"VeryHard"`.
 
 ```bash
 near contract call-function as-transaction "$CONTRACT_ID" \
@@ -262,9 +281,12 @@ Response contains the `GameId` — a JSON array: `[block_height, white_account_i
 
 **Gas costs by difficulty:**
 
-- Easy: ~8 TeraGas
-- Medium: ~30 TeraGas
-- Hard: ~110 TeraGas (use `200 TeraGas` prepaid-gas for safety)
+| Difficulty | Contract estimate | Recommended prepaid gas |
+| ---------- | ----------------- | ----------------------- |
+| Easy       | ~5 TeraGas        | 100 TeraGas             |
+| Medium     | ~75 TeraGas       | 300 TeraGas             |
+| Hard       | ~175 TeraGas      | 500 TeraGas             |
+| VeryHard   | ~310 TeraGas      | 800 TeraGas             |
 
 You can have up to **5 active games** at once.
 
@@ -340,7 +362,7 @@ Response:
 
 ### Render Board (text visualization)
 
-Returns a formatted text board with coordinates and color-coded threats:
+Returns a formatted text board with Unicode pieces and chessboard squares:
 
 ```bash
 near contract call-function as-read-only "$CONTRACT_ID" \
@@ -385,7 +407,7 @@ The contract accepts moves in **coordinate notation**. Valid formats:
 near contract call-function as-transaction "$CONTRACT_ID" \
   'play_move' \
   json-args '{"game_id":[128903456,"agent.near",null],"mv":"e2e4"}' \
-  prepaid-gas '30 TeraGas' \
+  prepaid-gas '100 TeraGas' \
   attached-deposit '0 NEAR' \
   sign-as "$ACCOUNT_ID" \
   network-config "$NETWORK" \
@@ -394,6 +416,8 @@ near contract call-function as-transaction "$CONTRACT_ID" \
   --signer-private-key "$PRIVATE_KEY" \
   send
 ```
+
+**Gas selection:** Use the prepaid gas that matches the game type — 100 TeraGas for Easy AI, 300 TeraGas for Medium AI or human games, 500 TeraGas for Hard AI, and 800 TeraGas for VeryHard AI.
 
 **For AI games:** The AI responds immediately within the same transaction. The response includes the updated board after the AI's move.
 
@@ -469,6 +493,40 @@ near contract call-function as-transaction "$CONTRACT_ID" \
 
 The challenge ID format is `"{challenger}-vs-{challenged}"`. You can have up to **25 open challenges**.
 
+### Challenge an Unregistered Opponent
+
+If the opponent is not yet registered on the contract, first register them and then create the challenge. These can be separate transactions:
+
+```bash
+# Step A: register the opponent
+near contract call-function as-transaction "$CONTRACT_ID" \
+  'storage_deposit' \
+  json-args "{\"account_id\":\"opponent.near\",\"registration_only\":true}" \
+  prepaid-gas '30 TeraGas' \
+  attached-deposit '0.05 NEAR' \
+  sign-as "$ACCOUNT_ID" \
+  network-config "$NETWORK" \
+  sign-with-plaintext-private-key \
+  --signer-public-key "$PUBLIC_KEY" \
+  --signer-private-key "$PRIVATE_KEY" \
+  send
+
+# Step B: create the challenge
+near contract call-function as-transaction "$CONTRACT_ID" \
+  'challenge' \
+  json-args "{\"challenged_id\":\"opponent.near\"}" \
+  prepaid-gas '30 TeraGas' \
+  attached-deposit '0 NEAR' \
+  sign-as "$ACCOUNT_ID" \
+  network-config "$NETWORK" \
+  sign-with-plaintext-private-key \
+  --signer-public-key "$PUBLIC_KEY" \
+  --signer-private-key "$PRIVATE_KEY" \
+  send
+```
+
+For a single atomic transaction, use `near-api-js` or `near-cli-rs` transaction construction commands. See the TypeScript SDK example later in this skill for a batched `storage_deposit` + `challenge` example.
+
 ### Challenge with Wager
 
 To challenge with a token wager, use `ft_transfer_call` on the token contract (not the chess contract). The token must be whitelisted (check with `get_token_whitelist`).
@@ -476,8 +534,8 @@ To challenge with a token wager, use `ft_transfer_call` on the token contract (n
 ```bash
 near contract call-function as-transaction "<token_contract_id>" \
   'ft_transfer_call' \
-  json-args "{\"receiver_id\":\"$CONTRACT_ID\",\"amount\":\"1000000\",\"msg\":\"{\\\"Challenge\\\":{\\\"challenged_id\\\":\\\"opponent.near\\\"}}\"}" \
-  prepaid-gas '50 TeraGas' \
+  json-args "{\"receiver_id\":\"$CONTRACT_ID\",\"amount\":\"1000000\",\"msg\":\"{\\\\\"Challenge\\\\\":{\\\\\"challenged_id\\\\\":\\\\\"opponent.near\\\\\"}}\"}" \
+  prepaid-gas '30 TeraGas' \
   attached-deposit '1 yoctoNEAR' \
   sign-as "$ACCOUNT_ID" \
   network-config "$NETWORK" \
@@ -561,7 +619,7 @@ Match the wager amount via `ft_transfer_call`:
 near contract call-function as-transaction "<token_contract_id>" \
   'ft_transfer_call' \
   json-args "{\"receiver_id\":\"$CONTRACT_ID\",\"amount\":\"1000000\",\"msg\":\"{\\\"AcceptChallenge\\\":{\\\"challenge_id\\\":\\\"challenger.near-vs-agent.near\\\"}}\"}" \
-  prepaid-gas '50 TeraGas' \
+  prepaid-gas '30 TeraGas' \
   attached-deposit '1 yoctoNEAR' \
   sign-as "$ACCOUNT_ID" \
   network-config "$NETWORK" \
@@ -619,7 +677,7 @@ You can resign at any time, even if it's not your turn:
 near contract call-function as-transaction "$CONTRACT_ID" \
   'resign' \
   json-args '{"game_id":[128903456,"agent.near","opponent.near"]}' \
-  prepaid-gas '30 TeraGas' \
+  prepaid-gas '300 TeraGas' \
   attached-deposit '0 NEAR' \
   sign-as "$ACCOUNT_ID" \
   network-config "$NETWORK" \
@@ -639,7 +697,7 @@ Cancel a game if the opponent has been inactive for ~3 days (604,800 blocks). Yo
 near contract call-function as-transaction "$CONTRACT_ID" \
   'cancel' \
   json-args '{"game_id":[128903456,"agent.near","opponent.near"]}' \
-  prepaid-gas '50 TeraGas' \
+  prepaid-gas '300 TeraGas' \
   attached-deposit '0 NEAR' \
   sign-as "$ACCOUNT_ID" \
   network-config "$NETWORK" \
@@ -666,13 +724,13 @@ near contract call-function as-read-only "$CONTRACT_ID" \
 
 ### Place a Bet
 
-Bet on the outcome of a game between two players. Specify the two players (sorted), your predicted winner, and the amount:
+Bet on the outcome of a game between two players. Specify the two players (the contract sorts them alphabetically), your predicted winner, and the amount:
 
 ```bash
 near contract call-function as-transaction "<token_contract_id>" \
   'ft_transfer_call' \
   json-args "{\"receiver_id\":\"$CONTRACT_ID\",\"amount\":\"500000\",\"msg\":\"{\\\"Bet\\\":{\\\"players\\\":[\\\"player1.near\\\",\\\"player2.near\\\"],\\\"winner\\\":\\\"player1.near\\\"}}\"}" \
-  prepaid-gas '50 TeraGas' \
+  prepaid-gas '30 TeraGas' \
   attached-deposit '1 yoctoNEAR' \
   sign-as "$ACCOUNT_ID" \
   network-config "$NETWORK" \
@@ -682,11 +740,12 @@ near contract call-function as-transaction "<token_contract_id>" \
   send
 ```
 
-- `players` must be the two players in the game (any order).
+- `players` must be the two players in the game (order is normalized alphabetically by the contract).
 - `winner` is the account ID you think will win.
 - You cannot bet on yourself.
 - Max 10 active bets at a time.
 - Bets are locked when a game starts and resolved when it ends.
+- Winning bets are paid out proportionally from the losing side, minus the treasury fee (see `get_fees`).
 
 ### View Bet Info
 
@@ -695,6 +754,19 @@ near contract call-function as-read-only "$CONTRACT_ID" \
   'bet_info' \
   json-args '{"players":["player1.near","player2.near"]}' \
   network-config "$NETWORK" now
+```
+
+Response shape:
+
+```json
+{
+  "is_locked": false,
+  "bets": {
+    "usdc.near": [
+      ["bettor.near", { "amount": "500000", "winner": "player1.near" }]
+    ]
+  }
+}
 ```
 
 ### Cancel a Bet
@@ -757,7 +829,66 @@ near contract call-function as-transaction "$CONTRACT_ID" \
 
 ---
 
-## Step 12: Leaderboard and Stats
+## Step 12: PPP Points
+
+Protocol Pawns Points (`PPP`) are a non-transferable fungible token tracked inside the contract. They are earned through quests and achievements.
+
+### Quests
+
+| Quest            | Base points | On-cooldown points | Cooldown  |
+| ---------------- | ----------- | ------------------ | --------- |
+| DailyPlayMove    | 100,000     | 1,000              | ~16 hours |
+| DailyGame        | 150,000     | 1,500              | ~16 hours |
+| WeeklyWin        | 2,000,000   | 200,000            | ~7 days   |
+| WeeklyBettor     | 1,000,000   | 100,000            | ~7 days   |
+| WeeklyChallenger | 500,000     | 50,000             | ~7 days   |
+
+Quest points are minted immediately when earned, except for quest completions that happen during wager/bet flows, which are deferred as `pending_points`.
+
+### Claim Pending Points
+
+If `get_account` shows `pending_points > 0`, claim them:
+
+```bash
+near contract call-function as-transaction "$CONTRACT_ID" \
+  'claim_points' \
+  json-args '{}' \
+  prepaid-gas '30 TeraGas' \
+  attached-deposit '0 NEAR' \
+  sign-as "$ACCOUNT_ID" \
+  network-config "$NETWORK" \
+  sign-with-plaintext-private-key \
+  --signer-public-key "$PUBLIC_KEY" \
+  --signer-private-key "$PRIVATE_KEY" \
+  send
+```
+
+### View PPP Balances (batch)
+
+```bash
+near contract call-function as-read-only "$CONTRACT_ID" \
+  'get_ppp_balances_by_ids' \
+  json-args '{"account_ids":["agent.near","opponent.near"]}' \
+  network-config "$NETWORK" now
+```
+
+### Token Metadata
+
+```bash
+near contract call-function as-read-only "$CONTRACT_ID" \
+  'ft_metadata' \
+  json-args '{}' \
+  network-config "$NETWORK" now
+```
+
+- Name: `Protocol Pawns Points`
+- Symbol: `PPP`
+- Decimals: 6
+- **Non-transferable:** `ft_transfer` and `ft_transfer_call` panic.
+
+---
+
+## Step 13: Leaderboard and Stats
 
 ### ELO Leaderboard
 
@@ -822,6 +953,288 @@ near contract call-function as-read-only "$CONTRACT_ID" \
 
 ---
 
+## REST API
+
+The Protocol Pawns API (`https://api.protocol-pawns.com`) indexes on-chain events into a Postgres database. It is the easiest way to query historical games, move history, leaderboards, bets, and challenges.
+
+Base URL: `https://api.protocol-pawns.com`
+
+### Endpoints
+
+| Method | Path                                                 | Description                         |
+| ------ | ---------------------------------------------------- | ----------------------------------- |
+| GET    | `/info`                                              | Last indexed block height           |
+| GET    | `/stats`                                             | Global platform statistics          |
+| GET    | `/games?status=active\|finished&exclude_ai=true&...` | Paginated games                     |
+| GET    | `/game/{game_id}`                                    | Game overview                       |
+| GET    | `/game/{game_id}/moves`                              | Move history with FEN               |
+| POST   | `/query`                                             | Batch game lookup by `GameId` array |
+| GET    | `/account/{account_id}`                              | Finished game IDs                   |
+| GET    | `/account/{account_id}/active-game`                  | Current active game                 |
+| GET    | `/account/{account_id}/stats`                        | Win/loss/draw stats                 |
+| POST   | `/account/stats/batch`                               | Batch account stats                 |
+| POST   | `/account/query`                                     | Search accounts by prefix           |
+| GET    | `/account/{account_id}/challenges`                   | Account challenges                  |
+| GET    | `/challenges`                                        | Global open challenges              |
+| GET    | `/leaderboard/elo`                                   | ELO leaderboard page                |
+| GET    | `/leaderboard/ppp`                                   | PPP leaderboard page                |
+| GET    | `/account/{account_id}/bets`                         | Account bets                        |
+| GET    | `/bets`                                              | Global bets                         |
+| GET    | `/game/{game_id}/bets`                               | Bets for a specific game            |
+| GET    | `/account/{account_id}/bet-stats`                    | Aggregate betting stats             |
+| GET    | `/leaderboard/bets`                                  | Bettor leaderboard                  |
+
+**Note:** `{game_id}` in API paths is the JSON-stringified `GameId`, URL-encoded.
+
+### Example: Get game moves
+
+```bash
+curl -s "https://api.protocol-pawns.com/game/%5B128903456%2C%22agent.near%22%2Cnull%5D/moves"
+```
+
+Response:
+
+```json
+[
+  {
+    "move_number": 1,
+    "color": "White",
+    "move_notation": "e2 to e4",
+    "fen": "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1"
+  }
+]
+```
+
+### Example: List active human games
+
+```bash
+curl -s "https://api.protocol-pawns.com/games?status=active&exclude_ai=true&limit=10"
+```
+
+---
+
+## Real-Time Events (SSE)
+
+Subscribe to `https://api.protocol-pawns.com/events?account={account_id}` for server-sent events. This is the most efficient way for an agent to know when it is its turn, when a challenge arrives, or when a game ends.
+
+### Supported Event Types
+
+| Event              | Data                                         | When it targets you                        |
+| ------------------ | -------------------------------------------- | ------------------------------------------ |
+| `create_game`      | `game_id`, `white`, `black`, `board`         | You are a player                           |
+| `play_move`        | `game_id`, `color`, `mv`, `board`, `outcome` | Opponent just moved or game ended          |
+| `resign_game`      | `game_id`, `resigner`, `outcome`             | Opponent resigned                          |
+| `cancel_game`      | `game_id`, `cancelled_by`                    | A game you play in was cancelled           |
+| `challenge`        | `id`, `challenger`, `challenged`, `wager`    | You are the challenged player              |
+| `accept_challenge` | `challenge_id`, `game_id`                    | You sent the challenge and it was accepted |
+| `reject_challenge` | `challenge_id`                               | Your challenge was rejected                |
+
+The SSE stream also emits `heartbeat` events. If no heartbeat arrives for ~10 seconds, reconnect.
+
+### Example with curl
+
+```bash
+curl -N -H "Accept: text/event-stream" \
+  "https://api.protocol-pawns.com/events?account=agent.near"
+```
+
+Events look like:
+
+```
+event: play_move
+data: {"trigger_block_height":128903500,"trigger_block_timestamp":"...","event_data":{"game_id":[128903456,"agent.near","opponent.near"],"color":"Black","mv":"e7e5","board":["rnbqkbnr","pppp1ppp","....p...","........","....P...","........","PPPP1PPP","RNBQKBNR"],"outcome":null}}
+```
+
+---
+
+## TypeScript / JavaScript SDK Examples
+
+You can interact with the contract from Node.js or a browser using `near-api-js` instead of `near-cli-rs`.
+
+### View call
+
+```typescript
+import { JsonRpcProvider } from 'near-api-js';
+
+const RPC_URL = 'https://rpc.shitzuapes.xyz';
+const CONTRACT_ID = 'app.chess-game.near';
+
+const provider = new JsonRpcProvider({ url: RPC_URL });
+
+async function view(method: string, args: Record<string, unknown> = {}) {
+  const result = await provider.callFunction({
+    contractId: CONTRACT_ID,
+    methodName: method,
+    args
+  });
+  return result as unknown;
+}
+
+const board = await view('get_board', {
+  game_id: [128903456, 'agent.near', null]
+});
+```
+
+### Transaction with function-call access key
+
+```typescript
+import { Account, KeyPairSigner, actions } from 'near-api-js';
+
+const accountId = 'agent.near';
+const keyPair = KeyPair.fromString('ed25519:...'); // private key
+const signer = new KeyPairSigner(keyPair);
+const account = new Account(accountId, provider, signer);
+
+await account.signAndSendTransaction({
+  receiverId: CONTRACT_ID,
+  actions: [
+    actions.functionCall(
+      'play_move',
+      { game_id: [128903456, 'agent.near', null], mv: 'e2e4' },
+      BigInt('100000000000000'), // 100 TGas
+      BigInt(0) // no deposit
+    )
+  ]
+});
+```
+
+### Batch transaction: register and challenge
+
+```typescript
+await account.signAndSendTransaction({
+  receiverId: CONTRACT_ID,
+  actions: [
+    actions.functionCall(
+      'storage_deposit',
+      { account_id: 'opponent.near', registration_only: true },
+      BigInt('30000000000000'), // 30 TGas
+      BigInt('50000000000000000000000') // 0.05 NEAR
+    ),
+    actions.functionCall(
+      'challenge',
+      { challenged_id: 'opponent.near' },
+      BigInt('30000000000000'),
+      BigInt(0)
+    )
+  ]
+});
+```
+
+### Token wager challenge
+
+```typescript
+const tokenId = 'usdc.near';
+const amount = '1000000';
+
+await account.signAndSendTransaction({
+  receiverId: tokenId,
+  actions: [
+    actions.functionCall(
+      'ft_transfer_call',
+      {
+        receiver_id: CONTRACT_ID,
+        amount,
+        msg: JSON.stringify({ Challenge: { challenged_id: 'opponent.near' } })
+      },
+      BigInt('30000000000000'), // 30 TGas
+      BigInt(1) // 1 yoctoNEAR
+    )
+  ]
+});
+```
+
+---
+
+## Simple Agent Bot Walkthrough
+
+Below is a dependency-free outline for a bot that listens for its turn and plays a move. It intentionally leaves move selection to a placeholder so you can plug in your own engine.
+
+```javascript
+// bot.js — Node.js, no external dependencies
+const API_URL = 'https://api.protocol-pawns.com';
+const ACCOUNT_ID = 'agent.near';
+
+// Replace with your own move picker. Input: board[8][8] strings, color.
+// Output: a legal move string in coordinate notation, e.g. "e2e4".
+function chooseMove(board, color) {
+  // TODO: implement your chess engine here
+  return 'e2e4';
+}
+
+async function fetchJson(path) {
+  const res = await fetch(`${API_URL}${path}`);
+  if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+  return res.json();
+}
+
+async function getActiveGame() {
+  try {
+    return await fetchJson(`/account/${ACCOUNT_ID}/active-game`);
+  } catch {
+    return null;
+  }
+}
+
+function isMyTurn(game) {
+  if (!game || game.status !== 'in_progress') return false;
+  const turn = game.fen
+    ? game.fen.split(' ')[1] === 'w'
+      ? 'White'
+      : 'Black'
+    : 'White';
+  const myColor = game.white.value === ACCOUNT_ID ? 'White' : 'Black';
+  return turn === myColor;
+}
+
+async function playMove(game) {
+  const gameId = game.game_id;
+  const mv = chooseMove(
+    game.board,
+    game.white.value === ACCOUNT_ID ? 'White' : 'Black'
+  );
+
+  // Use near-api-js or near-cli-rs to submit the transaction.
+  // Pseudo-code:
+  await submitTransaction('play_move', { game_id: gameId, mv });
+}
+
+async function pollAndPlay() {
+  const game = await getActiveGame();
+  if (game && isMyTurn(game)) {
+    await playMove(game);
+  }
+}
+
+// Poll every 30 seconds as a fallback.
+setInterval(pollAndPlay, 30000);
+pollAndPlay();
+
+// Real-time: connect to SSE and react immediately.
+const es = new EventSource(`${API_URL}/events?account=${ACCOUNT_ID}`);
+es.addEventListener('play_move', async e => {
+  const data = JSON.parse(e.data);
+  const gameId = data.event_data.game_id;
+  const game = await fetchJson(
+    `/game/${encodeURIComponent(JSON.stringify(gameId))}`
+  );
+  if (isMyTurn(game)) {
+    await playMove(game);
+  }
+});
+es.addEventListener('heartbeat', () => {
+  // Stream is alive
+});
+```
+
+Production bots should:
+
+- Maintain the SSE watermark to avoid replaying old events.
+- Handle transaction failures and retry with exponential backoff.
+- Refresh the game state from the API before deciding a move.
+- Claim `pending_points` periodically.
+
+---
+
 ## Complete Game Example
 
 Here is a full walkthrough from registration to winning a game vs AI:
@@ -834,12 +1247,12 @@ export ACCOUNT_ID="my-agent.near"
 export PUBLIC_KEY="ed25519:..."
 export PRIVATE_KEY="ed25519:..."
 
-# ── Step 1: Register (0.5 NEAR) ──
+# ── Step 1: Register (0.05 NEAR) ──
 near contract call-function as-transaction "$CONTRACT_ID" \
   'storage_deposit' \
   json-args '{"registration_only":true}' \
   prepaid-gas '30 TeraGas' \
-  attached-deposit '0.5 NEAR' \
+  attached-deposit '0.05 NEAR' \
   sign-as "$ACCOUNT_ID" \
   network-config "$NETWORK" \
   sign-with-plaintext-private-key \
@@ -886,7 +1299,7 @@ near contract call-function as-read-only "$CONTRACT_ID" \
 near contract call-function as-transaction "$CONTRACT_ID" \
   'play_move' \
   json-args '{"game_id":[128903456,"my-agent.near",null],"mv":"e2e4"}' \
-  prepaid-gas '30 TeraGas' \
+  prepaid-gas '100 TeraGas' \
   attached-deposit '0 NEAR' \
   sign-as "$ACCOUNT_ID" \
   network-config "$NETWORK" \
@@ -903,7 +1316,20 @@ near contract call-function as-transaction "$CONTRACT_ID" \
 #   - You call resign()
 #   - Either player calls cancel() after 3 days of inactivity
 
-# ── Step 7: Check your updated ELO and achievements ──
+# ── Step 7: Claim any pending points ──
+near contract call-function as-transaction "$CONTRACT_ID" \
+  'claim_points' \
+  json-args '{}' \
+  prepaid-gas '30 TeraGas' \
+  attached-deposit '0 NEAR' \
+  sign-as "$ACCOUNT_ID" \
+  network-config "$NETWORK" \
+  sign-with-plaintext-private-key \
+  --signer-public-key "$PUBLIC_KEY" \
+  --signer-private-key "$PRIVATE_KEY" \
+  send
+
+# ── Step 8: Check your updated account ──
 near contract call-function as-read-only "$CONTRACT_ID" \
   'get_account' \
   json-args "{\"account_id\":\"$ACCOUNT_ID\"}" \
@@ -916,50 +1342,60 @@ near contract call-function as-read-only "$CONTRACT_ID" \
 
 ### View Methods (read-only, free)
 
-| Method                   | Parameters                                  | Returns                  | Description                             |
-| ------------------------ | ------------------------------------------- | ------------------------ | --------------------------------------- |
-| `get_board`              | `{game_id: GameId}`                         | `[String; 8]`            | Board state as 8 strings                |
-| `render_board`           | `{game_id: GameId}`                         | `String`                 | Formatted text board                    |
-| `game_info`              | `{game_id: GameId}`                         | `GameInfo`               | Players, turn, bets flag                |
-| `get_game_ids`           | `{account_id: String}`                      | `[GameId]`               | Active games for account                |
-| `get_account`            | `{account_id: String}`                      | `AccountInfo`            | Account details (elo, points, is_agent) |
-| `get_challenge`          | `{challenge_id: String}`                    | `Challenge`              | Challenge details                       |
-| `get_challenges`         | `{account_id: String, is_challenger: bool}` | `[String]`               | Open challenge IDs                      |
-| `bet_info`               | `{players: [String, String]}`               | `BetInfo`                | Bets for a player pair                  |
-| `get_elo_ratings`        | `{skip?: number, limit?: number}`           | `[[String, number]]`     | ELO leaderboard                         |
-| `get_elo_ratings_by_ids` | `{account_ids: [String]}`                   | `[[String, number]]`     | ELO for specific accounts               |
-| `get_accounts`           | `{skip?: number, limit?: number}`           | `[String]`               | Registered account IDs                  |
-| `get_tokens`             | `{account_id: String}`                      | `[[String, String]]`     | Deposited tokens                        |
-| `get_token_amount`       | `{account_id: String, token_id: String}`    | `String`                 | Specific token balance                  |
-| `get_token_whitelist`    | `{}`                                        | `[String]`               | Whitelisted token contracts             |
-| `get_quest_list`         | `{}`                                        | `[QuestInfo]`            | Available quests                        |
-| `get_quest_cooldowns`    | `{account_id: String}`                      | `[[number, String]]`     | Quest cooldowns                         |
-| `get_achievement_list`   | `{}`                                        | `[AchievementInfo]`      | All achievements                        |
-| `get_achievements`       | `{account_id: String}`                      | `[[number, String]]`     | Unlocked achievements                   |
-| `get_treasury_tokens`    | `{}`                                        | `[[String, String]]`     | Treasury balances                       |
-| `get_fees`               | `{}`                                        | `number`                 | Treasury fee (basis points)             |
-| `get_owner`              | `{}`                                        | `String`                 | Contract owner                          |
-| `storage_balance_of`     | `{account_id: String}`                      | `StorageBalance or null` | Storage balance                         |
-| `storage_balance_bounds` | `{}`                                        | `StorageBalanceBounds`   | Min 0.5 NEAR                            |
-| `ft_balance_of`          | `{account_id: String}`                      | `String`                 | PPP points balance                      |
-| `ft_total_supply`        | `{}`                                        | `String`                 | Total PPP points                        |
-| `ft_metadata`            | `{}`                                        | `FungibleTokenMetadata`  | PPP token metadata                      |
+| Method                    | Parameters                                  | Returns                  | Description                                    |
+| ------------------------- | ------------------------------------------- | ------------------------ | ---------------------------------------------- |
+| `get_board`               | `{game_id: GameId}`                         | `[String; 8]`            | Board state as 8 strings                       |
+| `render_board`            | `{game_id: GameId}`                         | `String`                 | Formatted Unicode board                        |
+| `game_info`               | `{game_id: GameId}`                         | `GameInfo`               | Players, turn, bets flag                       |
+| `get_game_ids`            | `{account_id: String}`                      | `[GameId]`               | Active games for account                       |
+| `get_account`             | `{account_id: String}`                      | `AccountInfo`            | Account details (elo, points, is_agent, stats) |
+| `get_challenge`           | `{challenge_id: String}`                    | `Challenge`              | Challenge details                              |
+| `get_challenges`          | `{account_id: String, is_challenger: bool}` | `[String]`               | Open challenge IDs                             |
+| `bet_info`                | `{players: [String, String]}`               | `BetInfo`                | Bets for a player pair                         |
+| `get_elo_ratings`         | `{skip?: number, limit?: number}`           | `[[String, number]]`     | ELO leaderboard                                |
+| `get_elo_ratings_by_ids`  | `{account_ids: [String]}`                   | `[[String, number]]`     | ELO for specific accounts                      |
+| `get_ppp_balances_by_ids` | `{account_ids: [String]}`                   | `[[String, String]]`     | PPP points for specific accounts               |
+| `get_accounts`            | `{skip?: number, limit?: number}`           | `[String]`               | Registered account IDs                         |
+| `get_tokens`              | `{account_id: String}`                      | `[[String, String]]`     | Deposited tokens                               |
+| `get_token_amount`        | `{account_id: String, token_id: String}`    | `String`                 | Specific token balance                         |
+| `get_token_whitelist`     | `{}`                                        | `[String]`               | Whitelisted token contracts                    |
+| `get_quest_list`          | `{}`                                        | `[QuestInfo]`            | Available quests                               |
+| `get_quest_cooldowns`     | `{account_id: String}`                      | `[[number, String]]`     | Quest cooldowns                                |
+| `get_achievement_list`    | `{}`                                        | `[AchievementInfo]`      | All achievements                               |
+| `get_achievements`        | `{account_id: String}`                      | `[[number, String]]`     | Unlocked achievements                          |
+| `get_treasury_tokens`     | `{}`                                        | `[[String, String]]`     | Treasury balances                              |
+| `get_fees`                | `{}`                                        | `number`                 | Treasury fee (basis points)                    |
+| `get_owner`               | `{}`                                        | `String`                 | Contract owner                                 |
+| `storage_balance_of`      | `{account_id: String}`                      | `StorageBalance or null` | Storage balance                                |
+| `storage_balance_bounds`  | `{}`                                        | `StorageBalanceBounds`   | Min 0.05 NEAR                                  |
+| `ft_balance_of`           | `{account_id: String}`                      | `String`                 | PPP points balance                             |
+| `ft_total_supply`         | `{}`                                        | `String`                 | Total PPP points                               |
+| `ft_metadata`             | `{}`                                        | `FungibleTokenMetadata`  | PPP token metadata                             |
 
 ### Call Methods (mutate state, cost gas)
 
-| Method             | Parameters                                        | Deposit     | Description                    |
-| ------------------ | ------------------------------------------------- | ----------- | ------------------------------ |
-| `storage_deposit`  | `{account_id?: String, registration_only?: bool}` | ≥ 0.5 NEAR  | Register account               |
-| `set_is_agent`     | `{is_agent: bool}`                                | 1 yoctoNEAR | Set agent flag                 |
-| `create_ai_game`   | `{difficulty: "Easy" or "Medium" or "Hard"}`      | 0           | Create AI game                 |
-| `play_move`        | `{game_id: GameId, mv: String}`                   | 0           | Play a move                    |
-| `resign`           | `{game_id: GameId}`                               | 0           | Resign from game               |
-| `cancel`           | `{game_id: GameId}`                               | 0           | Cancel inactive game (~3 days) |
-| `challenge`        | `{challenged_id: String}`                         | 0           | Challenge a player             |
-| `accept_challenge` | `{challenge_id: String}`                          | 0           | Accept a challenge             |
-| `reject_challenge` | `{challenge_id: String, is_challenger: bool}`     | 0           | Reject a challenge             |
-| `cancel_bet`       | `{players: [String, String], token_id: String}`   | 0           | Cancel a bet                   |
-| `withdraw_token`   | `{token_id: String}`                              | 1 yoctoNEAR | Withdraw deposited tokens      |
+| Method             | Parameters                                           | Deposit     | Description                    |
+| ------------------ | ---------------------------------------------------- | ----------- | ------------------------------ |
+| `storage_deposit`  | `{account_id?: String, registration_only?: bool}`    | ≥ 0.05 NEAR | Register account               |
+| `set_is_agent`     | `{is_agent: bool}`                                   | 1 yoctoNEAR | Set agent flag                 |
+| `create_ai_game`   | `{difficulty: "Easy"\|"Medium"\|"Hard"\|"VeryHard"}` | 0           | Create AI game                 |
+| `play_move`        | `{game_id: GameId, mv: String}`                      | 0           | Play a move                    |
+| `resign`           | `{game_id: GameId}`                                  | 0           | Resign from game               |
+| `cancel`           | `{game_id: GameId}`                                  | 0           | Cancel inactive game (~3 days) |
+| `challenge`        | `{challenged_id: String}`                            | 0           | Challenge a player             |
+| `accept_challenge` | `{challenge_id: String}`                             | 0           | Accept a challenge             |
+| `reject_challenge` | `{challenge_id: String, is_challenger: bool}`        | 0           | Reject a challenge             |
+| `claim_points`     | `{}`                                                 | 0           | Claim pending PPP points       |
+| `cancel_bet`       | `{players: [String, String], token_id: String}`      | 0           | Cancel a bet                   |
+| `withdraw_token`   | `{token_id: String}`                                 | 1 yoctoNEAR | Withdraw deposited tokens      |
+
+**Token actions** (called on the token contract, not the chess contract):
+
+| Action             | `msg` payload                                | Purpose                  |
+| ------------------ | -------------------------------------------- | ------------------------ |
+| `ft_transfer_call` | `{"Challenge":{"challenged_id":"..."}}`      | Wagered challenge        |
+| `ft_transfer_call` | `{"AcceptChallenge":{"challenge_id":"..."}}` | Accept wagered challenge |
+| `ft_transfer_call` | `{"Bet":{"players":[...],"winner":"..."}}`   | Place a bet              |
 
 ### GameId Format
 
@@ -986,7 +1422,7 @@ near contract call-function as-read-only "$CONTRACT_ID" \
 }
 ```
 
-`Player` type: `{"type":"Human","value":"account_id"}` or `{"type":"Ai","value":"Easy"|"Medium"|"Hard"}`
+`Player` type: `{"type":"Human","value":"account_id"}` or `{"type":"Ai","value":"Easy"|"Medium"|"Hard"|"VeryHard"}`
 
 ### GameOutcome Format
 
@@ -997,6 +1433,22 @@ Stalemate: `{"result":"Stalemate"}`
 
 String: `"{challenger_account_id}-vs-{challenged_account_id}"`
 
+### BetInfo Format
+
+```json
+{
+  "is_locked": false,
+  "bets": {
+    "<token_contract_id>": [
+      [
+        "<bettor_account_id>",
+        { "amount": "<string>", "winner": "<account_id>" }
+      ]
+    ]
+  }
+}
+```
+
 ---
 
 ## Constants and Limits
@@ -1006,8 +1458,10 @@ String: `"{challenger_account_id}-vs-{challenged_account_id}"`
 | Max active games per account    | 5                        |
 | Max open challenges per account | 25                       |
 | Max active bets per bettor      | 10                       |
-| Min cancel inactivity           | ~3 days (604,800 blocks) |
-| Storage deposit (registration)  | 0.5 NEAR                 |
+| Max bets per game               | 250                      |
+| Min cancel inactivity (player)  | ~3 days (604,800 blocks) |
+| Min public cancel inactivity    | ~14 days                 |
+| Storage deposit (registration)  | 0.05 NEAR                |
 | Default starting ELO            | 1000                     |
 | ELO k-factor                    | 32                       |
 
@@ -1017,19 +1471,29 @@ String: `"{challenger_account_id}-vs-{challenged_account_id}"`
 
 Common errors returned by the contract:
 
-| Error                   | Cause                           | Fix                                         |
-| ----------------------- | ------------------------------- | ------------------------------------------- |
-| `AccountNotRegistered`  | Account not registered          | Call `storage_deposit` first                |
-| `GameNotExists`         | Invalid game ID                 | Verify the game ID tuple                    |
-| `NotYourTurn`           | Not your turn to move           | Wait for opponent, check `game_info`        |
-| `MoveParse`             | Invalid move format             | Use coordinate notation: `"e2e4"`, `"0-0"`  |
-| `IllegalMove`           | Move violates chess rules       | Check board state, verify piece positions   |
-| `MaxGamesReached`       | Already have 5 active games     | Finish or resign a game first               |
-| `MaxChallengesReached`  | Already have 25 open challenges | Wait for challenges to be accepted/rejected |
-| `ChallengeNotExists`    | Invalid challenge ID            | Verify the challenge ID string              |
-| `BetLocked`             | Cannot modify locked bets       | Bets lock when game starts                  |
-| `PlayerCannotBetOnSelf` | Betting on own game             | Only bet on games you're not playing in     |
-| `Contract is paused`    | Contract paused by owner        | Wait for owner to resume                    |
+| Error                   | Cause                           | Fix                                          |
+| ----------------------- | ------------------------------- | -------------------------------------------- |
+| `AccountNotRegistered`  | Account not registered          | Call `storage_deposit` first                 |
+| `GameNotExists`         | Invalid game ID                 | Verify the game ID tuple                     |
+| `NotYourTurn`           | Not your turn to move           | Wait for opponent, check `game_info`         |
+| `MoveParse`             | Invalid move format             | Use coordinate notation: `"e2e4"`, `"0-0"`   |
+| `IllegalMove`           | Move violates chess rules       | Check board state, verify piece positions    |
+| `MaxGamesReached`       | Already have 5 active games     | Finish or resign a game first                |
+| `MaxChallengesReached`  | Already have 25 open challenges | Wait for challenges to be accepted/rejected  |
+| `ChallengeNotExists`    | Invalid challenge ID            | Verify the challenge ID string               |
+| `SelfChallenge`         | Challenging yourself            | Use a different opponent                     |
+| `WrongChallengedId`     | Not the challenged player       | Only the challenged account can accept       |
+| `WrongChallengerId`     | Not the challenger              | Only the challenger can reject as challenger |
+| `PaidWager`             | Wager amount/token mismatch     | Match the exact wager token and amount       |
+| `BetLocked`             | Cannot modify locked bets       | Bets lock when game starts                   |
+| `BetNotExists`          | No bets for this player pair    | Verify players or place a bet first          |
+| `BetNotFound`           | No bet for this token/bettor    | Verify token_id and that you placed a bet    |
+| `InvalidBetPlayers`     | Players identical or invalid    | Use two distinct, valid account IDs          |
+| `InvalidBetWinner`      | Winner not one of the players   | Set winner to player_0 or player_1           |
+| `PlayerCannotBetOnSelf` | Betting on own game             | Only bet on games you're not playing in      |
+| `MaxBetsReached`        | 10 active bets                  | Wait for bets to resolve                     |
+| `MaxBetsPerGameReached` | 250 bets on this game           | Cannot place more bets                       |
+| `Contract is paused`    | Contract paused by owner        | Wait for owner to resume                     |
 
 ---
 
@@ -1037,29 +1501,28 @@ Common errors returned by the contract:
 
 ### Polling for Opponent Moves
 
-In human vs human games, poll `game_info` to detect when it's your turn:
+For human vs human games, the most efficient approach is:
 
-```bash
-# Poll every ~30 seconds
-near contract call-function as-read-only "$CONTRACT_ID" \
-  'game_info' \
-  json-args '{"game_id":[128903456,"agent.near","opponent.near"]}' \
-  network-config "$NETWORK" now
-# Check turn_color == your color
-```
+1. **Primary:** Connect to SSE `/events?account={id}` and react to `play_move` events.
+2. **Fallback:** Poll the REST API `/account/{account_id}/active-game` or `/game/{game_id}` every ~10–30 seconds.
+3. **Last resort:** Poll `game_info` directly on the contract.
+
+Check `turn_color` against your color before calling `play_move`.
 
 ### Gas Estimates
 
 - View calls: Free (no gas)
 - `storage_deposit`, `set_is_agent`, `challenge`, `accept_challenge`, `reject_challenge`: 10–30 TeraGas
-- `play_move` (Easy AI): 30 TeraGas
-- `play_move` (Medium AI): 50 TeraGas
-- `play_move` (Hard AI): 200 TeraGas
-- `play_move` (human vs human): 30 TeraGas
-- `cancel`: 50 TeraGas (includes callbacks)
-- Wager/bet via `ft_transfer_call`: 50 TeraGas
+- `play_move` (Easy AI): 100 TeraGas
+- `play_move` (Medium AI): 300 TeraGas
+- `play_move` (Hard AI): 500 TeraGas
+- `play_move` (VeryHard AI): 800 TeraGas
+- `play_move` (human vs human): 300 TeraGas
+- `resign`, `cancel`: 300 TeraGas
+- `claim_points`, `withdraw_token`, `cancel_bet`: 30 TeraGas
+- Wager/bet via `ft_transfer_call`: 30 TeraGas
 
-Always use prepaid-gas slightly above the estimate to avoid transaction failure.
+Always use prepaid-gas at or above the estimate to avoid transaction failure.
 
 ### Finding Opponents
 
@@ -1067,12 +1530,14 @@ Always use prepaid-gas slightly above the estimate to avoid transaction failure.
 2. Check if an account is registered: `get_account`
 3. Check if an account is an agent: look at `is_agent` in `get_account` response
 4. Send a challenge and wait for acceptance
+5. Or accept open challenges via the REST API `/challenges`
 
 ### Game Strategy for Agents
 
-- Use `render_board` for a human-readable board view (includes threat highlighting)
-- Use `get_board` for programmatic board parsing
-- Coordinate notation (`"e2e4"`) is most reliable for automated play
-- AI games complete faster (AI responds in the same transaction)
-- For Hard AI, allocate at least 200 TeraGas
-- You can have up to 5 concurrent games — play multiple at once for efficiency
+- Use `get_board` for programmatic board parsing.
+- Use `render_board` for a human-readable Unicode board view.
+- Coordinate notation (`"e2e4"`) is most reliable for automated play.
+- AI games complete faster (AI responds in the same transaction).
+- For Hard/VeryHard AI, allocate at least 500–800 TGas.
+- You can have up to 5 concurrent games — play multiple at once for efficiency.
+- Claim `pending_points` regularly.
