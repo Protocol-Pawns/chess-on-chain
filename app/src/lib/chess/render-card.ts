@@ -1,5 +1,7 @@
 import { boardFromInput } from './board';
 
+import { fmtDecimals } from '$lib/format';
+
 const CARD_W = 600;
 const SQ = 60;
 const BOARD = SQ * 8;
@@ -102,7 +104,7 @@ export async function renderGameCard(opts: RenderCardOpts): Promise<Blob> {
     if (elo != null) {
       ctx.font =
         '13px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
-      eloText = ' \u00b7 ' + elo;
+      eloText = ' \u00b7 ' + fmtDecimals(elo);
       eloW = ctx.measureText(eloText).width;
     }
     const dotCX = align === 'left' ? x : x - eloW - 14;

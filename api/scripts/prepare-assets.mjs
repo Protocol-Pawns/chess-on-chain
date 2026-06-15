@@ -13,8 +13,14 @@ const srcDir = resolve(__dirname, '../src');
 const generatedDir = resolve(srcDir, 'generated');
 
 function findWasm() {
-  const local = resolve(__dirname, '../node_modules/@resvg/resvg-wasm/index_bg.wasm');
-  const root = resolve(__dirname, '../../node_modules/@resvg/resvg-wasm/index_bg.wasm');
+  const local = resolve(
+    __dirname,
+    '../node_modules/@resvg/resvg-wasm/index_bg.wasm'
+  );
+  const root = resolve(
+    __dirname,
+    '../../node_modules/@resvg/resvg-wasm/index_bg.wasm'
+  );
   for (const candidate of [local, root]) {
     try {
       copyFileSync(candidate, candidate); // cheap existence check

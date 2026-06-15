@@ -1,8 +1,8 @@
 import { initWasm, Resvg } from '@resvg/resvg-wasm';
 
-import wasmModule from './resvg.wasm';
 import { FONT_BASE64 } from './generated/font';
 import { PIECES } from './generated/pieces';
+import wasmModule from './resvg.wasm';
 
 let wasmReady = false;
 let wasmInitPromise: Promise<void> | null = null;

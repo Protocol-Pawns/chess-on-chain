@@ -15,7 +15,7 @@
   import { accountStore } from '$lib/near/account';
   import { colorFromFEN } from '$lib/chess/board';
   import { showToast } from '$lib/toast';
-  import { truncateAddr } from '$lib/format';
+  import { truncateAddr, fmtDecimals } from '$lib/format';
   import { loadGameFromContract, boardToFen, parseGamePath } from '$lib/game';
   import { renderGameCard } from '$lib/chess/render-card';
   import type { GameId, ContractGameData } from '$lib/game';
@@ -782,8 +782,8 @@
     let text: string;
 
     if (game.outcome?.result === 'Stalemate') {
-      const wText = wn + (we != null ? ' (' + we + ')' : '');
-      const bText = bn + (be != null ? ' (' + be + ')' : '');
+      const wText = wn + (we != null ? ' (' + fmtDecimals(we) + ')' : '');
+      const bText = bn + (be != null ? ' (' + fmtDecimals(be) + ')' : '');
       text =
         'Stalemate after ' +
         movesN +
@@ -799,8 +799,10 @@
       const loser = isWhite ? bn : wn;
       const wElo = isWhite ? we : be;
       const lElo = isWhite ? be : we;
-      const wText = winner + (wElo != null ? ' (' + wElo + ')' : '');
-      const lText = loser + (lElo != null ? ' (' + lElo + ')' : '');
+      const wText =
+        winner + (wElo != null ? ' (' + fmtDecimals(wElo) + ')' : '');
+      const lText =
+        loser + (lElo != null ? ' (' + fmtDecimals(lElo) + ')' : '');
       if (game.resigner) {
         text =
           lText +
@@ -1070,7 +1072,7 @@
               </a>
               {#if eloMap[game.white.value] != null}
                 <span class="text-xs text-white/40 tabular-nums"
-                  >({eloMap[game.white.value]})</span
+                  >({fmtDecimals(eloMap[game.white.value])})</span
                 >
               {/if}
             {:else}
@@ -1122,7 +1124,7 @@
               </a>
               {#if eloMap[game.black.value ?? ''] != null}
                 <span class="text-xs text-white/40 tabular-nums"
-                  >({eloMap[game.black.value ?? '']})</span
+                  >({fmtDecimals(eloMap[game.black.value ?? ''])})</span
                 >
               {/if}
             {:else if game.black?.type?.toLowerCase() === 'ai'}
