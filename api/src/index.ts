@@ -39,6 +39,7 @@ import {
   processQuestCooldownNotifications
 } from './notify';
 import { importVapidKey } from './push';
+import { renderGameCard } from './render-card';
 export { SSEHub } from './do-sse';
 import {
   getAccountRoute,
@@ -51,8 +52,10 @@ import {
   getChallengesRoute,
   getGameBetsRoute,
   getGameMovesRoute,
+  getGamePreviewRoute,
   getGameRoute,
   getGamesRoute,
+  queryGamesRoute,
   getGlobalBetsRoute,
   getGlobalStatsRoute,
   getInfoRoute,
@@ -60,7 +63,6 @@ import {
   getLeaderboardPppRoute,
   getOpenChallengesRoute,
   getVapidPublicKeyRoute,
-  queryGamesRoute,
   searchAccountsRoute,
   subscribePushRoute,
   unsubscribePushRoute
@@ -129,6 +131,83 @@ app.openapi(getGameMovesRoute, async c => {
   const moves = await getGameMoves(db, gameIdJson);
   return c.json(moves, 200);
 });
+
+app.openapi(getGamePreviewRoute, async c => {
+  const gameIdJson = decodeURIComponent(c.req.param('game_id'));
+  const db = c.get('DB');
+  const [game, moves] = await Promise.all([
+    getGame(db, gameIdJson),
+    getGameMoves(db, gameIdJson)
+  ]);
+  if (!game) return c.json({ error: 'Not found' } as const, 404);
+
+  const lastMove = moves[moves.length - 1];
+  const lastMoveNotation = lastMove
+    ? parseMoveNotation(lastMove.move_notation, lastMove.color)
+    : undefined;
+
+  const whiteName =
+    game.white.type === 'Human'
+      ? truncateAddr(game.white.value)
+      : `AI (${game.white.value})`;
+  const blackName = game.black
+    ? game.black.type === 'Human'
+      ? truncateAddr(game.black.value)
+      : `AI (${game.black.value})`
+    : 'Unknown';
+
+  const png = await renderGameCard({
+    board: game.board,
+    fen: game.fen ?? undefined,
+    whiteName,
+    blackName,
+    result: resultText(game),
+    lastMove: lastMoveNotation
+  });
+
+  return c.body(new Uint8Array(png), 200, {
+    'Content-Type': 'image/png',
+    'Cache-Control': 'public, max-age=300'
+  });
+});
+
+function parseMoveNotation(
+  notation: string,
+  color?: string
+): { from: string; to: string } | null {
+  if (/^O-O-O$/i.test(notation) || /^0-0-0$/.test(notation)) {
+    const rank = color === 'Black' ? '8' : '1';
+    return { from: `e${rank}`, to: `c${rank}` };
+  }
+  if (/^O-O$/i.test(notation) || /^0-0$/.test(notation)) {
+    const rank = color === 'Black' ? '8' : '1';
+    return { from: `e${rank}`, to: `g${rank}` };
+  }
+  const parts = notation.split(' to ');
+  if (parts.length >= 2) {
+    const from = parts[0].trim();
+    const to = parts[1].trim().split(/\s/)[0];
+    if (/^[a-h][1-8]$/.test(from) && /^[a-h][1-8]$/.test(to)) {
+      return { from, to };
+    }
+  }
+  return null;
+}
+
+function truncateAddr(id: string, max = 20): string {
+  if (id.length <= max) return id;
+  return `${id.slice(0, 8)}...${id.slice(-4)}`;
+}
+
+function resultText(game: Awaited<ReturnType<typeof getGame>>): string {
+  if (!game?.outcome) {
+    if (game?.status === 'cancelled') return 'Game cancelled';
+    return game?.status === 'in_progress' ? 'In progress' : 'Waiting';
+  }
+  if (game.outcome.result === 'Stalemate') return 'Draw — Stalemate';
+  if (game.resigner) return `${game.outcome.color} wins by resignation!`;
+  return `${game.outcome.color} wins by checkmate!`;
+}
 
 app.openapi(queryGamesRoute, async c => {
   const db = c.get('DB');

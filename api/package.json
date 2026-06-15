@@ -3,14 +3,16 @@
   "name": "api",
   "version": "0.0.0",
   "scripts": {
-    "start": "wrangler dev",
-    "deploy": "wrangler deploy",
+    "build": "node scripts/prepare-assets.mjs",
+    "start": "yarn build && wrangler dev",
+    "deploy": "yarn build && wrangler deploy",
     "test": "vitest",
     "clean": "rm -rf ./.wrangler"
   },
   "dependencies": {
     "@hono/zod-openapi": "^0.19.8",
     "@hono/zod-validator": "^0.1.11",
+    "@resvg/resvg-wasm": "^2.6.2",
     "@scalar/hono-api-reference": "^0.9.3",
     "hono": "^4.0.4",
     "postgres": "^3.4.5",

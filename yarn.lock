@@ -1849,6 +1849,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@resvg/resvg-wasm@npm:^2.6.2":
+  version: 2.6.2
+  resolution: "@resvg/resvg-wasm@npm:2.6.2"
+  checksum: 10c0/74eb061c53510dad516e42375d1802a5b70ff531abd3c858921178add5acd136382a2f0afc1bd83fa72ec2c2c9bd40a636000572a152b53a9b04e9c131ba0223
+  languageName: node
+  linkType: hard
+
 "@rolldown/binding-android-arm64@npm:1.0.3":
   version: 1.0.3
   resolution: "@rolldown/binding-android-arm64@npm:1.0.3"
@@ -3762,6 +3769,7 @@ __metadata:
   dependencies:
     "@hono/zod-openapi": "npm:^0.19.8"
     "@hono/zod-validator": "npm:^0.1.11"
+    "@resvg/resvg-wasm": "npm:^2.6.2"
     "@scalar/hono-api-reference": "npm:^0.9.3"
     hono: "npm:^4.0.4"
     postgres: "npm:^3.4.5"
@@ -9000,6 +9008,7 @@ __metadata:
   resolution: "root-workspace-0b6124@workspace:."
   dependencies:
     "@eslint/js": "npm:^9.30.0"
+    "@resvg/resvg-wasm": "npm:^2.6.2"
     "@typescript-eslint/eslint-plugin": "npm:^8.60.1"
     "@typescript-eslint/parser": "npm:^8.60.1"
     eslint: "npm:^10.4.1"

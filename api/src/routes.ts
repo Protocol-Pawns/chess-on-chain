@@ -78,6 +78,24 @@ export const getGameMovesRoute = createRoute({
   }
 });
 
+export const getGamePreviewRoute = createRoute({
+  method: 'get',
+  path: '/game/{game_id}/preview.png',
+  request: {
+    params: z.object({ game_id: z.string() })
+  },
+  responses: {
+    200: {
+      content: { 'image/png': { schema: z.instanceof(Blob) } },
+      description: 'Returns a shareable preview image for a game'
+    },
+    404: {
+      content: { 'application/json': { schema: NotFoundSchema } },
+      description: 'Game not found'
+    }
+  }
+});
+
 export const queryGamesRoute = createRoute({
   method: 'post',
   path: '/query',

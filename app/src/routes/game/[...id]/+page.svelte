@@ -9,6 +9,7 @@
     type Bet,
     type GameOverview
   } from '$lib/api/client';
+  import type { PageData } from './$types';
   import { contract, getTxLogs } from '$lib/near/connector';
   import type { Difficulty } from '$lib/near/contract-types';
   import { accountStore } from '$lib/near/account';
@@ -33,7 +34,14 @@
   import ConfirmModal from '$lib/components/ConfirmModal.svelte';
   import { getCapturedPieces } from '$lib/chess/captured';
 
+  let { data } = $props<{ data: PageData }>();
+
   import dayjs from 'dayjs';
+
+  function gameUrlPath(gameId: GameId): string {
+    const [num, p1, p2] = gameId;
+    return p2 ? `/game/${num}/${p1}/${p2}` : `/game/${num}/${p1}`;
+  }
 
   function parseMoveNotation(
     notation: string,
@@ -62,6 +70,11 @@
   let moves = $state<GameMove[]>([]);
   let loading = $state(true);
   let error = $state<string | null>(null);
+
+  $effect(() => {
+    game = data.game ?? null;
+    loading = !data.game;
+  });
   let waiting = $state(false);
   let submitting = $state(false);
   let indexed = $state(false);
@@ -765,7 +778,7 @@
         : null;
 
     const movesN = Math.ceil(moves.length / 2);
-    const url = window.location.href;
+    const url = shareUrl();
     let text: string;
 
     if (game.outcome?.result === 'Stalemate') {
@@ -938,6 +951,10 @@
     return typeof data.game_id === 'string'
       ? data.game_id
       : JSON.stringify(data.game_id);
+  }
+
+  function shareUrl(): string {
+    return `${window.location.origin}${gameUrlPath(gameId)}`;
   }
 
   let pollInterval: ReturnType<typeof setInterval> | null = null;
