@@ -4,6 +4,7 @@
   import { slide } from 'svelte/transition';
   import WalletButton from '$lib/components/WalletButton.svelte';
   import Toasts from '$lib/components/Toasts.svelte';
+  import ReloginPrompt from '$lib/components/ReloginPrompt.svelte';
   import UpdateBanner from '$lib/components/UpdateBanner.svelte';
   import dayjs from 'dayjs';
   import localizedFormat from 'dayjs/plugin/localizedFormat';
@@ -196,6 +197,7 @@
   </div>
   <UpdateBanner />
   <Toasts />
+  <ReloginPrompt />
 </div>
 
 <style>

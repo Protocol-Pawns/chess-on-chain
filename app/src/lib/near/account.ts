@@ -2,6 +2,7 @@ import { KeyPair, KeyPairEd25519 } from 'near-api-js';
 import { writable, derived } from 'svelte/store';
 
 import { getConnector, contract } from './connector';
+import { setReloginHandler } from './relogin';
 
 import { browser } from '$app/environment';
 
@@ -105,6 +106,8 @@ export async function connect() {
     }
   });
 }
+
+setReloginHandler(connect);
 
 export async function disconnect() {
   const c = getConnector();

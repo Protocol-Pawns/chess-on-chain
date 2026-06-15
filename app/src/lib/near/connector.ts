@@ -1,6 +1,9 @@
 import { NearConnector } from '@hot-labs/near-connect';
 import { JsonRpcProvider, Account, KeyPairSigner, actions } from 'near-api-js';
 
+import { isAccessKeyError } from './errors';
+import { requestRelogin } from './relogin';
+
 import { AI_MOVE_GAS } from '$lib/format';
 import type {
   AccountInfo,
@@ -44,6 +47,20 @@ export function getProvider(): JsonRpcProvider {
 
 export function getContractId(): string {
   return CONTRACT_ID;
+}
+
+async function withAccessKeyRetry<T>(fn: () => Promise<T>): Promise<T> {
+  try {
+    return await fn();
+  } catch (err) {
+    if (!isAccessKeyError(err)) throw err;
+    try {
+      await requestRelogin();
+    } catch {
+      throw err;
+    }
+    return await fn();
+  }
 }
 
 export async function viewFunction<T = unknown>(
@@ -90,7 +107,7 @@ export async function getTxLogs(txHash: string): Promise<string[]> {
   return logs;
 }
 
-async function sendTransaction(
+async function _sendTransaction(
   methodName: string,
   args: Record<string, unknown>,
   deposit: string = '0',
@@ -112,6 +129,17 @@ async function sendTransaction(
       }
     ]
   });
+}
+
+function sendTransaction(
+  methodName: string,
+  args: Record<string, unknown>,
+  deposit: string = '0',
+  gas: bigint = GAS
+) {
+  return withAccessKeyRetry(() =>
+    _sendTransaction(methodName, args, deposit, gas)
+  );
 }
 
 async function tryLocalSign(
@@ -158,7 +186,7 @@ async function getAccountId(): Promise<string | null> {
   }
 }
 
-async function sendTransactions(
+async function _sendTransactions(
   calls: Array<{
     methodName: string;
     args: Record<string, unknown>;
@@ -181,7 +209,17 @@ async function sendTransactions(
   });
 }
 
-async function sendTokenTransaction(
+function sendTransactions(
+  calls: Array<{
+    methodName: string;
+    args: Record<string, unknown>;
+    deposit?: string;
+  }>
+) {
+  return withAccessKeyRetry(() => _sendTransactions(calls));
+}
+
+async function _sendTokenTransaction(
   tokenId: string,
   methodName: string,
   args: Record<string, unknown>,
@@ -211,14 +249,14 @@ export async function getNearNativeBalance(accountId: string): Promise<bigint> {
   return BigInt((result as unknown as { amount: string }).amount);
 }
 
-async function sendTokenTransactionWithAutoWrap(
+async function _sendTokenTransactionWithAutoWrap(
   tokenId: string,
   methodName: string,
   args: Record<string, unknown>,
   deposit: string = '1'
 ) {
   if (tokenId !== WRAP_NEAR_ID) {
-    return sendTokenTransaction(tokenId, methodName, args, deposit);
+    return _sendTokenTransaction(tokenId, methodName, args, deposit);
   }
 
   const GAS_STR = '30000000000000';
@@ -240,7 +278,7 @@ async function sendTokenTransactionWithAutoWrap(
 
   const needed = BigInt(amount);
   if (wNearBalance >= needed) {
-    return sendTokenTransaction(tokenId, methodName, args, deposit);
+    return _sendTokenTransaction(tokenId, methodName, args, deposit);
   }
 
   const shortfall = needed - wNearBalance;
@@ -265,6 +303,17 @@ async function sendTokenTransactionWithAutoWrap(
       }
     ]
   });
+}
+
+function sendTokenTransactionWithAutoWrap(
+  tokenId: string,
+  methodName: string,
+  args: Record<string, unknown>,
+  deposit: string = '1'
+) {
+  return withAccessKeyRetry(() =>
+    _sendTokenTransactionWithAutoWrap(tokenId, methodName, args, deposit)
+  );
 }
 
 export const contract = {
@@ -334,7 +383,7 @@ export const contract = {
   },
 
   claimPoints() {
-    return tryLocalSign('claim_points', {}, '0');
+    return withAccessKeyRetry(() => tryLocalSign('claim_points', {}, '0'));
   },
 
   createAiGame(difficulty: Difficulty) {
