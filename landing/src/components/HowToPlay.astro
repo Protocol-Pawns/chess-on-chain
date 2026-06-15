@@ -1,0 +1,50 @@
+---
+import site from "@/content/site.json";
+
+const { howToPlay } = site;
+---
+
+<section id="how-to-play" class="relative py-24 sm:py-32 overflow-hidden">
+  <div class="absolute inset-0 bg-bg" aria-hidden="true"></div>
+
+  <div class="relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+    <div class="mx-auto max-w-3xl text-center">
+      <p class="text-sm font-semibold uppercase tracking-wider text-primary">{howToPlay.title}</p>
+      <h2 class="mt-2 text-3xl font-bold tracking-tight text-white sm:text-5xl">
+        {howToPlay.subtitle}
+      </h2>
+    </div>
+
+    <div class="mt-16 grid gap-8 lg:grid-cols-2 lg:items-center">
+      <!-- Image -->
+      <div class="relative order-2 lg:order-1">
+        <div class="absolute -inset-4 rounded-full bg-primary/5 blur-3xl" aria-hidden="true"></div>
+        <img
+          src="/images/chessboard.webp"
+          alt="Protocol Pawns chess board"
+          class="relative rounded-2xl border border-white/10 shadow-2xl shadow-black/50 w-full"
+          loading="lazy"
+          width="600"
+          height="400"
+        />
+      </div>
+
+      <!-- Steps -->
+      <div class="order-1 lg:order-2 space-y-8">
+        {howToPlay.steps.map((step) => (
+          <div class="flex gap-4 sm:gap-6">
+            <div class="flex-shrink-0">
+              <div class="flex h-12 w-12 items-center justify-center rounded-xl border border-primary/20 bg-primary/10 text-lg font-bold text-primary sm:h-14 sm:w-14 sm:text-xl">
+                {step.number}
+              </div>
+            </div>
+            <div>
+              <h3 class="text-lg font-semibold text-white sm:text-xl">{step.title}</h3>
+              <p class="mt-2 text-base leading-relaxed text-white/60">{step.description}</p>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  </div>
+</section>

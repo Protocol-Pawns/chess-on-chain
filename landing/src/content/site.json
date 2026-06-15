@@ -1,0 +1,160 @@
+{
+  "site": {
+    "name": "Protocol Pawns",
+    "tagline": "Fully Decentralized On-Chain Chess",
+    "description": "Protocol Pawns is the first fully decentralized on-chain chess game built on NEAR Protocol. Play against AI or challenge other wallets. Every move is recorded on-chain.",
+    "url": "https://protocol-pawns.com",
+    "appUrl": "https://app.protocol-pawns.com",
+    "twitter": "https://twitter.com/ProtocolPawns",
+    "telegram": "https://t.me/protocolpawns",
+    "github": "https://github.com/Protocol-Pawns"
+  },
+  "nav": [
+    { "label": "Features", "href": "#features" },
+    { "label": "How to Play", "href": "#how-to-play" },
+    { "label": "Roadmap", "href": "#roadmap" },
+    { "label": "FAQ", "href": "#faq" }
+  ],
+  "hero": {
+    "title": "Play Chess Fully On-Chain",
+    "subtitle": "The first decentralized chess game on NEAR Protocol. Challenge other wallets, battle AI opponents, earn points, and climb the on-chain leaderboard.",
+    "ctaPrimary": "Play Now",
+    "ctaSecondary": "Learn More"
+  },
+  "features": {
+    "title": "Why Protocol Pawns?",
+    "subtitle": "Chess, but fully transparent and verifiable.",
+    "items": [
+      {
+        "title": "Fully On-Chain",
+        "description": "Every move is a signed on-chain transaction validated by the NEAR smart contract. No centralized servers, no hidden state.",
+        "icon": "chain"
+      },
+      {
+        "title": "Play vs AI",
+        "description": "Practice against AI with four difficulty levels — Easy, Medium, Hard and Very Hard — all powered by the smart contract.",
+        "icon": "bot"
+      },
+      {
+        "title": "Challenge Players",
+        "description": "Challenge any NEAR wallet to a match. Set wagers, accept or reject challenges, and settle everything on-chain.",
+        "icon": "users"
+      },
+      {
+        "title": "Quests & Achievements",
+        "description": "Earn PPP (Protocol Pawns Points) through daily quests and one-time achievements. Only victories count.",
+        "icon": "trophy"
+      },
+      {
+        "title": "ELO Leaderboard",
+        "description": "Your ELO rating is stored directly on the smart contract. Win against stronger opponents to climb faster.",
+        "icon": "chart"
+      },
+      {
+        "title": "AI Agent Skill",
+        "description": "A machine-readable skill lets AI agents and bots autonomously play chess, place bets, and compete on-chain.",
+        "icon": "sparkles"
+      }
+    ]
+  },
+  "howToPlay": {
+    "title": "How to Play",
+    "subtitle": "Start playing in minutes.",
+    "steps": [
+      {
+        "number": "01",
+        "title": "Connect & Register",
+        "description": "Connect your NEAR wallet and register with a one-time storage deposit of 0.05 N."
+      },
+      {
+        "number": "02",
+        "title": "Start a Game",
+        "description": "Challenge another player by entering their wallet address, or start a game against the AI with four difficulty levels."
+      },
+      {
+        "number": "03",
+        "title": "Make Your Moves",
+        "description": "Click or drag pieces on the board. The contract validates all legal moves so nobody can cheat."
+      },
+      {
+        "number": "04",
+        "title": "Win & Earn",
+        "description": "Earn PPP points for playing and winning. Complete daily quests and unlock on-chain achievements."
+      }
+    ]
+  },
+  "roadmap": {
+    "title": "Roadmap",
+    "subtitle": "What's next for Protocol Pawns.",
+    "items": [
+      {
+        "status": "live",
+        "title": "On-Chain Chess Engine",
+        "description": "A fully functional chess engine running inside the NEAR smart contract, validating moves, checkmate and stalemate."
+      },
+      {
+        "status": "live",
+        "title": "AI Opponent",
+        "description": "Play against the on-chain AI with four difficulty levels. Each AI move is computed and recorded on-chain."
+      },
+      {
+        "status": "live",
+        "title": "Wagers, Challenges & Betting",
+        "description": "Challenge players, settle wagers and place bets directly through the smart contract."
+      },
+      {
+        "status": "wip",
+        "title": "Mobile Experience",
+        "description": "Progressive Web App with push notifications and a true app-like experience on mobile."
+      },
+      {
+        "status": "upcoming",
+        "title": "Fungible Token",
+        "description": "A play-to-earn token that captures protocol revenue from wager matches and other in-game activity."
+      },
+      {
+        "status": "upcoming",
+        "title": "AI Agent Arena",
+        "description": "Expanded tooling for bots and AI agents to compete autonomously on the leaderboard."
+      }
+    ]
+  },
+  "faq": {
+    "title": "FAQ",
+    "subtitle": "Frequently asked questions.",
+    "items": [
+      {
+        "question": "What is Protocol Pawns?",
+        "answer": "Protocol Pawns is the first fully decentralized on-chain chess game built on NEAR Protocol. Every move is recorded on-chain, every game is verifiable, and there are no centralized servers controlling your games."
+      },
+      {
+        "question": "How do I start playing?",
+        "answer": "Connect your NEAR wallet at app.protocol-pawns.com, register with a one-time 0.05 N storage deposit, and start a game against the AI or challenge another player."
+      },
+      {
+        "question": "How can I earn points?",
+        "answer": "You earn PPP (Protocol Pawns Points) by playing and winning games. Points are awarded through repeatable daily quests and one-time achievements. Only victories count."
+      },
+      {
+        "question": "Does it cost gas to play?",
+        "answer": "Human-vs-human moves are free for the responding player. AI moves consume a small amount of gas depending on the difficulty level. Registration requires a one-time 0.05 N storage deposit."
+      },
+      {
+        "question": "Where is the smart contract?",
+        "answer": "The chess engine runs entirely inside the NEAR smart contract at <a href=\"https://near.rocks/account/app.chess-game.near\" target=\"_blank\" rel=\"noopener\" class=\"text-primary hover:underline\">app.chess-game.near</a>. It validates legal moves, detects checkmate and stalemate, and emits NEP-297 events for every game action."
+      },
+      {
+        "question": "How can I contact support?",
+        "answer": "Reach out on Telegram or Twitter/X. Links are in the footer."
+      }
+    ]
+  },
+  "cta": {
+    "title": "Begin a Match",
+    "subtitle": "Start your journey to become the best on-chain chess player.",
+    "button": "Start Playing"
+  },
+  "footer": {
+    "copyright": "Protocol Pawns"
+  }
+}

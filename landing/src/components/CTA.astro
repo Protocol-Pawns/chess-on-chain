@@ -1,0 +1,40 @@
+---
+import site from "@/content/site.json";
+import Icons from "@/components/Icons.astro";
+
+const { site: siteData, cta } = site;
+---
+
+<section class="relative py-24 sm:py-32 overflow-hidden">
+  <div class="absolute inset-0 bg-gradient-to-b from-bg to-surface" aria-hidden="true"></div>
+
+  <!-- Background image -->
+  <div class="absolute inset-0 opacity-10" aria-hidden="true">
+    <img
+      src="/images/knight-bg.webp"
+      alt=""
+      class="h-full w-full object-cover"
+      loading="lazy"
+    />
+  </div>
+
+  <div class="absolute inset-0 bg-gradient-to-t from-bg via-bg/80 to-bg/60" aria-hidden="true"></div>
+
+  <div class="relative mx-auto max-w-4xl px-4 sm:px-6 lg:px-8 text-center">
+    <h2 class="text-3xl font-bold tracking-tight text-white sm:text-5xl">
+      {cta.title}
+    </h2>
+    <p class="mx-auto mt-4 max-w-xl text-lg text-white/60">
+      {cta.subtitle}
+    </p>
+    <a
+      href={siteData.appUrl}
+      target="_blank"
+      rel="noopener"
+      class="mt-8 inline-flex items-center gap-2 rounded-xl bg-primary px-8 py-4 text-base font-semibold text-bg shadow-lg shadow-primary/20 hover:bg-primary-light transition-all hover:scale-105"
+    >
+      {cta.button}
+      <Icons name="arrow-right" class="w-5 h-5" />
+    </a>
+  </div>
+</section>

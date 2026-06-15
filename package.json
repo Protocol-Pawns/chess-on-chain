@@ -3,7 +3,8 @@
   "workspaces": [
     "api",
     "app",
-    "indexer/processor"
+    "indexer/processor",
+    "landing"
   ],
   "engines": {
     "node": ">= 18"
@@ -14,6 +15,7 @@
     "api": "yarn workspace api",
     "app": "yarn workspace app",
     "processor": "yarn workspace processor",
+    "landing": "yarn workspace landing",
     "gen-abi": "jq '{\"$schema\": .body.root_schema[\"$schema\"], title: \"ContractTypes\", type: \"object\", definitions: .body.root_schema.definitions}' res/chess_abi.json | npx json-schema-to-typescript --unreachableDefinitions -o app/src/lib/near/contract-types.d.ts",
     "lint": "eslint --max-warnings=0 && prettier --check .",
     "format": "prettier --write . && eslint --fix"

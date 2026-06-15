@@ -21,7 +21,10 @@ export default tseslint.config(
       'app-old',
       'res',
       'app/static/sw.js',
-      'api/.wrangler'
+      'api/.wrangler',
+      'landing/dist',
+      'landing/.astro',
+      'landing/.wrangler'
     ]
   },
   js.configs.recommended,

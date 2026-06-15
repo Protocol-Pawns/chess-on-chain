@@ -1,0 +1,66 @@
+---
+import site from "@/content/site.json";
+import Icons from "@/components/Icons.astro";
+
+const { site: siteData, nav, footer } = site;
+
+const socialLinks = [
+  { name: "Twitter", href: siteData.twitter, icon: "twitter" },
+  { name: "Telegram", href: siteData.telegram, icon: "telegram" },
+  { name: "GitHub", href: siteData.github, icon: "github" },
+  { name: "NEAR", href: "https://near.org", icon: "near" }
+];
+---
+
+<footer class="border-t border-white/5 bg-surface py-12">
+  <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+    <div class="flex flex-col items-center gap-8 md:flex-row md:justify-between">
+      <!-- Logo -->
+      <a href="/" class="flex items-center gap-2 text-white hover:text-primary transition-colors">
+        <img src="/favicon.ico" alt="" class="h-8 w-8" />
+        <span class="text-lg font-bold">{siteData.name}</span>
+      </a>
+
+      <!-- Nav -->
+      <nav class="flex flex-wrap justify-center gap-6" aria-label="Footer">
+        {nav.map((item) => (
+          <a
+            href={item.href}
+            class="text-sm text-white/60 hover:text-primary transition-colors"
+          >
+            {item.label}
+          </a>
+        ))}
+        <a
+          href={siteData.appUrl}
+          target="_blank"
+          rel="noopener"
+          class="text-sm text-white/60 hover:text-primary transition-colors"
+        >
+          Play
+        </a>
+      </nav>
+
+      <!-- Socials -->
+      <div class="flex items-center gap-4">
+        {socialLinks.map((link) => (
+          <a
+            href={link.href}
+            target="_blank"
+            rel="noopener"
+            class="text-white/40 hover:text-primary transition-colors"
+            aria-label={link.name}
+          >
+            <Icons name={link.icon} class="w-5 h-5" />
+          </a>
+        ))}
+      </div>
+    </div>
+
+    <div class="mt-8 border-t border-white/5 pt-8 text-center">
+      <p class="text-sm text-white/40">
+        © {new Date().getFullYear()} {footer.copyright}. Built on NEAR Protocol.
+      </p>
+    </div>
+  </div>
+</footer>

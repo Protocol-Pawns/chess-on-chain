@@ -1,0 +1,56 @@
+---
+import "@/styles/global.css";
+import site from "@/content/site.json";
+
+interface Props {
+  title?: string;
+  description?: string;
+  ogImage?: string;
+}
+
+const { site: siteData } = site;
+const {
+  title = `${siteData.name} — ${siteData.tagline}`,
+  description = siteData.description,
+  ogImage = "/og.png"
+} = Astro.props;
+---
+
+<!doctype html>
+<html lang="en" class="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#222222" />
+    <meta name="application-name" content={siteData.name} />
+    <meta name="apple-mobile-web-app-title" content={siteData.name} />
+    <meta name="description" content={description} />
+    <meta name="keywords" content="chess, near protocol, blockchain, on-chain, protocol pawns, web3 game, decentralized" />
+
+    <!-- Open Graph -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content={siteData.name} />
+    <meta property="og:url" content={siteData.url} />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:image" content={ogImage} />
+
+    <!-- Twitter -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:creator" content="@ProtocolPawns" />
+    <meta name="twitter:title" content={title} />
+    <meta name="twitter:description" content={description} />
+    <meta name="twitter:image" content={ogImage} />
+
+    <link rel="icon" type="image/x-icon" href="/favicon.ico" />
+    <link rel="apple-touch-icon" href="/icons/icon-192.png" />
+    <link rel="manifest" href="/manifest.json" />
+
+    <script is:inline defer data-domain="protocol-pawns.com" src="https://plausible.io/js/script.js"></script>
+
+    <title>{title}</title>
+  </head>
+  <body class="min-h-screen bg-bg text-white antialiased">
+    <slot />
+  </body>
+</html>

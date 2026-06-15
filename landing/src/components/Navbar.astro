@@ -1,0 +1,96 @@
+---
+import site from "@/content/site.json";
+import Icons from "@/components/Icons.astro";
+
+const { site: siteData, nav } = site;
+---
+
+<header class="fixed top-0 left-0 right-0 z-50 bg-bg/80 backdrop-blur-md border-b border-white/5">
+  <nav class="mx-auto flex max-w-7xl items-center justify-between px-4 py-3 sm:px-6 lg:px-8" aria-label="Main navigation">
+    <a href="/" class="flex items-center gap-2 text-white hover:text-primary transition-colors">
+      <img src="/favicon.ico" alt="" class="h-8 w-8" />
+      <span class="text-lg font-bold">{siteData.name}</span>
+    </a>
+
+    <!-- Desktop nav -->
+    <div class="hidden md:flex items-center gap-8">
+      {nav.map((item) => (
+        <a
+          href={item.href}
+          class="text-sm font-medium text-white/70 hover:text-primary transition-colors"
+        >
+          {item.label}
+        </a>
+      ))}
+      <a
+        href={siteData.appUrl}
+        target="_blank"
+        rel="noopener"
+        class="inline-flex items-center gap-1.5 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-bg hover:bg-primary-light transition-colors"
+      >
+        Play Now
+        <Icons name="arrow-right" class="w-4 h-4" />
+      </a>
+    </div>
+
+    <!-- Mobile menu button -->
+    <button
+      type="button"
+      id="mobile-menu-button"
+      class="md:hidden inline-flex items-center justify-center rounded-lg p-2 text-white/70 hover:bg-white/5 hover:text-white"
+      aria-expanded="false"
+      aria-controls="mobile-menu"
+    >
+      <span class="sr-only">Open main menu</span>
+      <Icons name="menu" class="w-6 h-6 menu-open" />
+      <Icons name="close" class="w-6 h-6 menu-close hidden" />
+    </button>
+  </nav>
+
+  <!-- Mobile menu -->
+  <div id="mobile-menu" class="md:hidden hidden border-t border-white/5 bg-bg">
+    <div class="space-y-1 px-4 py-4">
+      {nav.map((item) => (
+        <a
+          href={item.href}
+          class="block rounded-lg px-3 py-3 text-base font-medium text-white/80 hover:bg-white/5 hover:text-primary"
+        >
+          {item.label}
+        </a>
+      ))}
+      <a
+        href={siteData.appUrl}
+        target="_blank"
+        rel="noopener"
+        class="mt-4 block rounded-lg bg-primary px-3 py-3 text-center text-base font-semibold text-bg hover:bg-primary-light"
+      >
+        Play Now
+      </a>
+    </div>
+  </div>
+</header>
+
+<script>
+  const button = document.getElementById("mobile-menu-button");
+  const menu = document.getElementById("mobile-menu");
+  const openIcon = button?.querySelector(".menu-open");
+  const closeIcon = button?.querySelector(".menu-close");
+
+  if (button && menu && openIcon && closeIcon) {
+    button.addEventListener("click", () => {
+      const isOpen = menu.classList.toggle("hidden");
+      button.setAttribute("aria-expanded", String(!isOpen));
+      openIcon.classList.toggle("hidden", !isOpen);
+      closeIcon.classList.toggle("hidden", isOpen);
+    });
+
+    menu.querySelectorAll("a").forEach((link) => {
+      link.addEventListener("click", () => {
+        menu.classList.add("hidden");
+        button.setAttribute("aria-expanded", "false");
+        openIcon.classList.remove("hidden");
+        closeIcon.classList.add("hidden");
+      });
+    });
+  }
+</script>

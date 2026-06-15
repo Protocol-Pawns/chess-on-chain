@@ -1,0 +1,31 @@
+---
+import site from "@/content/site.json";
+import Icons from "@/components/Icons.astro";
+
+const { features } = site;
+---
+
+<section id="features" class="relative py-24 sm:py-32">
+  <div class="absolute inset-0 bg-gradient-to-b from-surface via-bg to-bg" aria-hidden="true"></div>
+
+  <div class="relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+    <div class="mx-auto max-w-3xl text-center">
+      <p class="text-sm font-semibold uppercase tracking-wider text-primary">{features.title}</p>
+      <h2 class="mt-2 text-3xl font-bold tracking-tight text-white sm:text-5xl">
+        {features.subtitle}
+      </h2>
+    </div>
+
+    <div class="mt-16 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+      {features.items.map((feature) => (
+        <div class="group relative rounded-2xl border border-white/5 bg-white/[0.02] p-6 transition-all hover:border-primary/20 hover:bg-white/[0.04]">
+          <div class="mb-4 inline-flex rounded-xl bg-primary/10 p-3 text-primary group-hover:bg-primary/20">
+            <Icons name={feature.icon} class="w-6 h-6" />
+          </div>
+          <h3 class="text-lg font-semibold text-white">{feature.title}</h3>
+          <p class="mt-2 text-base leading-relaxed text-white/60">{feature.description}</p>
+        </div>
+      ))}
+    </div>
+  </div>
+</section>

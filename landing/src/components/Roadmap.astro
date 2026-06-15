@@ -1,0 +1,40 @@
+---
+import site from "@/content/site.json";
+
+const { roadmap } = site;
+---
+
+<section id="roadmap" class="relative py-24 sm:py-32">
+  <div class="absolute inset-0 bg-gradient-to-b from-bg via-surface to-bg" aria-hidden="true"></div>
+
+  <div class="relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+    <div class="mx-auto max-w-3xl text-center">
+      <p class="text-sm font-semibold uppercase tracking-wider text-primary">{roadmap.title}</p>
+      <h2 class="mt-2 text-3xl font-bold tracking-tight text-white sm:text-5xl">
+        {roadmap.subtitle}
+      </h2>
+    </div>
+
+    <div class="mt-16 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+      {roadmap.items.map((item) => (
+        <div class="relative rounded-2xl border border-white/5 bg-white/[0.02] p-6 transition-all hover:border-primary/20 hover:bg-white/[0.04]">
+          <div class="flex items-center justify-between">
+            <span
+              class={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium uppercase tracking-wide ${
+                item.status === "live"
+                  ? "bg-primary/10 text-primary"
+                  : item.status === "wip"
+                    ? "bg-primary-dark/10 text-primary-dark border border-primary-dark/20"
+                    : "bg-white/5 text-white/50"
+              }`}
+            >
+              {item.status === "wip" ? "Work in Progress" : item.status}
+            </span>
+          </div>
+          <h3 class="mt-4 text-lg font-semibold text-white">{item.title}</h3>
+          <p class="mt-2 text-base leading-relaxed text-white/60">{item.description}</p>
+        </div>
+      ))}
+    </div>
+  </div>
+</section>

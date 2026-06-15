@@ -3,3 +3,6 @@ target
 dist
 app-old
 res
+landing/dist
+landing/.astro
+landing/.wrangler
