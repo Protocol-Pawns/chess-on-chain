@@ -39,6 +39,7 @@ mkdirSync(generatedDir, { recursive: true });
 const wasmSource = findWasm();
 const wasmDest = resolve(srcDir, 'resvg.wasm');
 copyFileSync(wasmSource, wasmDest);
+// eslint-disable-next-line no-undef
 console.log('Copied resvg.wasm to', wasmDest);
 
 // Bundle chess piece PNGs as base64 strings.
@@ -54,6 +55,7 @@ writeFileSync(
   resolve(generatedDir, 'pieces.ts'),
   `export const PIECES: Record<string, string> = ${JSON.stringify(pieces, null, 2)};\n`
 );
+// eslint-disable-next-line no-undef
 console.log('Generated generated/pieces.ts with', pieceFiles.length, 'pieces');
 
 // Bundle a font for SVG text rendering.
@@ -63,4 +65,5 @@ writeFileSync(
   resolve(generatedDir, 'font.ts'),
   `export const FONT_BASE64 = ${JSON.stringify(fontB64)};\n`
 );
+// eslint-disable-next-line no-undef
 console.log('Generated generated/font.ts');

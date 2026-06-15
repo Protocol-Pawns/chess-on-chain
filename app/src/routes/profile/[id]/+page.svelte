@@ -8,7 +8,7 @@
     type BetStats,
     type Challenge
   } from '$lib/api/client';
-  import { fmtOneDecimal, truncateAddr } from '$lib/format';
+  import { fmtDecimals, fmtOneDecimal, truncateAddr } from '$lib/format';
   import { contract } from '$lib/near/connector';
   import { accountStore } from '$lib/near/account';
   import { loadGameFromContract, MAX_OPEN_GAMES, gameUrl } from '$lib/game';
@@ -448,7 +448,9 @@
           : 'grid-cols-1'} gap-3 mb-3"
       >
         <div class="text-center bg-primary-transparent2 rounded p-2">
-          <div class="text-xl font-bold text-primary-warn">{elo ?? 1000}</div>
+          <div class="text-xl font-bold text-primary-warn">
+            {fmtDecimals(elo ?? 1000)}
+          </div>
           <div class="text-xs text-white/50">ELO</div>
         </div>
         {#if points !== null}

@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
+  import { fmtDecimals } from '$lib/format';
   import { api, type AccountSearchResult } from '$lib/api/client';
 
   let {
@@ -166,7 +167,7 @@
               {/each}
             </span>
             <span class="text-xs text-white/40 tabular-nums whitespace-nowrap">
-              {result.elo != null ? `${result.elo} ELO` : '—'}
+              {result.elo != null ? `${fmtDecimals(result.elo)} ELO` : '—'}
             </span>
             <span class="text-xs text-white/30 tabular-nums whitespace-nowrap">
               {result.wins}W {result.losses}L {result.draws}D

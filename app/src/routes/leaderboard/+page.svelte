@@ -1,6 +1,11 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { fmtOneDecimal, fmtPPP, truncateAddr } from '$lib/format';
+  import {
+    fmtDecimals,
+    fmtOneDecimal,
+    fmtPPP,
+    truncateAddr
+  } from '$lib/format';
   import {
     api,
     type RankingPage,
@@ -180,7 +185,7 @@
                   >
                 </td>
                 <td class="py-1.5 text-right text-primary-warn font-semibold"
-                  >{entry.elo ?? '-'}</td
+                  >{entry.elo != null ? fmtDecimals(entry.elo) : '-'}</td
                 >
                 <td class="py-1.5 text-right text-primary font-semibold"
                   >{fmtPPP(entry.ppp)}</td

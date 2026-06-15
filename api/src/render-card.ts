@@ -140,7 +140,6 @@ export async function renderGameCard(
   const blackTextEnd = blackDotCX - DOT_R - DOT_GAP;
   const blackEloText = opts.blackElo != null ? ` · ${opts.blackElo}` : '';
   const blackNameWidth = measureText(opts.blackName, 17, 600);
-  const blackEloWidth = blackEloText ? measureText(blackEloText, 13, 400) : 0;
   const blackNameStart = blackTextEnd - blackNameWidth;
   svg += `<circle cx="${blackDotCX}" cy="${nameY}" r="${DOT_R}" fill="#1a1a1a" stroke="#666" stroke-width="1"/>`;
   if (blackEloText) {
