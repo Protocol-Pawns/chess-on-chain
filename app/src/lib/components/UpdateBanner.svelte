@@ -8,6 +8,7 @@
     const version = get(swVersion);
     if (version) {
       localStorage.setItem('sw_acknowledged_version', version);
+      sessionStorage.setItem('sw_banner_shown_' + version, '1');
     }
     location.reload();
   }
@@ -17,11 +18,19 @@
     const version = get(swVersion);
     if (version) {
       localStorage.setItem('sw_acknowledged_version', version);
+      sessionStorage.setItem('sw_banner_shown_' + version, '1');
     }
   }
 
   $effect(() => {
     if ($swUpdateAvailable && $swVersion) {
+      const sessionShown = sessionStorage.getItem(
+        'sw_banner_shown_' + $swVersion
+      );
+      if (sessionShown) {
+        dismissed = true;
+        return;
+      }
       const acknowledged = localStorage.getItem('sw_acknowledged_version');
       if ($swVersion === acknowledged) {
         dismissed = true;

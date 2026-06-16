@@ -36,6 +36,7 @@ export function registerServiceWorker() {
             newWorker!.state === 'activated' &&
             navigator.serviceWorker.controller
           ) {
+            console.log('[PWA] update banner triggered by updatefound');
             swUpdateAvailable.set(true);
           }
         });
@@ -52,7 +53,8 @@ export function registerServiceWorker() {
       if (version) {
         swVersion.set(version);
         const acknowledged = localStorage.getItem('sw_acknowledged_version');
-        if (version !== acknowledged) {
+        if (hadController && version !== acknowledged) {
+          console.log('[PWA] update banner triggered by SW_UPDATE_READY');
           swUpdateAvailable.set(true);
         }
       } else if (hadController) {

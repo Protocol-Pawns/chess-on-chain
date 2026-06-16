@@ -48,30 +48,33 @@ self.addEventListener('install', function (event) {
 });
 
 self.addEventListener('activate', function (event) {
-  var isUpdate = !!self.registration.active;
-
   event.waitUntil(
     caches
       .keys()
       .then(function (keys) {
+        var previousCaches = keys.filter(function (key) {
+          return (
+            key.startsWith('pp-') &&
+            key !== STATIC_CACHE &&
+            key !== DYNAMIC_CACHE
+          );
+        });
+        var isUpdate = previousCaches.length > 0;
+
         return Promise.all(
-          keys
-            .filter(function (key) {
-              return (
-                key.startsWith('pp-') &&
-                key !== STATIC_CACHE &&
-                key !== DYNAMIC_CACHE
-              );
-            })
-            .map(function (key) {
-              return caches.delete(key);
-            })
-        );
+          previousCaches.map(function (key) {
+            return caches.delete(key);
+          })
+        ).then(function () {
+          return isUpdate;
+        });
       })
-      .then(function () {
-        return self.clients.claim();
+      .then(function (isUpdate) {
+        return self.clients.claim().then(function () {
+          return isUpdate;
+        });
       })
-      .then(function () {
+      .then(function (isUpdate) {
         if (!isUpdate) return;
         return self.clients.matchAll({ type: 'window' });
       })
