@@ -10,6 +10,7 @@
     "prepare": "svelte-kit sync || echo ''",
     "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
     "check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
+    "test": "vitest --passWithNoTests",
     "deploy": "vite build && wrangler pages deploy .svelte-kit/cloudflare"
   },
   "dependencies": {
@@ -32,6 +33,7 @@
     "typescript": "^6.0.2",
     "unocss-preset-chinese": "^0.3.3",
     "vite": "^8.0.7",
+    "vitest": "^3.2.6",
     "wrangler": "^4.97.0"
   }
 }

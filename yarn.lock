@@ -3801,6 +3801,7 @@ __metadata:
     unocss: "npm:^66.7.0"
     unocss-preset-chinese: "npm:^0.3.3"
     vite: "npm:^8.0.7"
+    vitest: "npm:^3.2.6"
     wrangler: "npm:^4.97.0"
   languageName: unknown
   linkType: soft
@@ -6746,6 +6747,7 @@ __metadata:
     tailwindcss: "npm:^4.0.0"
     typescript: "npm:^6.0.3"
     vite: "npm:^6.0.0"
+    vitest: "npm:^3.2.6"
     wrangler: "npm:^4.97.0"
   languageName: unknown
   linkType: soft

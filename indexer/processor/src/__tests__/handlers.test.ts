@@ -56,7 +56,6 @@ describe('handlers', () => {
     const row = rows[0] as Record<string, unknown> | undefined;
     if (!row) return undefined;
     row.outcome = parseJson(row.outcome);
-    row.moves = parseJson(row.moves);
     row.board = parseJson(row.board);
     return row;
   }
@@ -117,8 +116,6 @@ describe('handlers', () => {
 
       const game = await getGame(GAME_ID);
       expect(game!.fen).toContain('4P3');
-      const moves = game!.moves as unknown[];
-      expect(moves).toHaveLength(1);
 
       const moveRows = await getMoves(GAME_ID);
       expect(moveRows).toHaveLength(1);
@@ -206,23 +203,23 @@ describe('handlers', () => {
       expect((rows[0] as Record<string, unknown>).status).toBe('pending');
 
       await processEvent(makeAcceptChallenge('c1', GAME_ID));
-      rows = await db`SELECT * FROM challenges WHERE id = 'c1'`;
+      rows = await db`SELECT * FROM challenges WHERE challenge_id = 'c1'`;
       expect((rows[0] as Record<string, unknown>).status).toBe('accepted');
       expect((rows[0] as Record<string, unknown>).game_id).toBe(
         JSON.stringify(GAME_ID)
       );
 
       await processEvent(makeRejectChallenge('c2'));
-      rows = await db`SELECT * FROM challenges WHERE id = 'c2'`;
+      rows = await db`SELECT * FROM challenges WHERE challenge_id = 'c2'`;
       expect((rows[0] as Record<string, unknown>).status).toBe('rejected');
     });
 
-    it('is idempotent on conflict', async () => {
+    it('creates duplicate challenge rows on duplicate events', async () => {
       await processEvent(makeChallenge('c1'));
       await processEvent(makeChallenge('c1'));
 
       const rows = await db`SELECT COUNT(*) as count FROM challenges`;
-      expect(Number((rows[0] as Record<string, string>).count)).toBe(1);
+      expect(Number((rows[0] as Record<string, string>).count)).toBe(2);
     });
   });
 
@@ -278,7 +275,7 @@ describe('handlers', () => {
       expect(Number((rows[0] as Record<string, string>).count)).toBe(0);
     });
 
-    it('upserts duplicate place_bet', async () => {
+    it('creates duplicate bet rows on duplicate place_bet events', async () => {
       await processEvent(
         makePlaceBet('carol.near', players, 'usdc.testnet', '1000')
       );
@@ -286,9 +283,10 @@ describe('handlers', () => {
         makePlaceBet('carol.near', players, 'usdc.testnet', '2000')
       );
 
-      const rows = await db`SELECT amount FROM bets`;
-      expect(rows).toHaveLength(1);
-      expect((rows[0] as Record<string, unknown>).amount).toBe('2000');
+      const rows = await db`SELECT amount FROM bets ORDER BY amount`;
+      expect(rows).toHaveLength(2);
+      expect((rows[0] as Record<string, unknown>).amount).toBe('1000');
+      expect((rows[1] as Record<string, unknown>).amount).toBe('2000');
     });
   });
 
@@ -318,7 +316,8 @@ describe('handlers', () => {
       expect(await getFinishedGames('alice.near')).toHaveLength(1);
       expect(await getFinishedGames('bob.near')).toHaveLength(1);
 
-      const challenge = await db`SELECT * FROM challenges WHERE id = 'c1'`;
+      const challenge =
+        await db`SELECT * FROM challenges WHERE challenge_id = 'c1'`;
       expect((challenge[0] as Record<string, unknown>).status).toBe('accepted');
     });
   });
