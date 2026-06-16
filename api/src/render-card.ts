@@ -212,6 +212,156 @@ export async function renderGameCard(
   return rendered.asPng();
 }
 
+export interface ProfileCardOpts {
+  accountId: string;
+  elo: number | null;
+  points: string | null;
+  wins: number;
+  losses: number;
+  draws: number;
+  totalGames: number;
+  winRate: number;
+  extras?: {
+    winStreak: number;
+    maxWinStreak: number;
+    betsPlaced: number;
+    betsWon: number;
+    wagersPlayed: number;
+    wagerWins: number;
+    challengesSent: number;
+  };
+}
+
+export async function renderProfileCard(
+  opts: ProfileCardOpts
+): Promise<Uint8Array> {
+  await ensureWasm();
+
+  const W = 1200;
+  const H = 630;
+
+  const BG = '#1a1a2e';
+  const PRIMARY = '#aed581';
+  const WARN = '#eea14a';
+  const GREEN = '#2aa876';
+  const ERR = '#f36262';
+  const CARD_FILL = 'rgba(255,255,255,0.03)';
+  const CARD_STROKE = 'rgba(255,255,255,0.1)';
+  const BOX_FILL = 'rgba(174,213,129,0.1)';
+  const EXTRA_FILL = 'rgba(255,255,255,0.05)';
+
+  let svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">`;
+  svg += `<rect width="${W}" height="${H}" fill="${BG}"/>`;
+  svg += `<rect x="80" y="45" width="1040" height="540" rx="28" fill="${CARD_FILL}" stroke="${CARD_STROKE}" stroke-width="2"/>`;
+
+  // Name
+  svg += `<text x="${W / 2}" y="120" text-anchor="middle" dominant-baseline="middle" font-size="44" font-weight="bold" fill="${PRIMARY}">${escapeXml(opts.accountId)}</text>`;
+
+  // ELO / Points boxes
+  const boxW = 300;
+  const boxH = 120;
+  const boxGap = 50;
+  const boxY = 170;
+  const boxStartX = (W - (boxW * 2 + boxGap)) / 2;
+
+  const fmtElo = (n: number | null) =>
+    n != null
+      ? new Intl.NumberFormat('en', {
+          minimumFractionDigits: 0,
+          maximumFractionDigits: 2
+        }).format(n)
+      : '—';
+
+  // ELO box
+  svg += `<rect x="${boxStartX}" y="${boxY}" width="${boxW}" height="${boxH}" rx="16" fill="${BOX_FILL}"/>`;
+  svg += `<text x="${boxStartX + boxW / 2}" y="${boxY + 32}" text-anchor="middle" dominant-baseline="middle" font-size="16" fill="rgba(255,255,255,0.5)">ELO</text>`;
+  svg += `<text x="${boxStartX + boxW / 2}" y="${boxY + 76}" text-anchor="middle" dominant-baseline="middle" font-size="42" font-weight="bold" fill="${WARN}">${fmtElo(opts.elo)}</text>`;
+
+  // Points box
+  svg += `<rect x="${boxStartX + boxW + boxGap}" y="${boxY}" width="${boxW}" height="${boxH}" rx="16" fill="${BOX_FILL}"/>`;
+  svg += `<text x="${boxStartX + boxW + boxGap + boxW / 2}" y="${boxY + 32}" text-anchor="middle" dominant-baseline="middle" font-size="16" fill="rgba(255,255,255,0.5)">Points</text>`;
+  svg += `<text x="${boxStartX + boxW + boxGap + boxW / 2}" y="${boxY + 76}" text-anchor="middle" dominant-baseline="middle" font-size="42" font-weight="bold" fill="${PRIMARY}">${opts.points ?? '—'} PPP</text>`;
+
+  // Stats row
+  const stats = [
+    { label: 'Wins', value: opts.wins, color: GREEN },
+    { label: 'Losses', value: opts.losses, color: ERR },
+    { label: 'Draws', value: opts.draws, color: '#ffffff' },
+    { label: 'Win Rate', value: `${opts.winRate}%`, color: PRIMARY }
+  ];
+  const statW = 220;
+  const statGap = 20;
+  const statY = 360;
+  const statStartX = (W - (statW * 4 + statGap * 3)) / 2;
+  stats.forEach((s, i) => {
+    const x = statStartX + i * (statW + statGap);
+    svg += `<text x="${x + statW / 2}" y="${statY}" text-anchor="middle" dominant-baseline="middle" font-size="40" font-weight="bold" fill="${s.color}">${s.value}</text>`;
+    svg += `<text x="${x + statW / 2}" y="${statY + 42}" text-anchor="middle" dominant-baseline="middle" font-size="17" fill="rgba(255,255,255,0.5)">${s.label}</text>`;
+  });
+
+  // Optional extras row
+  const extras: { label: string; value: string; color: string }[] = [];
+  if (opts.extras) {
+    const e = opts.extras;
+    if (e.winStreak > 0 || e.maxWinStreak > 0) {
+      extras.push({
+        label: 'Streak / Best',
+        value: `${e.winStreak}/${e.maxWinStreak}`,
+        color: WARN
+      });
+    }
+    if (e.betsPlaced > 0) {
+      extras.push({
+        label: 'Bets Won',
+        value: `${e.betsWon}/${e.betsPlaced}`,
+        color: GREEN
+      });
+    }
+    if (e.wagersPlayed > 0) {
+      extras.push({
+        label: 'Wagers Won',
+        value: `${e.wagerWins}/${e.wagersPlayed}`,
+        color: PRIMARY
+      });
+    }
+    if (e.challengesSent > 0) {
+      extras.push({
+        label: 'Challenges',
+        value: String(e.challengesSent),
+        color: '#ffffff'
+      });
+    }
+  }
+
+  if (extras.length > 0) {
+    const extraW = 220;
+    const extraGap = 20;
+    const extraY = 480;
+    const shown = extras.slice(0, 4);
+    const extraStartX =
+      (W - (extraW * shown.length + extraGap * (shown.length - 1))) / 2;
+    shown.forEach((e, i) => {
+      const x = extraStartX + i * (extraW + extraGap);
+      svg += `<rect x="${x}" y="${extraY}" width="${extraW}" height="64" rx="12" fill="${EXTRA_FILL}"/>`;
+      svg += `<text x="${x + extraW / 2}" y="${extraY + 26}" text-anchor="middle" dominant-baseline="middle" font-size="22" font-weight="bold" fill="${e.color}">${e.value}</text>`;
+      svg += `<text x="${x + extraW / 2}" y="${extraY + 50}" text-anchor="middle" dominant-baseline="middle" font-size="14" fill="rgba(255,255,255,0.5)">${e.label}</text>`;
+    });
+  }
+
+  svg += `<text x="${W / 2}" y="${H - 22}" text-anchor="middle" dominant-baseline="middle" font-size="14" fill="rgba(255,255,255,0.3)">protocol-pawns.com</text>`;
+  svg += '</svg>';
+
+  const resvg = new Resvg(svg, {
+    background: BG,
+    fitTo: { mode: 'original' },
+    font: {
+      fontBuffers: [FONT_BUFFER],
+      defaultFontFamily: 'DejaVu Sans'
+    }
+  });
+  return resvg.render().asPng();
+}
+
 function pieceKey(piece: string): string {
   return `${piece === piece.toUpperCase() ? 'w' : 'b'}${piece.toUpperCase()}`;
 }

@@ -20,6 +20,9 @@
   import ChallengeCard from '$lib/components/ChallengeCard.svelte';
   import ConfirmModal from '$lib/components/ConfirmModal.svelte';
   import PppIcon from '$lib/components/PppIcon.svelte';
+  import type { PageData } from './$types';
+
+  let { data } = $props<{ data: PageData }>();
 
   let accountId = $state(page.params.id ?? '');
 
@@ -339,6 +342,20 @@
 
   onMount(() => loadProfileData(accountId));
 </script>
+
+<svelte:head>
+  <title>{data.meta.title}</title>
+  <meta name="description" content={data.meta.description} />
+  <meta property="og:title" content={data.meta.title} />
+  <meta property="og:description" content={data.meta.description} />
+  <meta property="og:image" content={data.meta.image} />
+  <meta property="og:url" content={data.meta.url} />
+  <meta property="og:type" content="profile" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content={data.meta.title} />
+  <meta name="twitter:description" content={data.meta.description} />
+  <meta name="twitter:image" content={data.meta.image} />
+</svelte:head>
 
 {#if loading}
   <div class="space-y-6 animate-pulse">

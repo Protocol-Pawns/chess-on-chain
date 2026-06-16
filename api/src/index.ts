@@ -3,6 +3,7 @@ import { apiReference } from '@scalar/hono-api-reference';
 import { cors } from 'hono/cors';
 import { poweredBy } from 'hono/powered-by';
 
+import { getAccountInfo } from './account';
 import {
   addPushSubscription,
   getAccount,
@@ -39,9 +40,10 @@ import {
   processQuestCooldownNotifications
 } from './notify';
 import { importVapidKey } from './push';
-import { renderGameCard } from './render-card';
+import { renderGameCard, renderProfileCard } from './render-card';
 export { SSEHub } from './do-sse';
 import {
+  getAccountPreviewRoute,
   getAccountRoute,
   getAccountStatsRoute,
   batchAccountStatsRoute,
@@ -196,6 +198,56 @@ app.openapi(getGamePreviewRoute, async c => {
   });
 });
 
+app.openapi(getAccountPreviewRoute, async c => {
+  const accountId = decodeURIComponent(c.req.param('account_id'));
+  const db = c.get('DB');
+
+  const [stats, accountInfo, eloPairs] = await Promise.all([
+    getAccountStats(db, accountId),
+    getAccountInfo(c.env.RPC_URL, c.env.CONTRACT_ID, accountId).catch(
+      () => null
+    ),
+    fetchEloRatingsByIds(c.env.RPC_URL, c.env.CONTRACT_ID, [accountId]).catch(
+      () => [] as [string, number][]
+    )
+  ]);
+
+  const eloMap = new Map<string, number>(eloPairs);
+  const elo = eloMap.get(accountId) ?? accountInfo?.elo ?? null;
+
+  const winRate =
+    stats.total_games > 0
+      ? Math.round((stats.wins / stats.total_games) * 1000) / 10
+      : 0;
+
+  const png = await renderProfileCard({
+    accountId: truncateAddr(accountId, 24),
+    elo,
+    points: formatPoints(accountInfo?.points),
+    wins: stats.wins,
+    losses: stats.losses,
+    draws: stats.draws,
+    totalGames: stats.total_games,
+    winRate,
+    extras: accountInfo
+      ? {
+          winStreak: accountInfo.win_streak,
+          maxWinStreak: accountInfo.max_win_streak,
+          betsPlaced: accountInfo.bets_placed,
+          betsWon: accountInfo.bets_won,
+          wagersPlayed: accountInfo.wagers_played,
+          wagerWins: accountInfo.wager_wins,
+          challengesSent: accountInfo.challenges_sent
+        }
+      : undefined
+  });
+
+  return c.body(new Uint8Array(png), 200, {
+    'Content-Type': 'image/png',
+    'Cache-Control': 'public, max-age=300'
+  });
+});
+
 function parseMoveNotation(
   notation: string,
   color?: string
@@ -222,6 +274,19 @@ function parseMoveNotation(
 function truncateAddr(id: string, max = 20): string {
   if (id.length <= max) return id;
   return `${id.slice(0, 8)}...${id.slice(-4)}`;
+}
+
+function formatPoints(raw: string | undefined | null): string | null {
+  if (!raw || raw === '0') return null;
+  try {
+    const val = BigInt(raw);
+    const whole = val / BigInt(1000000);
+    const frac = val % BigInt(1000000);
+    const fracStr = frac.toString().padStart(6, '0').slice(0, 2);
+    return `${whole}.${fracStr}`;
+  } catch {
+    return null;
+  }
 }
 
 function resultText(game: Awaited<ReturnType<typeof getGame>>): string {

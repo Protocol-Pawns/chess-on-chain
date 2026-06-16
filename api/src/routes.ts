@@ -96,6 +96,20 @@ export const getGamePreviewRoute = createRoute({
   }
 });
 
+export const getAccountPreviewRoute = createRoute({
+  method: 'get',
+  path: '/account/{account_id}/preview.png',
+  request: {
+    params: z.object({ account_id: z.string() })
+  },
+  responses: {
+    200: {
+      content: { 'image/png': { schema: z.instanceof(Blob) } },
+      description: 'Returns a shareable preview image for a profile'
+    }
+  }
+});
+
 export const queryGamesRoute = createRoute({
   method: 'post',
   path: '/query',
