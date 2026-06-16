@@ -10,9 +10,9 @@ use base64::Engine;
 use chess_common::ContractEvent;
 use chess_engine::Color;
 use chess_lib::{
-    create_challenge_id, BetMsg, Challenge, ChessEvent, Difficulty, GameId, GameInfo, GameOutcome,
-    Player, AI_EASY_GAS, AI_HARD_GAS, AI_MEDIUM_GAS, AI_VERY_HARD_GAS, MAX_OPEN_CHALLENGES,
-    MAX_OPEN_GAMES,
+    create_challenge_id, BetMsg, Challenge, ChallengeId, ChessEvent, Difficulty, GameId, GameInfo,
+    GameOutcome, Player, AI_EASY_GAS, AI_HARD_GAS, AI_MEDIUM_GAS, AI_VERY_HARD_GAS,
+    MAX_OPEN_CHALLENGES, MAX_OPEN_GAMES,
 };
 use futures::future::try_join_all;
 use near_workspaces::types::{KeyType, SecretKey};
@@ -1002,6 +1002,54 @@ async fn test_mainnet_migration() -> anyhow::Result<()> {
         .await?
         .json()?;
 
+    // Snapshot a representative set of accounts and the corrupted challenge
+    // before deploying the new wasm so we can verify the migration is
+    // observationally a no-op for view functions.
+    let snapshot_accounts = ["marior.near", "crans.near", "cakrakahn.near"];
+    let mut account_snapshots = Vec::new();
+    for account_id_str in snapshot_accounts {
+        let account_id: near_sdk::AccountId = account_id_str.parse()?;
+        account_snapshots.push((
+            account_id_str.to_string(),
+            view::get_account(&contract, &account_id).await?,
+            view::get_challenges(&contract, &account_id, true).await?,
+            view::get_challenges(&contract, &account_id, false).await?,
+            view::get_game_ids(&contract, &account_id).await?,
+        ));
+    }
+
+    let challenge_id: ChallengeId = "cakrakahn.near-vs-crans.near".to_string();
+    let challenge_before = view::get_challenge(&contract, &challenge_id).await?;
+    assert_eq!(
+        challenge_before.get_challenger().to_string(),
+        "cakrakahn.near"
+    );
+    assert_eq!(challenge_before.get_challenged().to_string(), "crans.near");
+
+    let crans_key = SecretKey::from_random(KeyType::ED25519);
+    worker
+        .patch(&"crans.near".parse()?)
+        .account(
+            near_workspaces::AccountDetailsPatch::default()
+                .balance(near_workspaces::types::NearToken::from_near(100)),
+        )
+        .access_key(
+            crans_key.public_key(),
+            near_workspaces::AccessKey::full_access(),
+        )
+        .transact()
+        .await?;
+    let crans_account =
+        near_workspaces::Account::from_secret_key("crans.near".parse()?, crans_key, &worker);
+
+    // Rejecting the corrupted challenge must fail with the old wasm.
+    assert!(
+        call::reject_challenge(&contract, &crans_account, &challenge_id, false)
+            .await
+            .is_err(),
+        "reject_challenge should fail before the migration"
+    );
+
     contract
         .as_account()
         .deploy(&new_wasm)
@@ -1025,6 +1073,56 @@ async fn test_mainnet_migration() -> anyhow::Result<()> {
         account_ids.into_iter().collect::<HashSet<_>>(),
         account_ids_after.into_iter().collect::<HashSet<_>>()
     );
+
+    // Verify that migration did not alter any observable account or challenge state.
+    for (
+        account_id_str,
+        expected_account,
+        expected_challenger,
+        expected_challenged,
+        expected_games,
+    ) in account_snapshots
+    {
+        let account_id: near_sdk::AccountId = account_id_str.parse()?;
+        assert_eq!(
+            view::get_account(&contract, &account_id).await?,
+            expected_account,
+            "account {account_id_str} changed during migration"
+        );
+        assert_eq!(
+            view::get_challenges(&contract, &account_id, true).await?,
+            expected_challenger,
+            "challenger list for {account_id_str} changed during migration"
+        );
+        assert_eq!(
+            view::get_challenges(&contract, &account_id, false).await?,
+            expected_challenged,
+            "challenged list for {account_id_str} changed during migration"
+        );
+        assert_eq!(
+            view::get_game_ids(&contract, &account_id).await?,
+            expected_games,
+            "game ids for {account_id_str} changed during migration"
+        );
+    }
+    assert_eq!(
+        view::get_challenge(&contract, &challenge_id).await?,
+        challenge_before,
+        "corrupted challenge changed during migration"
+    );
+
+    // Verify that the previously corrupted challenge can now be rejected successfully.
+    let crans_challenges = view::get_challenges(&contract, &"crans.near".parse()?, false).await?;
+    assert!(crans_challenges.contains(&challenge_id));
+
+    // The `?` on `log_tx_result` already fails the test if the tx is not successful.
+    let (_res, _events) =
+        call::reject_challenge(&contract, &crans_account, &challenge_id, false).await?;
+
+    assert!(view::get_challenge(&contract, &challenge_id).await.is_err());
+    let crans_challenges_after =
+        view::get_challenges(&contract, &"crans.near".parse()?, false).await?;
+    assert!(!crans_challenges_after.contains(&challenge_id));
 
     Ok(())
 }

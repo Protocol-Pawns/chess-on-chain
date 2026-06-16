@@ -89,7 +89,7 @@ pub struct AccountV10 {
     pending_points: u128,
 }
 
-#[derive(Deserialize, Serialize, NearSchema)]
+#[derive(Debug, Deserialize, Serialize, NearSchema, PartialEq)]
 #[serde(crate = "near_sdk::serde")]
 pub struct AccountInfo {
     pub near_amount: NearToken,

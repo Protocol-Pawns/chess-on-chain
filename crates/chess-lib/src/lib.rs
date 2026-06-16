@@ -93,6 +93,7 @@ pub enum StorageKey {
     V9AccountChallenged,
     V9AccountTokens,
     V9BetsInner,
+    ChallengesV2,
 }
 
 #[near_bindgen]
@@ -149,35 +150,51 @@ impl Chess {
 
     #[private]
     pub fn migrate(&mut self) {
-        for id in self.accounts.keys().cloned().collect::<Vec<_>>() {
-            let account = self.accounts.remove(&id).unwrap();
-            self.accounts.insert(id, account.migrate());
-        }
-
-        for id in self.games.keys().cloned().collect::<Vec<_>>() {
-            let game = self.games.remove(&id).unwrap();
-            self.games.insert(id, game.migrate());
-        }
-
-        for id in self.bets.keys().cloned().collect::<Vec<_>>() {
-            let mut all_bets = self.bets.remove(&id).unwrap();
-            let token_ids: Vec<_> = all_bets.bets.keys().cloned().collect();
-            for token_id in token_ids {
-                if let Some(mut token_bets) = all_bets.bets.remove(&token_id) {
-                    token_bets.sort_by_key(|(acct_id, _)| acct_id.clone());
-                    let mut i = 1;
-                    while i < token_bets.len() {
-                        if token_bets[i].0 == token_bets[i - 1].0 {
-                            token_bets[i - 1].1.amount += token_bets[i].1.amount;
-                            token_bets.remove(i);
-                        } else {
-                            i += 1;
-                        }
-                    }
-                    all_bets.bets.insert(token_id, token_bets);
+        // Rebuild the challenges map because the migration from UnorderedMap to
+        // IterableMap left some entries in the values map without a matching key
+        // in the keys vector, causing `IterableMap::remove` to panic with an
+        // underflow. Use a fresh storage prefix to avoid the corrupted data.
+        let account_ids: Vec<AccountId> = self.accounts.keys().cloned().collect();
+        let mut challenges = IterableMap::new(StorageKey::ChallengesV2);
+        for account_id in &account_ids {
+            let account = self.accounts.get(account_id).unwrap();
+            let challenger_ids = account.get_challenges(true);
+            let challenged_ids = account.get_challenges(false);
+            for challenge_id in challenger_ids.into_iter().chain(challenged_ids.into_iter()) {
+                if challenges.contains_key(&challenge_id) {
+                    continue;
+                }
+                if let Some(challenge) = self.challenges.get(&challenge_id) {
+                    challenges.insert(challenge_id, challenge.clone());
                 }
             }
-            self.bets.insert(id, all_bets);
+        }
+        self.challenges = challenges;
+
+        // Remove any challenge references that no longer point to an existing
+        // challenge after the rebuild, emitting a reject_challenge event for the
+        // indexer just like a normal rejection would.
+        let mut removed_orphans = HashSet::new();
+        for account_id in account_ids {
+            let account = self.accounts.get_mut(&account_id).unwrap();
+            let challenger_ids: Vec<_> = account.get_challenges(true);
+            for challenge_id in challenger_ids {
+                if !self.challenges.contains_key(&challenge_id) {
+                    account.reject_challenge(&challenge_id, true).unwrap();
+                    if removed_orphans.insert(challenge_id.clone()) {
+                        ChessEvent::RejectChallenge { challenge_id }.emit();
+                    }
+                }
+            }
+            let challenged_ids: Vec<_> = account.get_challenges(false);
+            for challenge_id in challenged_ids {
+                if !self.challenges.contains_key(&challenge_id) {
+                    account.reject_challenge(&challenge_id, false).unwrap();
+                    if removed_orphans.insert(challenge_id.clone()) {
+                        ChessEvent::RejectChallenge { challenge_id }.emit();
+                    }
+                }
+            }
         }
     }
 
