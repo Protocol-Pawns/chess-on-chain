@@ -7,8 +7,30 @@
   } from '$lib/near/account';
   import { showToast } from '$lib/toast';
   import { PushError } from '$lib/push/register';
+  import { openBravePushModal } from '$lib/push/brave-modal';
+  import { isBraveBrowser } from '$lib/browser';
 
   let loading = $state(false);
+
+  async function handleBravePushError() {
+    try {
+      if (await isBraveBrowser()) {
+        openBravePushModal();
+      } else {
+        showToast(
+          'error',
+          'Push service unavailable',
+          'The browser push service is not available right now. Try again later or use a different browser.'
+        );
+      }
+    } catch {
+      showToast(
+        'error',
+        'Push service unavailable',
+        'The browser push service is not available right now. Try again later or use a different browser.'
+      );
+    }
+  }
 
   async function handleToggle() {
     loading = true;
@@ -45,11 +67,7 @@
             break;
           default:
             if (e.message === 'Registration failed - push service error') {
-              showToast(
-                'error',
-                'Push service unavailable',
-                'The browser push service is not available right now. Try again later or use a different browser.'
-              );
+              void handleBravePushError();
             } else {
               showToast('error', 'Failed to enable notifications', e.message);
             }
