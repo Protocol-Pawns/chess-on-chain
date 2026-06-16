@@ -52,7 +52,7 @@ export function registerServiceWorker() {
       if (version) {
         swVersion.set(version);
         const acknowledged = localStorage.getItem('sw_acknowledged_version');
-        if (hadController && version !== acknowledged) {
+        if (version !== acknowledged) {
           swUpdateAvailable.set(true);
         }
       } else if (hadController) {
