@@ -174,7 +174,20 @@ self.addEventListener('fetch', function (event) {
 
 self.addEventListener('push', function (event) {
   if (!event.data) return;
-  var data = event.data.json();
+  var data;
+  try {
+    data = event.data.json();
+  } catch (e) {
+    console.error('Invalid push payload:', e);
+    event.waitUntil(
+      self.registration.showNotification('Protocol Pawns', {
+        body: 'New notification',
+        icon: '/icons/icon-192.png',
+        badge: '/icons/icon-192.png'
+      })
+    );
+    return;
+  }
   var title = data.title || 'Protocol Pawns';
   var url = data.url
     ? data.url.charAt(0) === '/'
@@ -189,7 +202,11 @@ self.addEventListener('push', function (event) {
     data: url ? { url: url } : undefined,
     actions: url ? [{ action: 'open', title: 'Open' }] : undefined
   };
-  event.waitUntil(self.registration.showNotification(title, options));
+  event.waitUntil(
+    self.registration.showNotification(title, options).catch(function (err) {
+      console.error('Failed to show notification:', err);
+    })
+  );
 });
 
 self.addEventListener('notificationclick', function (event) {

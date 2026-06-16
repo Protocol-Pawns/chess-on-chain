@@ -84,17 +84,21 @@ export async function registerPushNotifications(
 
 export async function unregisterPushNotifications(
   accountId: string
-): Promise<void> {
-  if (!('serviceWorker' in navigator)) return;
+): Promise<boolean> {
+  if (!('serviceWorker' in navigator)) return true;
 
   try {
     const registration = await navigator.serviceWorker.ready;
     const subscription = await registration.pushManager.getSubscription();
-    if (subscription) {
-      await api.unsubscribePush(accountId, subscription.endpoint);
-      await subscription.unsubscribe();
-    }
+    if (!subscription) return true;
+
+    await api.unsubscribePush(accountId, subscription.endpoint);
+    await subscription.unsubscribe();
+    return true;
   } catch (e) {
-    console.error('Push unregistration failed:', e);
+    throw new PushError(
+      'api',
+      e instanceof Error ? e.message : 'Failed to disable push notifications.'
+    );
   }
 }

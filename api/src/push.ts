@@ -205,7 +205,7 @@ async function encryptPayload(
   );
 }
 
-export async function sendPush(
+export type SendPushFn = (
   subscription: {
     endpoint: string;
     p256dh: string;
@@ -215,7 +215,15 @@ export async function sendPush(
   vapidPrivateKey: CryptoKey,
   vapidPublicKeyB64: string,
   vapidSubject: string
-): Promise<{ ok: boolean; subscriptionExpired: boolean }> {
+) => Promise<{ ok: boolean; subscriptionExpired: boolean }>;
+
+export const sendPush: SendPushFn = async (
+  subscription,
+  payload,
+  vapidPrivateKey,
+  vapidPublicKeyB64,
+  vapidSubject
+) => {
   try {
     const origin = new URL(subscription.endpoint).origin;
     const jwt = await generateVapidJwt(vapidPrivateKey, origin, vapidSubject);
@@ -246,7 +254,7 @@ export async function sendPush(
     console.error('Push send error:', err);
     return { ok: false, subscriptionExpired: false };
   }
-}
+};
 
 export function importVapidKey(jwkJson: string): Promise<CryptoKey> {
   return crypto.subtle.importKey(

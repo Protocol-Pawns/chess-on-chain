@@ -10,7 +10,7 @@
     "lib": ["esnext", "webworker"],
     "allowSyntheticDefaultImports": true,
     "resolveJsonModule": true,
-    "types": ["@cloudflare/workers-types"]
+    "types": ["@cloudflare/workers-types", "vitest"]
   },
   "include": ["src/**/*.ts"],
   "exclude": ["node_modules", "dist"]

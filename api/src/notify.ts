@@ -1,5 +1,5 @@
 import type { PushSubscriptionRow } from './db';
-import { sendPush } from './push';
+import { sendPush, type SendPushFn } from './push';
 
 function gameUrlPath(gameId: unknown): string {
   const parsed: unknown =
@@ -231,8 +231,15 @@ export async function processNotifications(
   db: Db,
   vapidPrivateKey: CryptoKey,
   vapidPublicKeyB64: string,
-  vapidSubject: string
+  vapidSubject: string,
+  options: {
+    maxSends?: number;
+    sendPush?: SendPushFn;
+  } = {}
 ): Promise<number> {
+  const doSendPush = options.sendPush ?? sendPush;
+  const maxSends = options.maxSends ?? 40;
+
   const rawEvents = (await db`
     SELECT id, event_type, event_data FROM chess_events
     WHERE processed = true AND notified = false
@@ -292,12 +299,17 @@ export async function processNotifications(
     for (const r of rows) games.set(r.game_id, r);
   }
 
-  const allNotifications: Notification[] = [];
-  for (const e of events) {
-    allNotifications.push(
-      ...buildNotifications(e.event_type, e.event_data, games, challenges)
-    );
-  }
+  const eventNotifications = events.map(e => ({
+    eventId: e.id,
+    notifications: buildNotifications(
+      e.event_type,
+      e.event_data,
+      games,
+      challenges
+    )
+  }));
+
+  const allNotifications = eventNotifications.flatMap(e => e.notifications);
 
   if (allNotifications.length === 0) {
     await db`UPDATE chess_events SET notified = true WHERE id = ANY(${events.map(e => e.id)})`;
@@ -324,29 +336,42 @@ export async function processNotifications(
   }
 
   const expiredEndpoints: string[] = [];
-  const MAX_PUSH_SENDS = 40;
   let sends = 0;
+  const notifiedEventIds: string[] = [];
 
-  for (const notif of allNotifications) {
-    if (sends >= MAX_PUSH_SENDS) break;
-    const accountSubs = subsByAccount.get(notif.accountId) || [];
-    for (const sub of accountSubs) {
-      if (sends >= MAX_PUSH_SENDS) break;
-      sends++;
-      const result = await sendPush(
-        sub,
-        notif.payload,
-        vapidPrivateKey,
-        vapidPublicKeyB64,
-        vapidSubject
-      );
-      if (result.subscriptionExpired) {
-        expiredEndpoints.push(sub.endpoint);
+  for (const { eventId, notifications } of eventNotifications) {
+    let eventFullySent = true;
+    for (const notif of notifications) {
+      if (sends >= maxSends) {
+        eventFullySent = false;
+        break;
       }
+      const accountSubs = subsByAccount.get(notif.accountId) || [];
+      for (const sub of accountSubs) {
+        if (sends >= maxSends) {
+          eventFullySent = false;
+          break;
+        }
+        sends++;
+        const result = await doSendPush(
+          sub,
+          notif.payload,
+          vapidPrivateKey,
+          vapidPublicKeyB64,
+          vapidSubject
+        );
+        if (result.subscriptionExpired) {
+          expiredEndpoints.push(sub.endpoint);
+        }
+      }
+      if (!eventFullySent) break;
     }
+    if (eventFullySent) notifiedEventIds.push(eventId);
   }
 
-  await db`UPDATE chess_events SET notified = true WHERE id = ANY(${events.map(e => e.id)})`;
+  if (notifiedEventIds.length > 0) {
+    await db`UPDATE chess_events SET notified = true WHERE id = ANY(${notifiedEventIds})`;
+  }
 
   if (expiredEndpoints.length > 0) {
     await db`DELETE FROM push_subscriptions WHERE endpoint = ANY(${expiredEndpoints})`;
@@ -403,8 +428,21 @@ export async function processQuestCooldownNotifications(
   vapidPublicKeyB64: string,
   vapidSubject: string,
   rpcUrl: string,
-  contractId: string
+  contractId: string,
+  options: {
+    maxSends?: number;
+    sendPush?: SendPushFn;
+    fetchCooldowns?: (
+      url: string,
+      contract: string,
+      account: string
+    ) => Promise<Array<[number, string]>>;
+  } = {}
 ): Promise<number> {
+  const doSendPush = options.sendPush ?? sendPush;
+  const maxSends = options.maxSends ?? 40;
+  const fetchCooldowns = options.fetchCooldowns ?? fetchQuestCooldowns;
+
   const activeSubs = (await db`
     SELECT DISTINCT account_id FROM push_subscriptions
   `) as Array<{ account_id: string }>;
@@ -415,11 +453,7 @@ export async function processQuestCooldownNotifications(
 
   for (const { account_id } of activeSubs) {
     try {
-      const cooldowns = await fetchQuestCooldowns(
-        rpcUrl,
-        contractId,
-        account_id
-      );
+      const cooldowns = await fetchCooldowns(rpcUrl, contractId, account_id);
 
       if (cooldowns.length === 0) {
         await db`DELETE FROM quest_cooldowns WHERE account_id = ${account_id}`;
@@ -471,8 +505,11 @@ export async function processQuestCooldownNotifications(
   }
 
   const expiredEndpoints: string[] = [];
+  let sends = 0;
+  const notifiedQuests: Array<{ account_id: string; quest: string }> = [];
 
   for (const { account_id, quest } of expired) {
+    if (sends >= maxSends) break;
     const accountSubs = subsByAccount.get(account_id) || [];
     const label = QUEST_LABELS[quest] ?? quest;
     const payload = {
@@ -482,8 +519,14 @@ export async function processQuestCooldownNotifications(
       data: { quest }
     };
 
+    let questFullySent = true;
     for (const sub of accountSubs) {
-      const result = await sendPush(
+      if (sends >= maxSends) {
+        questFullySent = false;
+        break;
+      }
+      sends++;
+      const result = await doSendPush(
         sub,
         payload,
         vapidPrivateKey,
@@ -494,9 +537,13 @@ export async function processQuestCooldownNotifications(
         expiredEndpoints.push(sub.endpoint);
       }
     }
+
+    if (questFullySent) notifiedQuests.push({ account_id, quest });
   }
 
-  await db`UPDATE quest_cooldowns SET notified = true WHERE expires_at < ${nowMs} AND notified = false`;
+  for (const { account_id, quest } of notifiedQuests) {
+    await db`UPDATE quest_cooldowns SET notified = true WHERE account_id = ${account_id} AND quest = ${quest}`;
+  }
 
   if (expiredEndpoints.length > 0) {
     await db`DELETE FROM push_subscriptions WHERE endpoint = ANY(${expiredEndpoints})`;

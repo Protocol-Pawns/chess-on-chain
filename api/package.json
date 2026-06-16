@@ -19,5 +19,8 @@
     "postgres": "^3.4.5",
     "ts-pattern": "^5.0.8",
     "zod": "^3.22.4"
+  },
+  "devDependencies": {
+    "vitest": "^3.2.6"
   }
 }

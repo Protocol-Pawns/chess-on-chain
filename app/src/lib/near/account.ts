@@ -168,6 +168,6 @@ export async function disablePush() {
     });
   });
   const { unregisterPushNotifications } = await import('$lib/push/register');
-  await unregisterPushNotifications(accountId);
-  pushEnabled.set(false);
+  const ok = await unregisterPushNotifications(accountId);
+  if (ok) pushEnabled.set(false);
 }
