@@ -1,11 +1,15 @@
 import { writable } from 'svelte/store';
 
+declare const __APP_VERSION__: string;
+
 export const pwaInstallAvailable = writable(false);
 export const pwaInstalled = writable(false);
 export const swUpdateAvailable = writable(false);
 export const swVersion = writable<string | null>(null);
 
 let deferredPrompt: BeforeInstallPromptEvent | null = null;
+let hadController = false;
+let checkingForUpdate = false;
 
 interface BeforeInstallPromptEvent extends Event {
   prompt(): Promise<void>;
@@ -18,11 +22,45 @@ declare global {
   }
 }
 
+async function checkForUpdate() {
+  if (checkingForUpdate) return;
+  checkingForUpdate = true;
+  try {
+    const res = await fetch('/version.json', { cache: 'no-store' });
+    if (!res.ok) {
+      console.error('[PWA] version.json returned', res.status);
+      return;
+    }
+    const data = await res.json();
+    const deployedVersion: string = data.version;
+
+    swVersion.set(deployedVersion);
+
+    if (deployedVersion === __APP_VERSION__) {
+      swUpdateAvailable.set(false);
+      return;
+    }
+
+    const acknowledged = localStorage.getItem('sw_acknowledged_version');
+    if (deployedVersion === acknowledged) {
+      swUpdateAvailable.set(false);
+      return;
+    }
+
+    console.log('[PWA] new version available:', deployedVersion);
+    swUpdateAvailable.set(true);
+  } catch (err) {
+    console.error('[PWA] failed to check version:', err);
+  } finally {
+    checkingForUpdate = false;
+  }
+}
+
 export function registerServiceWorker() {
   if (typeof window === 'undefined') return;
   if (!('serviceWorker' in navigator)) return;
 
-  const hadController = !!navigator.serviceWorker.controller;
+  hadController = !!navigator.serviceWorker.controller;
 
   navigator.serviceWorker
     .register('/sw.js', { updateViaCache: 'none' })
@@ -36,8 +74,8 @@ export function registerServiceWorker() {
             newWorker!.state === 'activated' &&
             navigator.serviceWorker.controller
           ) {
-            console.log('[PWA] update banner triggered by updatefound');
-            swUpdateAvailable.set(true);
+            console.log('[PWA] new SW activated, checking version');
+            checkForUpdate();
           }
         });
       });
@@ -46,22 +84,33 @@ export function registerServiceWorker() {
       console.error('[PWA] SW registration failed:', err);
     });
 
-  navigator.serviceWorker.addEventListener('message', function (event) {
-    if (event.data?.type === 'SW_UPDATE_READY') {
-      const version: string | undefined = event.data.version;
-
-      if (version) {
-        swVersion.set(version);
-        const acknowledged = localStorage.getItem('sw_acknowledged_version');
-        if (hadController && version !== acknowledged) {
-          console.log('[PWA] update banner triggered by SW_UPDATE_READY');
-          swUpdateAvailable.set(true);
-        }
-      } else if (hadController) {
-        swUpdateAvailable.set(true);
-      }
+  navigator.serviceWorker.addEventListener('controllerchange', function () {
+    if (hadController) {
+      console.log('[PWA] SW controller changed, checking version');
+      checkForUpdate();
     }
   });
+
+  navigator.serviceWorker.addEventListener('message', function (event) {
+    if (event.data?.type === 'SW_UPDATE_READY') {
+      console.log('[PWA] SW_UPDATE_READY, checking version');
+      checkForUpdate();
+    }
+  });
+
+  document.addEventListener('visibilitychange', function () {
+    if (document.visibilityState === 'visible') {
+      checkForUpdate();
+    }
+  });
+
+  window.addEventListener('pageshow', function (e) {
+    if (e.persisted) {
+      checkForUpdate();
+    }
+  });
+
+  setTimeout(checkForUpdate, 1000);
 }
 
 export function initPwaInstallPrompt() {
