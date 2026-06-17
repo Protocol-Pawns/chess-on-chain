@@ -506,7 +506,7 @@ export default {
       (async () => {
         try {
           const db = initDb(env);
-          const vapidPrivateKey = await importVapidKey(env.VAPID_PRIVATE_KEY);
+          const vapidPrivateKey = importVapidKey(env.VAPID_PRIVATE_KEY);
           const processed = await processNotifications(
             db,
             vapidPrivateKey,
@@ -524,7 +524,7 @@ export default {
       (async () => {
         try {
           const db = initDb(env);
-          const vapidPrivateKey = await importVapidKey(env.VAPID_PRIVATE_KEY);
+          const vapidPrivateKey = importVapidKey(env.VAPID_PRIVATE_KEY);
           const processed = await processQuestCooldownNotifications(
             db,
             vapidPrivateKey,

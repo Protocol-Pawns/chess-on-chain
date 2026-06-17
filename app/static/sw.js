@@ -197,14 +197,30 @@ self.addEventListener('push', function (event) {
       ? self.location.origin + data.url
       : data.url
     : null;
+
+  var actionButtons = [];
+  if (data.type === 'your_turn') {
+    actionButtons.push({ action: 'open', title: 'Make Move' });
+  } else if (data.type === 'challenge_received') {
+    actionButtons.push({ action: 'open', title: 'View Challenge' });
+  } else if (data.type === 'quest_ready') {
+    actionButtons.push({ action: 'open', title: 'Open Quests' });
+  } else if (url) {
+    actionButtons.push({ action: 'open', title: 'Open' });
+  }
+
   var options = {
     body: data.body || '',
     icon: '/icons/icon-192.png',
     badge: '/icons/icon-192.png',
     vibrate: [100, 50, 100],
-    data: url ? { url: url } : undefined,
-    actions: url ? [{ action: 'open', title: 'Open' }] : undefined
+    data: { url: url, type: data.type },
+    actions: actionButtons
   };
+
+  if (data.data && data.data.game_id) {
+    options.tag = 'game-' + JSON.stringify(data.data.game_id);
+  }
   event.waitUntil(
     self.registration.showNotification(title, options).catch(function (err) {
       console.error('Failed to show notification:', err);

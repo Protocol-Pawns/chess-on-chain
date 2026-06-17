@@ -27,10 +27,11 @@ function createMockDb(options: {
   return fn as unknown as Db;
 }
 
-const fakeKey = {} as CryptoKey;
+const fakeKey = 'fake-private-key';
 const fakeSendPush = vi.fn<SendPushFn>(async () => ({
   ok: true,
-  subscriptionExpired: false
+  subscriptionExpired: false,
+  status: 200
 }));
 
 beforeEach(() => {
@@ -205,7 +206,8 @@ describe('processNotifications', () => {
 
     fakeSendPush.mockResolvedValueOnce({
       ok: false,
-      subscriptionExpired: true
+      subscriptionExpired: true,
+      status: 410
     });
 
     const db = createMockDb({
@@ -246,6 +248,56 @@ describe('processNotifications', () => {
     });
 
     expect(expiredEndpoints).toEqual(['https://push.example/bob']);
+  });
+
+  it('sends game_started notification to challenged player on create_game', async () => {
+    const event = {
+      id: 'evt-create-1',
+      event_type: 'create_game',
+      event_data: {
+        game_id: [1, 'alice', 'bob'],
+        white: { Human: 'alice' },
+        black: { Human: 'bob' },
+        board: []
+      }
+    };
+    const notifiedIds: string[] = [];
+
+    const db = createMockDb({
+      results: [
+        {
+          match: /SELECT id, event_type, event_data FROM chess_events/,
+          rows: [event]
+        },
+        {
+          match:
+            /SELECT account_id, endpoint, p256dh, auth FROM push_subscriptions/,
+          rows: [
+            {
+              account_id: 'bob',
+              endpoint: 'https://push.example/bob',
+              p256dh: 'p256dh-bob',
+              auth: 'auth-bob'
+            }
+          ]
+        },
+        { match: /UPDATE chess_events SET notified = true/, rows: [] },
+        { match: /DELETE FROM push_subscriptions/, rows: [] }
+      ],
+      onCall: call => {
+        if (/UPDATE chess_events SET notified = true/.test(call.query)) {
+          notifiedIds.push(...(call.values[0] as string[]));
+        }
+      }
+    });
+
+    const count = await processNotifications(db, fakeKey, 'pub', 'subj', {
+      sendPush: fakeSendPush
+    });
+
+    expect(count).toBe(1);
+    expect(fakeSendPush).toHaveBeenCalledTimes(1);
+    expect(notifiedIds).toEqual(['evt-create-1']);
   });
 });
 

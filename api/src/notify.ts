@@ -1,6 +1,17 @@
 import type { PushSubscriptionRow } from './db';
 import { sendPush, type SendPushFn } from './push';
 
+function parsePlayer(player: unknown): { type: string; value: string | null } {
+  if (typeof player !== 'object' || !player)
+    return { type: 'Unknown', value: null };
+  const p = player as Record<string, unknown>;
+  if ('type' in p && 'value' in p) {
+    return { type: p.type as string, value: (p.value as string) ?? null };
+  }
+  const [[type, value]] = Object.entries(p);
+  return { type, value: (value as string) ?? null };
+}
+
 function gameUrlPath(gameId: unknown): string {
   const parsed: unknown =
     typeof gameId === 'string' ? JSON.parse(gameId) : gameId;
@@ -156,13 +167,14 @@ function buildNotifications(
       }
       const opp = opponent(game, color);
       if (!opp) return [];
+      const mover = color === 'White' ? game.white_value : game.black_value!;
       return [
         {
           accountId: opp,
           payload: {
             type: 'your_turn',
             title: 'Your Turn!',
-            body: `It's your move in your chess game`,
+            body: `Your move vs ${mover}`,
             url: gameUrlPath(data.game_id),
             data: { game_id: data.game_id }
           }
@@ -216,6 +228,23 @@ function buildNotifications(
         }
       }));
     }
+    case 'create_game': {
+      const player = parsePlayer(data.black);
+      if (player.type !== 'Human' || !player.value) return [];
+      const white = parsePlayer(data.white);
+      return [
+        {
+          accountId: player.value,
+          payload: {
+            type: 'game_started',
+            title: 'Game Started!',
+            body: `Your game against ${white.value ?? 'opponent'} has started`,
+            url: gameUrlPath(data.game_id),
+            data: { game_id: data.game_id }
+          }
+        }
+      ];
+    }
     default:
       return [];
   }
@@ -229,7 +258,7 @@ function formatOutcome(outcome: Record<string, unknown>): string {
 
 export async function processNotifications(
   db: Db,
-  vapidPrivateKey: CryptoKey,
+  vapidPrivateKey: string,
   vapidPublicKeyB64: string,
   vapidSubject: string,
   options: {
@@ -337,6 +366,8 @@ export async function processNotifications(
 
   const expiredEndpoints: string[] = [];
   let sends = 0;
+  let sendOk = 0;
+  let sendFail = 0;
   const notifiedEventIds: string[] = [];
 
   for (const { eventId, notifications } of eventNotifications) {
@@ -362,12 +393,20 @@ export async function processNotifications(
         );
         if (result.subscriptionExpired) {
           expiredEndpoints.push(sub.endpoint);
+        } else if (result.ok) {
+          sendOk++;
+        } else {
+          sendFail++;
         }
       }
       if (!eventFullySent) break;
     }
     if (eventFullySent) notifiedEventIds.push(eventId);
   }
+
+  console.log(
+    `push: sent=${sends} ok=${sendOk} fail=${sendFail} expired=${expiredEndpoints.length} of ${allNotifications.length} notifications`
+  );
 
   if (notifiedEventIds.length > 0) {
     await db`UPDATE chess_events SET notified = true WHERE id = ANY(${notifiedEventIds})`;
@@ -424,7 +463,7 @@ async function fetchQuestCooldowns(
 
 export async function processQuestCooldownNotifications(
   db: Db,
-  vapidPrivateKey: CryptoKey,
+  vapidPrivateKey: string,
   vapidPublicKeyB64: string,
   vapidSubject: string,
   rpcUrl: string,
@@ -506,6 +545,8 @@ export async function processQuestCooldownNotifications(
 
   const expiredEndpoints: string[] = [];
   let sends = 0;
+  let sendOk = 0;
+  let sendFail = 0;
   const notifiedQuests: Array<{ account_id: string; quest: string }> = [];
 
   for (const { account_id, quest } of expired) {
@@ -516,6 +557,7 @@ export async function processQuestCooldownNotifications(
       type: 'quest_ready',
       title: 'Quest Ready!',
       body: `Your ${label} quest is ready to complete again`,
+      url: `/profile/${account_id}`,
       data: { quest }
     };
 
@@ -535,11 +577,19 @@ export async function processQuestCooldownNotifications(
       );
       if (result.subscriptionExpired) {
         expiredEndpoints.push(sub.endpoint);
+      } else if (result.ok) {
+        sendOk++;
+      } else {
+        sendFail++;
       }
     }
 
     if (questFullySent) notifiedQuests.push({ account_id, quest });
   }
+
+  console.log(
+    `quest push: sent=${sends} ok=${sendOk} fail=${sendFail} expired=${expiredEndpoints.length} of ${expired.length} quests`
+  );
 
   for (const { account_id, quest } of notifiedQuests) {
     await db`UPDATE quest_cooldowns SET notified = true WHERE account_id = ${account_id} AND quest = ${quest}`;
