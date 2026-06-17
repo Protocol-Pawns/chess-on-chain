@@ -283,10 +283,10 @@ Response contains the `GameId` — a JSON array: `[block_height, white_account_i
 
 | Difficulty | Contract estimate | Recommended prepaid gas |
 | ---------- | ----------------- | ----------------------- |
-| Easy       | ~5 TeraGas        | 100 TeraGas             |
-| Medium     | ~75 TeraGas       | 300 TeraGas             |
-| Hard       | ~175 TeraGas      | 500 TeraGas             |
-| VeryHard   | ~310 TeraGas      | 800 TeraGas             |
+| Easy       | ~5 TeraGas        | 50 TeraGas              |
+| Medium     | ~35 TeraGas       | 150 TeraGas             |
+| Hard       | ~70 TeraGas       | 250 TeraGas             |
+| VeryHard   | ~145 TeraGas      | 400 TeraGas             |
 
 You can have up to **5 active games** at once.
 
@@ -407,7 +407,7 @@ The contract accepts moves in **coordinate notation**. Valid formats:
 near contract call-function as-transaction "$CONTRACT_ID" \
   'play_move' \
   json-args '{"game_id":[128903456,"agent.near",null],"mv":"e2e4"}' \
-  prepaid-gas '100 TeraGas' \
+  prepaid-gas '50 TeraGas' \
   attached-deposit '0 NEAR' \
   sign-as "$ACCOUNT_ID" \
   network-config "$NETWORK" \
@@ -417,7 +417,7 @@ near contract call-function as-transaction "$CONTRACT_ID" \
   send
 ```
 
-**Gas selection:** Use the prepaid gas that matches the game type — 100 TeraGas for Easy AI, 300 TeraGas for Medium AI or human games, 500 TeraGas for Hard AI, and 800 TeraGas for VeryHard AI.
+**Gas selection:** Use the prepaid gas that matches the game type — 50 TeraGas for Easy AI, 150 TeraGas for Medium AI or human games, 250 TeraGas for Hard AI, and 400 TeraGas for VeryHard AI.
 
 **For AI games:** The AI responds immediately within the same transaction. The response includes the updated board after the AI's move.
 
@@ -1091,7 +1091,7 @@ await account.signAndSendTransaction({
     actions.functionCall(
       'play_move',
       { game_id: [128903456, 'agent.near', null], mv: 'e2e4' },
-      BigInt('100000000000000'), // 100 TGas
+      BigInt('50000000000000'), // 50 TGas
       BigInt(0) // no deposit
     )
   ]
@@ -1299,7 +1299,7 @@ near contract call-function as-read-only "$CONTRACT_ID" \
 near contract call-function as-transaction "$CONTRACT_ID" \
   'play_move' \
   json-args '{"game_id":[128903456,"my-agent.near",null],"mv":"e2e4"}' \
-  prepaid-gas '100 TeraGas' \
+  prepaid-gas '50 TeraGas' \
   attached-deposit '0 NEAR' \
   sign-as "$ACCOUNT_ID" \
   network-config "$NETWORK" \
@@ -1513,11 +1513,11 @@ Check `turn_color` against your color before calling `play_move`.
 
 - View calls: Free (no gas)
 - `storage_deposit`, `set_is_agent`, `challenge`, `accept_challenge`, `reject_challenge`: 10–30 TeraGas
-- `play_move` (Easy AI): 100 TeraGas
-- `play_move` (Medium AI): 300 TeraGas
-- `play_move` (Hard AI): 500 TeraGas
-- `play_move` (VeryHard AI): 800 TeraGas
-- `play_move` (human vs human): 300 TeraGas
+- `play_move` (Easy AI): 50 TeraGas
+- `play_move` (Medium AI): 150 TeraGas
+- `play_move` (Hard AI): 250 TeraGas
+- `play_move` (VeryHard AI): 400 TeraGas
+- `play_move` (human vs human): 150 TeraGas
 - `resign`, `cancel`: 300 TeraGas
 - `claim_points`, `withdraw_token`, `cancel_bet`: 30 TeraGas
 - Wager/bet via `ft_transfer_call`: 30 TeraGas
@@ -1538,6 +1538,6 @@ Always use prepaid-gas at or above the estimate to avoid transaction failure.
 - Use `render_board` for a human-readable Unicode board view.
 - Coordinate notation (`"e2e4"`) is most reliable for automated play.
 - AI games complete faster (AI responds in the same transaction).
-- For Hard/VeryHard AI, allocate at least 500–800 TGas.
+- For Hard/VeryHard AI, allocate at least 250–400 TGas.
 - You can have up to 5 concurrent games — play multiple at once for efficiency.
 - Claim `pending_points` regularly.

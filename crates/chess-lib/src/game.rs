@@ -3,9 +3,10 @@ use crate::{
     AI_VERY_HARD_GAS,
 };
 use chess_engine::{
-    Board, Color, GameResult, Move, Piece, Position, FLAG_CHECK_EXTENSIONS,
-    FLAG_ITERATIVE_DEEPENING, FLAG_KILLER_HEURISTIC, FLAG_LATE_MOVE_REDUCTION, FLAG_MOVE_ORDERING,
-    FLAG_NULL_MOVE_PRUNING, FLAG_QUIESCENCE,
+    get_endgame_move, static_book::lookup_opening, Board, Color, GameResult, Move, Piece, Position,
+    FLAG_CHECK_EXTENSIONS, FLAG_ENDGAME_HEURISTICS, FLAG_ITERATIVE_DEEPENING,
+    FLAG_KILLER_HEURISTIC, FLAG_LATE_MOVE_REDUCTION, FLAG_MOVE_ORDERING, FLAG_NULL_MOVE_PRUNING,
+    FLAG_OPENING_BOOK, FLAG_QUIESCENCE,
 };
 use near_sdk::{
     borsh::{BorshDeserialize, BorshSerialize},
@@ -15,12 +16,12 @@ use near_sdk::{
 };
 
 #[cfg(not(feature = "integration-test"))]
-const AI_MAX_DEPTHS_EASY: &[u8] = &[26, 20];
+const AI_MAX_DEPTHS_EASY: &[u8] = &[12, 8];
 #[cfg(feature = "integration-test")]
 const AI_MAX_DEPTHS_EASY: &[u8] = &[1];
-const AI_MAX_DEPTHS_MEDIUM: &[u8] = &[30, 24];
-const AI_MAX_DEPTHS_HARD: &[u8] = &[18, 15, 12];
-const AI_MAX_DEPTHS_VERY_HARD: &[u8] = &[16, 14, 12, 10];
+const AI_MAX_DEPTHS_MEDIUM: &[u8] = &[14, 10];
+const AI_MAX_DEPTHS_HARD: &[u8] = &[9, 7, 5];
+const AI_MAX_DEPTHS_VERY_HARD: &[u8] = &[8, 7, 5, 4];
 const AI_PIECE_COUNT_CLAMP_MIN: f64 = 4.0;
 const AI_PIECE_COUNT_CLAMP_MAX: f64 = 32.0;
 const AI_PIECE_SCALE_DIVISOR: f64 = 16.0;
@@ -91,15 +92,15 @@ impl Player {
 ///
 /// Please be aware, that gas usage increases on higher difficulties:
 /// - Easy: ~5TGas
-/// - Medium: ~75TGas
-/// - Hard: ~175TGas
-/// - VeryHard: ~310TGas
+/// - Medium: ~35TGas
+/// - Hard: ~70TGas
+/// - VeryHard: ~145TGas
 ///
 /// Each difficulty has a gas cap (enforced as a soft cutoff during search):
-/// - Easy: 30 TGas
-/// - Medium: 80 TGas
-/// - Hard: 150 TGas
-/// - VeryHard: 300 TGas
+/// - Easy: 15 TGas
+/// - Medium: 40 TGas
+/// - Hard: 75 TGas
+/// - VeryHard: 150 TGas
 #[derive(BorshDeserialize, BorshSerialize, Clone, Debug, Deserialize, Serialize, NearSchema)]
 #[serde(crate = "near_sdk::serde")]
 #[borsh(crate = "near_sdk::borsh")]
@@ -111,15 +112,15 @@ pub enum Difficulty {
 }
 
 impl Difficulty {
-    pub fn to_flags(&self) -> u8 {
+    pub fn to_flags(&self) -> u16 {
         #[cfg(feature = "integration-test")]
         if matches!(self, Self::Easy) {
             return 0;
         }
         match self {
             // Easy:       check extensions + move ordering (MVV-LVA)
-            // Medium:     + null-move pruning + quiescence search
-            // Hard:       + iterative deepening
+            // Medium:     + opening book + null-move pruning + quiescence search
+            // Hard:       + endgame heuristics + iterative deepening
             // Very Hard:  + killer heuristic + late-move reduction
             Self::Easy => FLAG_CHECK_EXTENSIONS | FLAG_MOVE_ORDERING,
             Self::Medium => {
@@ -127,6 +128,7 @@ impl Difficulty {
                     | FLAG_NULL_MOVE_PRUNING
                     | FLAG_MOVE_ORDERING
                     | FLAG_QUIESCENCE
+                    | FLAG_OPENING_BOOK
             }
             Self::Hard => {
                 FLAG_CHECK_EXTENSIONS
@@ -134,6 +136,8 @@ impl Difficulty {
                     | FLAG_MOVE_ORDERING
                     | FLAG_QUIESCENCE
                     | FLAG_ITERATIVE_DEEPENING
+                    | FLAG_OPENING_BOOK
+                    | FLAG_ENDGAME_HEURISTICS
             }
             Self::VeryHard => {
                 FLAG_CHECK_EXTENSIONS
@@ -143,6 +147,8 @@ impl Difficulty {
                     | FLAG_ITERATIVE_DEEPENING
                     | FLAG_KILLER_HEURISTIC
                     | FLAG_LATE_MOVE_REDUCTION
+                    | FLAG_OPENING_BOOK
+                    | FLAG_ENDGAME_HEURISTICS
             }
         }
     }
@@ -397,12 +403,30 @@ impl Game {
 
             let flags = difficulty.to_flags();
 
+            let seed = env::random_seed_array();
+
+            let book_move = if (flags & FLAG_OPENING_BOOK) != 0 {
+                lookup_opening(board.zobrist_key(), seed[0])
+            } else {
+                None
+            };
+
+            let endgame_move = if (flags & FLAG_ENDGAME_HEURISTICS) != 0 {
+                get_endgame_move(&board)
+            } else {
+                None
+            };
+
             let turn_color = game.board.get_turn_color();
-            let (ai_mv, _, _) = if flags == 0 {
+            let (ai_mv, _, _) = if let Some(mv) = endgame_move {
+                (mv, 0, 0.0)
+            } else if let Some(mv) = book_move {
+                (mv, 0, 0.0)
+            } else if flags == 0 {
                 let mv = board.get_legal_moves().next().unwrap_or(Move::Resign);
                 (mv, 0, 0.0)
             } else {
-                board.get_next_move(&depths, env::random_seed_array(), gas_budget, flags)
+                board.get_next_move(&depths, seed, gas_budget, flags)
             };
             let (outcome, board_state) = match board.play_move(ai_mv) {
                 GameResult::Continuing(board) => {

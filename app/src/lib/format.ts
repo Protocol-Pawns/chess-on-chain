@@ -37,17 +37,17 @@ export function fmtPPP(raw: string): string {
 }
 
 export const AI_MOVE_GAS: Record<Difficulty, bigint> = {
-  Easy: BigInt('100000000000000'),
-  Medium: BigInt('300000000000000'),
-  Hard: BigInt('500000000000000'),
-  VeryHard: BigInt('800000000000000')
+  Easy: BigInt('50000000000000'),
+  Medium: BigInt('150000000000000'),
+  Hard: BigInt('250000000000000'),
+  VeryHard: BigInt('400000000000000')
 };
 
 export const AI_MOVE_GAS_BUDGET: Record<Difficulty, bigint> = {
-  Easy: BigInt('30000000000000'),
-  Medium: BigInt('80000000000000'),
-  Hard: BigInt('150000000000000'),
-  VeryHard: BigInt('300000000000000')
+  Easy: BigInt('15000000000000'),
+  Medium: BigInt('40000000000000'),
+  Hard: BigInt('75000000000000'),
+  VeryHard: BigInt('150000000000000')
 };
 
 export function fmtTGas(gas: bigint | string | number): string {

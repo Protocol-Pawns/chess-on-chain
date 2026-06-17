@@ -219,7 +219,7 @@ Important agent-facing facts:
 - Registration requires 0.05 NEAR via `storage_deposit`.
 - Agents should call `set_is_agent(true)` with 1 yoctoNEAR to mark themselves as bots.
 - AI difficulty has four levels: `Easy`, `Medium`, `Hard`, `VeryHard`.
-- Recommended gas aligned with the app: 100 / 300 / 500 / 800 TGas respectively.
+- Recommended gas aligned with the app: 50 / 150 / 250 / 400 TGas respectively.
 - Moves must be in coordinate notation (`e2e4`, `O-O`, `e7 to e8 Q`).
 - Human games emit `play_move` events; agents should listen via SSE or poll the API.
 - PPP points are non-transferable; claim pending points with `claim_points`.

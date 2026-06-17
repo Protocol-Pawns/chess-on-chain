@@ -209,7 +209,7 @@ async fn test_ai_gas_budgets() -> anyhow::Result<()> {
         Difficulty::VeryHard,
     ];
 
-    const AI_GAS_BUFFER: u64 = 500;
+    const AI_GAS_BUFFER: u64 = 50;
 
     for difficulty in difficulties {
         let gas_budget = match difficulty {

@@ -16,9 +16,16 @@ use std::convert::TryFrom;
 
 mod board;
 pub use board::{
-    Board, BoardBuilder, FLAG_CHECK_EXTENSIONS, FLAG_ITERATIVE_DEEPENING, FLAG_KILLER_HEURISTIC,
-    FLAG_LATE_MOVE_REDUCTION, FLAG_MOVE_ORDERING, FLAG_NULL_MOVE_PRUNING, FLAG_QUIESCENCE,
+    Board, BoardBuilder, FLAG_CHECK_EXTENSIONS, FLAG_ENDGAME_HEURISTICS, FLAG_ITERATIVE_DEEPENING,
+    FLAG_KILLER_HEURISTIC, FLAG_LATE_MOVE_REDUCTION, FLAG_MOVE_ORDERING, FLAG_NULL_MOVE_PRUNING,
+    FLAG_OPENING_BOOK, FLAG_QUIESCENCE,
 };
+
+pub mod endgame;
+pub mod static_book;
+pub mod transposition_table;
+pub mod zobrist_keys;
+pub use endgame::get_endgame_move;
 
 mod game;
 pub use game::{Game, GameAction, GameError, GameOver};

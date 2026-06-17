@@ -18,3 +18,6 @@ abi-gen
 .pnp.*
 
 .wrangler
+
+__pycache__/
+*.pyc

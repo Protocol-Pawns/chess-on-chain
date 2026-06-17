@@ -213,6 +213,21 @@ impl Piece {
         }
     }
 
+    /// Returns the (piece_type, color) indices used for Zobrist hashing.
+    /// piece_type: 0=King, 1=Queen, 2=Rook, 3=Bishop, 4=Knight, 5=Pawn
+    /// color: 0=White, 1=Black
+    #[inline]
+    pub fn zobrist_indices(&self) -> (usize, usize) {
+        match self {
+            Self::King(c, _) => (0, *c as usize),
+            Self::Queen(c, _) => (1, *c as usize),
+            Self::Rook(c, _) => (2, *c as usize),
+            Self::Bishop(c, _) => (3, *c as usize),
+            Self::Knight(c, _) => (4, *c as usize),
+            Self::Pawn(c, _) => (5, *c as usize),
+        }
+    }
+
     /// Get the material value for a piece.
     /// | Name | Value |
     /// |-|-|

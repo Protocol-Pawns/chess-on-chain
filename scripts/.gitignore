@@ -1,0 +1,3 @@
+.pydeps/
+__pycache__/
+*.pyc

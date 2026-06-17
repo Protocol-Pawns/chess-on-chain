@@ -62,10 +62,10 @@ pub const WITHDRAW_TOKEN_CALLBACK_GAS: Gas = Gas::from_tgas(5);
 pub const CANCEL_WAGER_CALLBACK_GAS: Gas = Gas::from_tgas(15);
 pub const REJECT_WAGER_CALLBACK_GAS: Gas = Gas::from_tgas(15);
 pub const WAGER_PAYOUT_CALLBACK_GAS: Gas = Gas::from_tgas(15);
-pub const AI_EASY_GAS: Gas = Gas::from_tgas(30);
-pub const AI_MEDIUM_GAS: Gas = Gas::from_tgas(80);
-pub const AI_HARD_GAS: Gas = Gas::from_tgas(150);
-pub const AI_VERY_HARD_GAS: Gas = Gas::from_tgas(300);
+pub const AI_EASY_GAS: Gas = Gas::from_tgas(15);
+pub const AI_MEDIUM_GAS: Gas = Gas::from_tgas(40);
+pub const AI_HARD_GAS: Gas = Gas::from_tgas(75);
+pub const AI_VERY_HARD_GAS: Gas = Gas::from_tgas(150);
 
 #[derive(BorshStorageKey, BorshSerialize)]
 #[borsh(crate = "near_sdk::borsh")]

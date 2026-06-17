@@ -1,3 +1,5 @@
+use super::transposition_table::*;
+use super::zobrist_keys::*;
 use super::*;
 use either::Either;
 use near_sdk::{
@@ -8,13 +10,15 @@ use rand::{seq::IteratorRandom, SeedableRng};
 use rand_chacha::ChaCha20Rng;
 use std::cmp::Ordering;
 
-pub const FLAG_CHECK_EXTENSIONS: u8 = 0b0001;
-pub const FLAG_NULL_MOVE_PRUNING: u8 = 0b0010;
-pub const FLAG_MOVE_ORDERING: u8 = 0b0100;
-pub const FLAG_QUIESCENCE: u8 = 0b1000;
-pub const FLAG_KILLER_HEURISTIC: u8 = 0b0001_0000;
-pub const FLAG_LATE_MOVE_REDUCTION: u8 = 0b0010_0000;
-pub const FLAG_ITERATIVE_DEEPENING: u8 = 0b1000_0000;
+pub const FLAG_CHECK_EXTENSIONS: u16 = 0b0000_0001;
+pub const FLAG_NULL_MOVE_PRUNING: u16 = 0b0000_0010;
+pub const FLAG_MOVE_ORDERING: u16 = 0b0000_0100;
+pub const FLAG_QUIESCENCE: u16 = 0b0000_1000;
+pub const FLAG_KILLER_HEURISTIC: u16 = 0b0001_0000;
+pub const FLAG_LATE_MOVE_REDUCTION: u16 = 0b0010_0000;
+pub const FLAG_ITERATIVE_DEEPENING: u16 = 0b1000_0000;
+pub const FLAG_OPENING_BOOK: u16 = 0b0000_0001_0000_0000;
+pub const FLAG_ENDGAME_HEURISTICS: u16 = 0b0000_0010_0000_0000;
 
 const MAX_PLY: usize = 64;
 
@@ -239,6 +243,38 @@ impl Board {
             .sum()
     }
 
+    /// Compute a Zobrist hash for the current position.
+    /// This is computed on demand to avoid changing the `Board` layout (which is
+    /// stored in contract state).
+    pub fn zobrist_key(&self) -> u64 {
+        let mut key: u64 = 0;
+        for (sq, square) in self.squares.iter().enumerate() {
+            if let Some(piece) = square.get_piece() {
+                let (pt, color) = piece.zobrist_indices();
+                key ^= PIECE_ZOBRIST_KEYS[pt][color][sq];
+            }
+        }
+        if self.turn == Color::Black {
+            key ^= BLACK_TO_MOVE_ZOBRIST_KEY;
+        }
+        if self.white_castling_rights.can_kingside_castle() {
+            key ^= CASTLING_ZOBRIST_KEYS[0];
+        }
+        if self.white_castling_rights.can_queenside_castle() {
+            key ^= CASTLING_ZOBRIST_KEYS[1];
+        }
+        if self.black_castling_rights.can_kingside_castle() {
+            key ^= CASTLING_ZOBRIST_KEYS[2];
+        }
+        if self.black_castling_rights.can_queenside_castle() {
+            key ^= CASTLING_ZOBRIST_KEYS[3];
+        }
+        if let Some(ep) = self.en_passant {
+            key ^= EN_PASSANT_FILE_ZOBRIST_KEYS[ep.get_col() as usize];
+        }
+        key
+    }
+
     #[inline]
     pub fn get_current_player_color(&self) -> Color {
         self.turn
@@ -286,8 +322,10 @@ impl Board {
 
         let mut board_count = 0;
         let mut killers = [[None; 2]; MAX_PLY];
+        let mut tt = TranspositionTable::new(0);
         for m in legal_moves {
             let child_board_value = self.apply_eval_move(m).minimax(
+                &mut tt,
                 Either::Left(depth),
                 -1000000.0,
                 1000000.0,
@@ -312,10 +350,11 @@ impl Board {
         depths: &[u8],
         seed: [u8; 32],
         gas_budget: Gas,
-        flags: u8,
+        flags: u16,
     ) -> (Move, u64, f64) {
         let rng = ChaCha20Rng::from_seed(seed);
         let mut legal_moves: Vec<Move> = self.get_legal_moves().collect();
+        let mut tt = TranspositionTable::new(8192);
         if legal_moves.is_empty() {
             return (Move::Resign, 0, 0.0);
         }
@@ -351,6 +390,7 @@ impl Board {
                         break;
                     }
                     let child_board_value = self.apply_eval_move(*m).minimax(
+                        &mut tt,
                         Either::Right((&iter_depths[1..], rng.clone())),
                         -1000000.0,
                         1000000.0,
@@ -381,6 +421,7 @@ impl Board {
                     break;
                 }
                 let child_board_value = self.apply_eval_move(m).minimax(
+                    &mut tt,
                     Either::Right((&depths[1..], rng.clone())),
                     -1000000.0,
                     1000000.0,
@@ -420,8 +461,10 @@ impl Board {
 
         let mut board_count = 0;
         let mut killers = [[None; 2]; MAX_PLY];
+        let mut tt = TranspositionTable::new(0);
         for m in legal_moves {
             let child_board_value = self.apply_eval_move(m).minimax(
+                &mut tt,
                 Either::Left(depth),
                 -1000000.0,
                 1000000.0,
@@ -448,7 +491,7 @@ impl Board {
         &self,
         m: Move,
         ply: u8,
-        flags: u8,
+        flags: u16,
         killers: &[[Option<Move>; 2]; MAX_PLY],
     ) -> i32 {
         match m {
@@ -486,7 +529,7 @@ impl Board {
         &self,
         moves: &mut [Move],
         ply: u8,
-        flags: u8,
+        flags: u16,
         killers: &[[Option<Move>; 2]; MAX_PLY],
     ) {
         moves.sort_by(|a, b| {
@@ -524,7 +567,7 @@ impl Board {
         board_count: &mut u64,
         depth: u8,
         ply: u8,
-        flags: u8,
+        flags: u16,
         killers: &[[Option<Move>; 2]; MAX_PLY],
     ) -> f64 {
         *board_count += 1;
@@ -617,17 +660,37 @@ impl Board {
     /// `killers` stores quiet moves that caused beta cutoffs per ply.
     pub fn minimax(
         &self,
+        tt: &mut TranspositionTable,
         depth: Either<u8, (&[u8], ChaCha20Rng)>,
         mut alpha: f64,
         mut beta: f64,
         is_maximizing: bool,
         getting_move_for: Color,
         board_count: &mut u64,
-        flags: u8,
+        flags: u16,
         ply: u8,
         killers: &mut [[Option<Move>; 2]; MAX_PLY],
     ) -> f64 {
         *board_count += 1;
+
+        let zobrist = self.zobrist_key();
+        let tt_key = tt_context_key(zobrist, &depth);
+        let tt_depth: u8 = match &depth {
+            Either::Left(d) => *d,
+            Either::Right((d, _)) => d.len() as u8,
+        };
+        let original_alpha = alpha;
+        let original_beta = beta;
+        if let Some(entry) = tt.get(tt_key) {
+            if entry.depth >= tt_depth {
+                match entry.flag {
+                    TtFlag::Exact => return entry.value,
+                    TtFlag::LowerBound if entry.value >= beta => return beta,
+                    TtFlag::UpperBound if entry.value <= alpha => return alpha,
+                    _ => {}
+                }
+            }
+        }
 
         let (mut next_depth, max_moves) = match depth {
             Either::Left(0) => {
@@ -705,6 +768,7 @@ impl Board {
                 };
                 if is_maximizing {
                     let null_score = null_board.minimax(
+                        tt,
                         null_depth,
                         beta - 1.0,
                         beta,
@@ -720,6 +784,7 @@ impl Board {
                     }
                 } else {
                     let null_score = null_board.minimax(
+                        tt,
                         null_depth,
                         alpha,
                         alpha + 1.0,
@@ -768,6 +833,7 @@ impl Board {
                     {
                         let reduced = Self::reduce_depth(next_depth.clone());
                         let reduced_value = child.minimax(
+                            tt,
                             reduced,
                             alpha,
                             beta,
@@ -780,6 +846,7 @@ impl Board {
                         );
                         if reduced_value > alpha {
                             child.minimax(
+                                tt,
                                 next_depth.clone(),
                                 alpha,
                                 beta,
@@ -795,6 +862,7 @@ impl Board {
                         }
                     } else {
                         child.minimax(
+                            tt,
                             next_depth.clone(),
                             alpha,
                             beta,
@@ -850,6 +918,7 @@ impl Board {
                     {
                         let reduced = Self::reduce_depth(next_depth.clone());
                         let reduced_value = child.minimax(
+                            tt,
                             reduced,
                             alpha,
                             beta,
@@ -862,6 +931,7 @@ impl Board {
                         );
                         if reduced_value > alpha {
                             child.minimax(
+                                tt,
                                 next_depth.clone(),
                                 alpha,
                                 beta,
@@ -877,6 +947,7 @@ impl Board {
                         }
                     } else {
                         child.minimax(
+                            tt,
                             next_depth.clone(),
                             alpha,
                             beta,
@@ -941,6 +1012,7 @@ impl Board {
                     {
                         let reduced = Self::reduce_depth(next_depth.clone());
                         let reduced_value = child.minimax(
+                            tt,
                             reduced,
                             alpha,
                             beta,
@@ -953,6 +1025,7 @@ impl Board {
                         );
                         if reduced_value < beta {
                             child.minimax(
+                                tt,
                                 next_depth.clone(),
                                 alpha,
                                 beta,
@@ -968,6 +1041,7 @@ impl Board {
                         }
                     } else {
                         child.minimax(
+                            tt,
                             next_depth.clone(),
                             alpha,
                             beta,
@@ -1023,6 +1097,7 @@ impl Board {
                     {
                         let reduced = Self::reduce_depth(next_depth.clone());
                         let reduced_value = child.minimax(
+                            tt,
                             reduced,
                             alpha,
                             beta,
@@ -1035,6 +1110,7 @@ impl Board {
                         );
                         if reduced_value < beta {
                             child.minimax(
+                                tt,
                                 next_depth.clone(),
                                 alpha,
                                 beta,
@@ -1050,6 +1126,7 @@ impl Board {
                         }
                     } else {
                         child.minimax(
+                            tt,
                             next_depth.clone(),
                             alpha,
                             beta,
@@ -1087,6 +1164,14 @@ impl Board {
             }
         }
 
+        let flag = if best_move_value <= original_alpha {
+            TtFlag::UpperBound
+        } else if best_move_value >= original_beta {
+            TtFlag::LowerBound
+        } else {
+            TtFlag::Exact
+        };
+        tt.store(tt_key, tt_depth, flag, best_move_value, None);
         best_move_value
     }
 

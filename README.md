@@ -58,6 +58,7 @@ Protocol Pawns is a monorepo managed with [Yarn 4 workspaces](https://yarnpkg.co
 - [Yarn](https://yarnpkg.com/) 4 (already configured via `.yarnrc.yml`)
 - [Rust](https://www.rust-lang.org/) toolchain
 - [cargo-near](https://github.com/near/cargo-near)
+- Python 3 (for data generation scripts)
 
 ### Install dependencies
 
@@ -67,11 +68,19 @@ yarn install
 
 ### Smart contracts
 
-Build all contracts:
+Build all contracts. By default this **skips** data generation and uses the committed static data:
 
 ```sh
 ./build.sh
 ```
+
+To regenerate the opening book and Zobrist keys from scratch (downloads Stockfish, takes ~20-30 min):
+
+```sh
+./build.sh --regen-data
+```
+
+The build also runs `wasm-opt -Oz` if available for smaller binaries.
 
 Run Rust tests and checks:
 
@@ -80,6 +89,31 @@ cargo test
 cargo clippy -- -D warnings
 cargo fmt --check
 ```
+
+### Data Generation
+
+Several static data files are compiled into the WASM binary. They are **committed** to the repo and only need regeneration when opening theory or hash keys change.
+
+| Script | Output | Purpose |
+|---|---|---|
+| `scripts/setup.sh` | `scripts/.pydeps/` | Downloads python-chess and Stockfish (prerequisite for other scripts) |
+| `scripts/generate_zobrist.py` | `crates/chess-engine/src/zobrist_keys.rs` | Precomputed Zobrist hash keys (781 random `u64` values with deterministic seed) |
+| `scripts/generate_static_data.py` | `crates/chess-engine/src/static_book.rs` | Opening book — two-phase generation: **Phase 1** walks ~240 hand-curated opening lines at Stockfish depth 18; **Phase 2** tree-expands every position with multiPV=2 to cover opponent deviations. Produces **2,700+ `(zobrist_key, encoded_move)` pairs** sorted for binary search |
+
+**Manual regeneration (without build.sh):**
+
+```sh
+# 1. Fetch python-chess and Stockfish (one-time)
+bash scripts/setup.sh
+
+# 2. Generate Zobrist keys
+PYTHONPATH=scripts/.pydeps/chess-1.11.2 python3 scripts/generate_zobrist.py
+
+# 3. Generate opening book (~20 min)
+PYTHONPATH=scripts/.pydeps/chess-1.11.2 python3 scripts/generate_static_data.py
+```
+
+The Zobrist keys use a deterministic random seed (`0x70726F746F636F6C207061776E73` = "protocol pawns") so they are reproducible across runs. To expand the opening book, add more UCI move sequences to the `LINES` list in `generate_static_data.py` — the tree expansion phase automatically adds coverage for opponent deviations.
 
 ### App
 
