@@ -431,13 +431,7 @@ impl Account {
         };
         let current_timestamp = env::block_timestamp_ms();
         let quests = account.quest_cooldowns.get_mut();
-        while let Some((timestamp, cd)) = quests.front() {
-            if *timestamp + cd.get_cooldown() < current_timestamp {
-                quests.pop_front();
-            } else {
-                break;
-            }
-        }
+        quests.retain(|(timestamp, cd)| *timestamp + cd.get_cooldown() >= current_timestamp);
         let on_cooldown = quests.iter().any(|(_, cd)| cd == &quest);
         let mint_amount = quest.get_points(on_cooldown);
         if defer {

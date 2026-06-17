@@ -808,6 +808,79 @@ async fn test_ft_balance_of_unregistered_account() -> anyhow::Result<()> {
 }
 
 #[tokio::test]
+async fn test_daily_play_move_expired_behind_weekly_gets_full_points() -> anyhow::Result<()> {
+    let (worker, _, contract) = initialize_contracts(None).await?;
+
+    let player_a = worker.dev_create_account().await?;
+    let player_b = worker.dev_create_account().await?;
+
+    tokio::try_join!(
+        call::storage_deposit(&contract, &player_a, None, None),
+        call::storage_deposit(&contract, &player_b, None, None)
+    )?;
+
+    // Trigger a weekly quest first so it sits at the FRONT of the cooldown deque
+    call::challenge(&contract, &player_a, player_b.id()).await?;
+    let challenge_id = create_challenge_id(player_a.id(), player_b.id());
+    let (game_id, _) = call::accept_challenge(&contract, &player_b, &challenge_id).await?;
+    let game_id = GameId(
+        game_id.0,
+        player_a.id().clone(),
+        Some(player_b.id().clone()),
+    );
+
+    // Player A plays first move → DailyPlayMove cooldown starts, added AFTER WeeklyChallenger
+    call::play_move(&contract, &player_a, &game_id, "e2e4".to_string()).await?;
+    // Player B's move so it's A's turn again after fast_forward
+    call::play_move(&contract, &player_b, &game_id, "a7a6".to_string()).await?;
+
+    let cooldowns = view::get_quest_cooldowns(&contract, player_a.id()).await?;
+    assert!(
+        cooldowns.iter().any(|(_, q)| q == &Quest::WeeklyChallenger),
+        "WeeklyChallenger should be on cooldown at front of deque"
+    );
+    assert!(
+        cooldowns.iter().any(|(_, q)| q == &Quest::DailyPlayMove),
+        "DailyPlayMove should be on cooldown"
+    );
+
+    let points_before = view::ft_balance_of(&contract, player_a.id()).await?.0;
+
+    // Fast forward past DailyPlayMove cooldown (18s) but not WeeklyChallenger (126s)
+    worker.fast_forward(100).await?;
+
+    // Second play move by A → DailyPlayMove cooldown has expired, should get FULL points
+    // BUG (before fix): expired DailyPlayMove is stuck behind active WeeklyChallenger,
+    // so on_cooldown is wrongly true → awards only 1_000 instead of 100_000
+    call::play_move(&contract, &player_a, &game_id, "d1f3".to_string()).await?;
+
+    let points_after = view::ft_balance_of(&contract, player_a.id()).await?.0;
+    let second_move_delta = points_after - points_before;
+
+    assert_eq!(
+        second_move_delta,
+        Quest::DailyPlayMove.get_points(false),
+        "DailyPlayMove should award FULL (100_000) points after cooldown expiry, not reduced (1_000). \
+         This fails if the expired DPM entry is stuck behind a still-active weekly.",
+    );
+
+    // A fresh DailyPlayMove cooldown should exist
+    let cooldowns = view::get_quest_cooldowns(&contract, player_a.id()).await?;
+    assert!(
+        cooldowns.iter().any(|(_, q)| q == &Quest::DailyPlayMove),
+        "should have a fresh DailyPlayMove cooldown after re-trigger"
+    );
+
+    // WeeklyChallenger must NOT be wiped (regression guard)
+    assert!(
+        cooldowns.iter().any(|(_, q)| q == &Quest::WeeklyChallenger),
+        "WeeklyChallenger should still be on cooldown - not wiped by DailyPlayMove cleanup"
+    );
+
+    Ok(())
+}
+
+#[tokio::test]
 async fn test_weekly_win_cooldown_not_wiped_by_daily_cleanup() -> anyhow::Result<()> {
     let (worker, _, contract) = initialize_contracts(None).await?;
 
