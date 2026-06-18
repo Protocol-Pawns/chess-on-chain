@@ -252,6 +252,128 @@ async fn test_daily_game_resign_late() -> anyhow::Result<()> {
 }
 
 #[tokio::test]
+async fn test_no_win_rewards_on_early_resign() -> anyhow::Result<()> {
+    let (worker, _, contract) = initialize_contracts(None).await?;
+
+    let player_a = worker.dev_create_account().await?;
+    let player_b = worker.dev_create_account().await?;
+
+    tokio::try_join!(
+        call::storage_deposit(&contract, &player_a, None, None),
+        call::storage_deposit(&contract, &player_b, None, None)
+    )?;
+
+    call::challenge(&contract, &player_a, player_b.id()).await?;
+    let challenge_id = create_challenge_id(player_a.id(), player_b.id());
+    let (game_id, _) = call::accept_challenge(&contract, &player_b, &challenge_id).await?;
+    let game_id = GameId(
+        game_id.0,
+        player_a.id().clone(),
+        Some(player_b.id().clone()),
+    );
+
+    call::play_move(&contract, &player_a, &game_id, "e2e4".to_string()).await?;
+    call::play_move(&contract, &player_b, &game_id, "a7a6".to_string()).await?;
+    call::play_move(&contract, &player_a, &game_id, "d1f3".to_string()).await?;
+    let (outcome, _) = call::resign(&contract, &player_b, &game_id).await?;
+    assert_eq!(outcome, GameOutcome::Victory(Color::White));
+
+    let achievements_a = view::get_achievements(&contract, player_a.id()).await?;
+    assert!(
+        !achievements_a.iter().any(|(_, a)| a == &Achievement::FirstWin),
+        "winner should NOT get FirstWin on early resign"
+    );
+
+    let cooldowns_a = view::get_quest_cooldowns(&contract, player_a.id()).await?;
+    assert!(
+        !cooldowns_a.iter().any(|(_, q)| q == &Quest::WeeklyWin),
+        "winner should NOT get WeeklyWin cooldown on early resign"
+    );
+    assert!(
+        !cooldowns_a.iter().any(|(_, q)| q == &Quest::DailyGame),
+        "winner should NOT get DailyGame cooldown on early resign"
+    );
+
+    let account_a = view::get_account(&contract, player_a.id()).await?;
+    assert_eq!(account_a.wins, 0, "wins should not be counted on early resign");
+
+    let points_a = view::ft_balance_of(&contract, player_a.id()).await?;
+    let expected_a = Quest::DailyPlayMove.get_points(false)
+        + Quest::DailyPlayMove.get_points(true)
+        + Achievement::FirstChallenge.get_points()
+        + Quest::WeeklyChallenger.get_points(false);
+    assert_eq!(
+        points_a.0, expected_a,
+        "winner points should only include challenge + DailyPlayMove on early resign"
+    );
+
+    let account_b = view::get_account(&contract, player_b.id()).await?;
+    assert_eq!(
+        account_b.wins, 0,
+        "loser wins should remain 0"
+    );
+    let cooldowns_b = view::get_quest_cooldowns(&contract, player_b.id()).await?;
+    assert!(
+        !cooldowns_b.iter().any(|(_, q)| q == &Quest::DailyGame),
+        "loser should NOT get DailyGame cooldown on early resign"
+    );
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn test_win_rewards_on_late_resign() -> anyhow::Result<()> {
+    let (worker, _, contract) = initialize_contracts(None).await?;
+
+    let player_a = worker.dev_create_account().await?;
+    let player_b = worker.dev_create_account().await?;
+
+    tokio::try_join!(
+        call::storage_deposit(&contract, &player_a, None, None),
+        call::storage_deposit(&contract, &player_b, None, None)
+    )?;
+
+    call::challenge(&contract, &player_a, player_b.id()).await?;
+    let challenge_id = create_challenge_id(player_a.id(), player_b.id());
+    let (game_id, _) = call::accept_challenge(&contract, &player_b, &challenge_id).await?;
+    let game_id = GameId(
+        game_id.0,
+        player_a.id().clone(),
+        Some(player_b.id().clone()),
+    );
+
+    call::play_move(&contract, &player_a, &game_id, "e2e4".to_string()).await?;
+    call::play_move(&contract, &player_b, &game_id, "a7a6".to_string()).await?;
+    call::play_move(&contract, &player_a, &game_id, "d1f3".to_string()).await?;
+    call::play_move(&contract, &player_b, &game_id, "a6a5".to_string()).await?;
+    call::play_move(&contract, &player_a, &game_id, "f1c4".to_string()).await?;
+    call::play_move(&contract, &player_b, &game_id, "a5a4".to_string()).await?;
+    call::play_move(&contract, &player_a, &game_id, "e1e2".to_string()).await?;
+    let (outcome, _) = call::resign(&contract, &player_b, &game_id).await?;
+    assert_eq!(outcome, GameOutcome::Victory(Color::White));
+
+    let achievements_a = view::get_achievements(&contract, player_a.id()).await?;
+    assert!(
+        achievements_a.iter().any(|(_, a)| a == &Achievement::FirstWin),
+        "winner SHOULD get FirstWin on late resign (>= 5 moves)"
+    );
+
+    let cooldowns_a = view::get_quest_cooldowns(&contract, player_a.id()).await?;
+    assert!(
+        cooldowns_a.iter().any(|(_, q)| q == &Quest::WeeklyWin),
+        "winner SHOULD get WeeklyWin cooldown on late resign"
+    );
+
+    let account_a = view::get_account(&contract, player_a.id()).await?;
+    assert_eq!(
+        account_a.wins, 1,
+        "wins should be counted on late resign (>= 5 moves)"
+    );
+
+    Ok(())
+}
+
+#[tokio::test]
 async fn test_first_win_human() -> anyhow::Result<()> {
     let (worker, _, contract) = initialize_contracts(None).await?;
 

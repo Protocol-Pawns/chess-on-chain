@@ -155,8 +155,8 @@ impl Chess {
 
         let is_human_game = game.get_black().is_human();
 
-        let elo_eligible = !resigned || move_count >= 5;
-        if is_human_game && elo_eligible {
+        let game_eligible = !resigned || move_count >= 5;
+        if is_human_game && game_eligible {
             self.internal_calculate_elo(&game, outcome);
         }
 
@@ -167,7 +167,7 @@ impl Chess {
                 Color::White => (game.get_white(), game.get_black()),
                 Color::Black => (game.get_black(), game.get_white()),
             };
-            if winner.is_human() {
+            if winner.is_human() && game_eligible {
                 if let Some(achievement) = match looser {
                     Player::Human(_) => Some(Achievement::FirstWin),
                     Player::Ai(Difficulty::Easy) => Some(Achievement::FirstWinAiEasy),
@@ -221,8 +221,7 @@ impl Chess {
             }
         }
 
-        let daily_game_eligible = !resigned || move_count >= 5;
-        if daily_game_eligible {
+        if game_eligible {
             if let Some(white_id) = game.get_white().get_account_id() {
                 minted += self
                     .accounts
@@ -240,18 +239,20 @@ impl Chess {
         }
 
         if let Some((token_id, amount)) = game.get_wager().clone() {
-            if let Some(white_id) = game.get_white().get_account_id() {
-                let account = self.accounts.get_mut(&white_id).unwrap();
-                account.record_wager_played();
-                if account.get_wagers_played() == 1 {
-                    minted += account.apply_achievement(Achievement::FirstWager, false);
+            if game_eligible {
+                if let Some(white_id) = game.get_white().get_account_id() {
+                    let account = self.accounts.get_mut(&white_id).unwrap();
+                    account.record_wager_played();
+                    if account.get_wagers_played() == 1 {
+                        minted += account.apply_achievement(Achievement::FirstWager, false);
+                    }
                 }
-            }
-            if let Some(black_id) = game.get_black().get_account_id() {
-                let account = self.accounts.get_mut(&black_id).unwrap();
-                account.record_wager_played();
-                if account.get_wagers_played() == 1 {
-                    minted += account.apply_achievement(Achievement::FirstWager, false);
+                if let Some(black_id) = game.get_black().get_account_id() {
+                    let account = self.accounts.get_mut(&black_id).unwrap();
+                    account.record_wager_played();
+                    if account.get_wagers_played() == 1 {
+                        minted += account.apply_achievement(Achievement::FirstWager, false);
+                    }
                 }
             }
 
@@ -261,19 +262,21 @@ impl Chess {
                         Color::White => game.get_white().get_account_id().unwrap().clone(),
                         Color::Black => game.get_black().get_account_id().unwrap().clone(),
                     };
-                    let winner_account = self.accounts.get_mut(&winner_id).unwrap();
-                    winner_account.record_wager_win();
-                    let wager_wins = winner_account.get_wager_wins();
-                    if wager_wins == 1 {
-                        minted +=
-                            winner_account.apply_achievement(Achievement::FirstWagerWin, false);
-                    }
-                    for (threshold, achievement) in [
-                        (10, Achievement::WagerWins10),
-                        (100, Achievement::WagerWins100),
-                    ] {
-                        if wager_wins == threshold {
-                            minted += winner_account.apply_achievement(achievement, false);
+                    if game_eligible {
+                        let winner_account = self.accounts.get_mut(&winner_id).unwrap();
+                        winner_account.record_wager_win();
+                        let wager_wins = winner_account.get_wager_wins();
+                        if wager_wins == 1 {
+                            minted +=
+                                winner_account.apply_achievement(Achievement::FirstWagerWin, false);
+                        }
+                        for (threshold, achievement) in [
+                            (10, Achievement::WagerWins10),
+                            (100, Achievement::WagerWins100),
+                        ] {
+                            if wager_wins == threshold {
+                                minted += winner_account.apply_achievement(achievement, false);
+                            }
                         }
                     }
 
@@ -413,18 +416,20 @@ impl Chess {
                         }
                     }
 
-                    for account_id in &bet_winners {
-                        let account = self.accounts.get_mut(account_id).unwrap();
-                        account.record_bet_won();
-                        let bets_won = account.get_bets_won();
-                        if bets_won == 1 {
-                            minted += account.apply_achievement(Achievement::FirstBetWin, true);
-                        }
-                        for (threshold, achievement) in
-                            [(10, Achievement::BetsWon10), (100, Achievement::BetsWon100)]
-                        {
-                            if bets_won == threshold {
-                                minted += account.apply_achievement(achievement, true);
+                    if game_eligible {
+                        for account_id in &bet_winners {
+                            let account = self.accounts.get_mut(account_id).unwrap();
+                            account.record_bet_won();
+                            let bets_won = account.get_bets_won();
+                            if bets_won == 1 {
+                                minted += account.apply_achievement(Achievement::FirstBetWin, true);
+                            }
+                            for (threshold, achievement) in
+                                [(10, Achievement::BetsWon10), (100, Achievement::BetsWon100)]
+                            {
+                                if bets_won == threshold {
+                                    minted += account.apply_achievement(achievement, true);
+                                }
                             }
                         }
                     }
