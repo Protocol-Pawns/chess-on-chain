@@ -107,6 +107,123 @@ export async function getTxLogs(txHash: string): Promise<string[]> {
   return logs;
 }
 
+interface FinalExecutionOutcomeLike {
+  transaction?: { hash?: string };
+  status?:
+    | 'NotStarted'
+    | 'Started'
+    | 'Unknown'
+    | { Failure?: unknown }
+    | { SuccessValue?: string }
+    | Record<string, unknown>;
+  final_execution_status?: string;
+  receipts_outcome?: unknown;
+  transaction_outcome?: unknown;
+}
+
+function extractFailureMessage(failure: unknown): string {
+  if (!failure || typeof failure !== 'object') return String(failure);
+  const f = failure as Record<string, unknown>;
+  const actionError = f.ActionError as
+    | { kind?: Record<string, unknown>; index?: number }
+    | undefined;
+  if (actionError?.kind) {
+    const fc = actionError.kind.FunctionCallError as
+      | { ExecutionError?: string }
+      | undefined;
+    if (fc?.ExecutionError) return fc.ExecutionError;
+  }
+  if (actionError?.kind) return JSON.stringify(actionError.kind);
+  if (f.InvalidTxError) return JSON.stringify(f.InvalidTxError);
+  return JSON.stringify(failure);
+}
+
+const TX_POLL_INTERVAL_MS = 1200;
+const TX_POLL_MAX_ATTEMPTS = 30;
+
+export async function awaitTxOutcome(
+  txHash: string,
+  accountId: string
+): Promise<FinalExecutionOutcomeLike> {
+  const p = getProvider();
+  for (let attempt = 0; attempt < TX_POLL_MAX_ATTEMPTS; attempt++) {
+    try {
+      const res = (await p.sendJsonRpc('EXPERIMENTAL_tx_status', [
+        txHash,
+        accountId
+      ])) as FinalExecutionOutcomeLike;
+      const final = res?.final_execution_status;
+      const st = res?.status;
+      const isDefinitive =
+        st !== undefined &&
+        st !== null &&
+        typeof st === 'object' &&
+        ('Failure' in (st as object) || 'SuccessValue' in (st as object));
+      if (final === 'FINAL' || final === 'EXECUTED' || isDefinitive) {
+        return res;
+      }
+    } catch (err) {
+      if (attempt === TX_POLL_MAX_ATTEMPTS - 1) {
+        console.warn('[connector] tx status poll exhausted', err);
+      }
+    }
+    await new Promise(r => setTimeout(r, TX_POLL_INTERVAL_MS));
+  }
+  throw new Error('Transaction finalisation timed out');
+}
+
+export async function verifyOutcome<T>(result: T): Promise<T> {
+  const isArray = Array.isArray(result);
+  const rawOutcomes: FinalExecutionOutcomeLike[] = isArray
+    ? (result as unknown[])
+        .filter(Boolean)
+        .map(o => o as FinalExecutionOutcomeLike)
+    : [result as unknown as FinalExecutionOutcomeLike].filter(Boolean);
+  if (rawOutcomes.length === 0) return result;
+
+  let accountId: string | null = null;
+  const finalOutcomes: FinalExecutionOutcomeLike[] = [];
+  for (const oc of rawOutcomes) {
+    const st = oc?.status;
+    const alreadyDefinitive =
+      st !== undefined &&
+      st !== null &&
+      typeof st === 'object' &&
+      ('Failure' in (st as object) || 'SuccessValue' in (st as object));
+    let finalOutcome = oc;
+    if (!alreadyDefinitive) {
+      const hash = oc?.transaction?.hash;
+      if (hash) {
+        if (!accountId) accountId = await getAccountId();
+        if (accountId) {
+          try {
+            finalOutcome = await awaitTxOutcome(hash, accountId);
+          } catch {
+            /* keep original outcome */
+          }
+        }
+      }
+    }
+    const status = finalOutcome?.status as
+      | { Failure?: unknown }
+      | { SuccessValue?: string }
+      | string
+      | undefined;
+    if (
+      status !== undefined &&
+      status !== null &&
+      typeof status === 'object' &&
+      'Failure' in (status as object)
+    ) {
+      throw new Error(
+        extractFailureMessage((status as { Failure: unknown }).Failure)
+      );
+    }
+    finalOutcomes.push(finalOutcome);
+  }
+  return (isArray ? finalOutcomes : finalOutcomes[0]) as T;
+}
+
 async function _sendTransaction(
   methodName: string,
   args: Record<string, unknown>,
@@ -115,12 +232,12 @@ async function _sendTransaction(
 ) {
   if (deposit === '0') {
     const localResult = await tryLocalSign(methodName, args, deposit, gas);
-    if (localResult) return localResult;
+    if (localResult) return verifyOutcome(localResult);
   }
   const GAS_STR = gas.toString();
   const c = getConnector();
   const wallet = await c.wallet();
-  return wallet.signAndSendTransaction({
+  const result = await wallet.signAndSendTransaction({
     receiverId: CONTRACT_ID,
     actions: [
       {
@@ -129,6 +246,7 @@ async function _sendTransaction(
       }
     ]
   });
+  return verifyOutcome(result);
 }
 
 function sendTransaction(
@@ -196,7 +314,7 @@ async function _sendTransactions(
   const GAS_STR = '30000000000000';
   const c = getConnector();
   const wallet = await c.wallet();
-  return wallet.signAndSendTransactions({
+  const result = await wallet.signAndSendTransactions({
     transactions: calls.map(({ methodName, args, deposit = '0' }) => ({
       receiverId: CONTRACT_ID,
       actions: [
@@ -207,6 +325,7 @@ async function _sendTransactions(
       ]
     }))
   });
+  return verifyOutcome(result);
 }
 
 function sendTransactions(
@@ -228,7 +347,7 @@ async function _sendTokenTransaction(
   const GAS_STR = '60000000000000';
   const c = getConnector();
   const wallet = await c.wallet();
-  return wallet.signAndSendTransaction({
+  const result = await wallet.signAndSendTransaction({
     receiverId: tokenId,
     actions: [
       {
@@ -237,6 +356,7 @@ async function _sendTokenTransaction(
       }
     ]
   });
+  return verifyOutcome(result);
 }
 
 export async function getNearNativeBalance(accountId: string): Promise<bigint> {
@@ -285,7 +405,7 @@ async function _sendTokenTransactionWithAutoWrap(
 
   const c = getConnector();
   const wallet = await c.wallet();
-  return wallet.signAndSendTransaction({
+  const result = await wallet.signAndSendTransaction({
     receiverId: WRAP_NEAR_ID,
     actions: [
       {
@@ -303,6 +423,7 @@ async function _sendTokenTransactionWithAutoWrap(
       }
     ]
   });
+  return verifyOutcome(result);
 }
 
 function sendTokenTransactionWithAutoWrap(
@@ -383,7 +504,9 @@ export const contract = {
   },
 
   claimPoints() {
-    return withAccessKeyRetry(() => tryLocalSign('claim_points', {}, '0'));
+    return withAccessKeyRetry(async () =>
+      verifyOutcome(await tryLocalSign('claim_points', {}, '0'))
+    );
   },
 
   createAiGame(difficulty: Difficulty) {
