@@ -85,6 +85,10 @@
   });
 </script>
 
+<svelte:head>
+  <title>Protocol Pawns - About</title>
+</svelte:head>
+
 <div class="flex flex-col gap-4">
   <h2 class="text-xl font-bold text-primary text-center">
     About Protocol Pawns

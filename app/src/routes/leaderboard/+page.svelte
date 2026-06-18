@@ -104,6 +104,10 @@
   onMount(() => loadRankings(1, sortBy));
 </script>
 
+<svelte:head>
+  <title>Protocol Pawns - Leaderboard</title>
+</svelte:head>
+
 <div class="flex flex-col gap-4">
   <h2 class="text-xl font-bold text-primary text-center">Leaderboard</h2>
 

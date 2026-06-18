@@ -32,7 +32,7 @@ export const load: PageServerLoad = async ({ params, fetch }) => {
   if (!stats) {
     return {
       meta: {
-        title: `${displayName} — Protocol Pawns`,
+        title: `Protocol Pawns - ${displayName}`,
         description: `View ${displayName}'s chess profile on Protocol Pawns.`,
         url: `${APP_ORIGIN}${path}`,
         image: `${APP_ORIGIN}/favicon.png`
@@ -45,7 +45,7 @@ export const load: PageServerLoad = async ({ params, fetch }) => {
       ? Math.round((stats.wins / stats.total_games) * 1000) / 10
       : 0;
 
-  const title = `${displayName} — Protocol Pawns`;
+  const title = `Protocol Pawns - ${displayName}`;
   const description = `${displayName} · ${stats.wins}W / ${stats.losses}L / ${stats.draws}D · ${winRate}% win rate on Protocol Pawns.`;
   const previewUrl = `${API_ORIGIN}/account/${encodeURIComponent(accountId)}/preview.png`;
 

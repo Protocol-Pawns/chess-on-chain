@@ -25,7 +25,7 @@ export const load: PageServerLoad = async ({ params, fetch }) => {
   if (!game) {
     return {
       meta: {
-        title: 'Protocol Pawns',
+        title: 'Protocol Pawns - Game',
         description:
           'Fully decentralized on-chain chess on NEAR Protocol. Play vs AI or challenge other wallets.',
         url: `${APP_ORIGIN}${path}`,
@@ -54,7 +54,7 @@ export const load: PageServerLoad = async ({ params, fetch }) => {
     return `${game.outcome.color} wins by checkmate`;
   })();
 
-  const title = `${whiteName} vs ${blackName} — Protocol Pawns`;
+  const title = `Protocol Pawns - ${whiteName} vs ${blackName}`;
   const description = `${resultText}. Watch this on-chain chess game on Protocol Pawns.`;
   const previewUrl = `${API_ORIGIN}/game/${encodeURIComponent(gameIdStr)}/preview.png`;
 

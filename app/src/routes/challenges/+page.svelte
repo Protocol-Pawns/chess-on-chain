@@ -413,6 +413,10 @@
   }
 </script>
 
+<svelte:head>
+  <title>Protocol Pawns - Challenges</title>
+</svelte:head>
+
 {#if !$isLoggedIn}
   <div class="text-center py-12 text-white/50">
     Connect your wallet to view challenges

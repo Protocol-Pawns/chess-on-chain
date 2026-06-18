@@ -363,6 +363,10 @@
   }
 </script>
 
+<svelte:head>
+  <title>Protocol Pawns</title>
+</svelte:head>
+
 <div class="flex flex-col gap-5">
   <section class="text-center flex flex-col gap-3">
     <h2 class="text-xl font-bold text-primary">Welcome to Protocol Pawns!</h2>
