@@ -225,7 +225,7 @@ async function _sendTokenTransaction(
   args: Record<string, unknown>,
   deposit: string = '1'
 ) {
-  const GAS_STR = '30000000000000';
+  const GAS_STR = '60000000000000';
   const c = getConnector();
   const wallet = await c.wallet();
   return wallet.signAndSendTransaction({
