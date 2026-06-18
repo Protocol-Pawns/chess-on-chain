@@ -94,11 +94,11 @@ cargo fmt --check
 
 Several static data files are compiled into the WASM binary. They are **committed** to the repo and only need regeneration when opening theory or hash keys change.
 
-| Script | Output | Purpose |
-|---|---|---|
-| `scripts/setup.sh` | `scripts/.pydeps/` | Downloads python-chess and Stockfish (prerequisite for other scripts) |
-| `scripts/generate_zobrist.py` | `crates/chess-engine/src/zobrist_keys.rs` | Precomputed Zobrist hash keys (781 random `u64` values with deterministic seed) |
-| `scripts/generate_static_data.py` | `crates/chess-engine/src/static_book.rs` | Opening book — two-phase generation: **Phase 1** walks ~240 hand-curated opening lines at Stockfish depth 18; **Phase 2** tree-expands every position with multiPV=2 to cover opponent deviations. Produces **2,700+ `(zobrist_key, encoded_move)` pairs** sorted for binary search |
+| Script                            | Output                                    | Purpose                                                                                                                                                                                                                                                                             |
+| --------------------------------- | ----------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `scripts/setup.sh`                | `scripts/.pydeps/`                        | Downloads python-chess and Stockfish (prerequisite for other scripts)                                                                                                                                                                                                               |
+| `scripts/generate_zobrist.py`     | `crates/chess-engine/src/zobrist_keys.rs` | Precomputed Zobrist hash keys (781 random `u64` values with deterministic seed)                                                                                                                                                                                                     |
+| `scripts/generate_static_data.py` | `crates/chess-engine/src/static_book.rs`  | Opening book — two-phase generation: **Phase 1** walks ~240 hand-curated opening lines at Stockfish depth 18; **Phase 2** tree-expands every position with multiPV=2 to cover opponent deviations. Produces **2,700+ `(zobrist_key, encoded_move)` pairs** sorted for binary search |
 
 **Manual regeneration (without build.sh):**
 

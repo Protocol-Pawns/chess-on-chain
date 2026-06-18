@@ -287,7 +287,6 @@
       resolved_at: null
     };
     pendingChallenges = [newChallenge, ...pendingChallenges];
-    showToast('info', `New challenge from ${data.challenger as string}!`);
   }
 
   function handleSSEAcceptChallenge(event: SSEEventData) {

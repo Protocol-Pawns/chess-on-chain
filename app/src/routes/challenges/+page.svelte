@@ -38,6 +38,7 @@
   let ownChallengeCount = $state(0);
   let targetChallengeCount = $state<number | null>(null);
   let targetRegistered = $state<boolean | null>(null);
+  let targetExistingChallenge = $state<boolean | null>(null);
   let checkingTarget = $state(false);
   let acceptTarget = $state<Challenge | null>(null);
   let rejectTarget = $state<Challenge | null>(null);
@@ -117,10 +118,13 @@
     if (!target.trim()) {
       targetChallengeCount = null;
       targetRegistered = null;
+      targetExistingChallenge = null;
       checkingTarget = false;
       return;
     }
     const t = target.trim();
+    const me = $accountStore?.toLowerCase() ?? '';
+    const tLower = t.toLowerCase();
     checkingTarget = true;
     checkTimeout = setTimeout(async () => {
       try {
@@ -131,9 +135,15 @@
         ]);
         targetChallengeCount = sent.length + received.length;
         targetRegistered = reg !== null;
+        const myId = `${me}-vs-${tLower}`;
+        const reverseId = `${tLower}-vs-${me}`;
+        targetExistingChallenge = [...sent, ...received].some(
+          id => id === myId || id === reverseId
+        );
       } catch {
         targetChallengeCount = null;
         targetRegistered = null;
+        targetExistingChallenge = null;
       } finally {
         checkingTarget = false;
       }
@@ -157,9 +167,7 @@
     const savedWagerToken = wagerEnabled ? wagerToken : null;
     const savedWagerAmount =
       wagerEnabled && wagerRawAmount ? wagerRawAmount : null;
-    challengeTarget = '';
-    targetChallengeCount = null;
-    targetRegistered = null;
+    showToast('info', 'Sending challenge...');
     let promise;
     if (needsRegistration) {
       promise = contract.challengeWithRegistration(target);
@@ -168,9 +176,17 @@
     } else {
       promise = contract.challenge(target);
     }
-    showTxToast(promise);
     promise
       .then(() => {
+        challengeTarget = '';
+        targetChallengeCount = null;
+        targetRegistered = null;
+        targetExistingChallenge = null;
+        wagerEnabled = false;
+        wagerToken = '';
+        wagerTokenSymbol = '';
+        wagerAmount = '';
+        wagerRawAmount = '';
         const optimistic: Challenge = {
           id: `${$accountStore}-vs-${target}`,
           challenger: $accountStore,
@@ -184,8 +200,12 @@
         };
         challenges = [optimistic, ...challenges];
         ownChallengeCount += 1;
+        showToast('success', 'Challenge sent!');
       })
-      .catch(() => {});
+      .catch((err: unknown) => {
+        const msg = err instanceof Error ? err.message : String(err);
+        showToast('error', 'Failed to send challenge', msg);
+      });
   }
 
   function doAccept(challenge: Challenge) {
@@ -266,6 +286,7 @@
       (wagerEnabled && wagerInsufficientBalance) ||
       gameCount >= MAX_OPEN_GAMES ||
       ownChallengeCount >= MAX_OPEN_CHALLENGES ||
+      targetExistingChallenge === true ||
       (targetChallengeCount !== null &&
         targetChallengeCount >= MAX_OPEN_CHALLENGES)
   );
@@ -275,6 +296,8 @@
     if (gameCount >= MAX_OPEN_GAMES) return 'Max games reached';
     if (ownChallengeCount >= MAX_OPEN_CHALLENGES)
       return 'Max challenges reached';
+    if (targetExistingChallenge)
+      return 'You already have a pending challenge with this player';
     if (
       targetChallengeCount !== null &&
       targetChallengeCount >= MAX_OPEN_CHALLENGES
@@ -321,7 +344,6 @@
     };
     challenges = [newChallenge, ...challenges];
     ownChallengeCount += 1;
-    showToast('info', `New challenge from ${data.challenger as string}!`);
   }
 
   function handleSSEAcceptChallenge(event: SSEEventData) {

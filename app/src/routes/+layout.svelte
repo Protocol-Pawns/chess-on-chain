@@ -11,7 +11,8 @@
   import localizedFormat from 'dayjs/plugin/localizedFormat';
   import { registerServiceWorker, initPwaInstallPrompt } from '$lib/pwa';
   import { accountStore } from '$lib/near/account';
-  import { connectSSE, disconnectSSE } from '$lib/sse';
+  import { connectSSE, disconnectSSE, setGlobalHandler } from '$lib/sse';
+  import { showToast } from '$lib/toast';
   import 'virtual:uno.css';
   import '@unocss/reset/tailwind.css';
 
@@ -24,7 +25,7 @@
     { href: '/', label: 'Home' },
     { href: '/leaderboard', label: 'Leaderboard' },
     { href: '/challenges', label: 'Challenges' },
-    // { href: '/bets', label: 'Bets' },
+    { href: '/bets', label: 'Bets' },
     { href: '/about', label: 'About' }
   ];
 
@@ -42,7 +43,18 @@
     registerServiceWorker();
     initPwaInstallPrompt();
 
+    let currentAccount: string | undefined;
+
+    setGlobalHandler((eventType, data) => {
+      if (eventType !== 'challenge') return;
+      const eventData = data.event_data;
+      if (eventData.challenged !== currentAccount) return;
+      const challenger = eventData.challenger as string;
+      showToast('info', `New challenge from ${challenger}!`);
+    });
+
     const unsub = accountStore.subscribe(account => {
+      currentAccount = account;
       if (account) {
         connectSSE(account);
       } else {
@@ -53,6 +65,7 @@
     return () => {
       unsub();
       disconnectSSE();
+      setGlobalHandler(null);
     };
   });
 </script>
