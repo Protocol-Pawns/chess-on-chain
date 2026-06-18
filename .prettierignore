@@ -6,3 +6,4 @@ res
 landing/dist
 landing/.astro
 landing/.wrangler
+scripts/.pydeps

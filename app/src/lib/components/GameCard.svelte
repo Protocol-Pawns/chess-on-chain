@@ -4,6 +4,7 @@
   import { truncateAddr } from '$lib/format';
   import { accountStore } from '$lib/near/account';
   import type { GameOverview } from '$lib/api/client';
+  import WagerBadge from './WagerBadge.svelte';
 
   let { game }: { game: GameOverview } = $props();
 
@@ -23,8 +24,8 @@
   });
 </script>
 
-<div class={isMyTurn ? 'card-accent' : 'card-hover'}>
-  <div class="flex justify-between items-start mb-1">
+<div class="{isMyTurn ? 'card-accent' : 'card-hover'} flex items-stretch gap-3">
+  <div class="flex-1 min-w-0 py-0.5">
     <div class="text-sm space-y-0.5">
       <div class="font-medium">
         <span
@@ -43,18 +44,7 @@
             : 'Waiting...'}
       </div>
     </div>
-    <span
-      class="text-xs {game.status === 'in_progress'
-        ? 'text-primary-green'
-        : game.status === 'finished'
-          ? 'text-white/50'
-          : 'text-primary-err'}"
-    >
-      {game.status === 'in_progress' ? 'Live' : game.status}
-    </span>
-  </div>
-  <div class="flex justify-between items-center text-xs text-white/40">
-    <span>
+    <div class="mt-1 text-xs text-white/40">
       {#if game.outcome}
         <span class="text-white/60">
           {#if game.outcome.result === 'Stalemate'}
@@ -74,9 +64,25 @@
       {:else if turn}
         {turn}'s turn
       {/if}
+    </div>
+  </div>
+  <div
+    class="shrink-0 flex flex-col items-end justify-between text-right text-xs py-0.5"
+  >
+    <span
+      class={game.status === 'in_progress'
+        ? 'text-primary-green'
+        : game.status === 'finished'
+          ? 'text-white/50'
+          : 'text-primary-err'}
+    >
+      {game.status === 'in_progress' ? 'Live' : game.status}
     </span>
+    {#if game.wager_token && game.wager_amount}
+      <WagerBadge tokenId={game.wager_token} rawAmount={game.wager_amount} />
+    {/if}
     {#if game.created_at}
-      <span>{dayjs(game.created_at).format('lll')}</span>
+      <span class="text-white/40">{dayjs(game.created_at).format('lll')}</span>
     {/if}
   </div>
 </div>

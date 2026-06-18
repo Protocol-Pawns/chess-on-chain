@@ -43,6 +43,8 @@ interface GameRow {
   status: string;
   created_at: string | number;
   finished_at: string | number | null;
+  wager_token: string | null;
+  wager_amount: string | null;
 }
 
 interface GameMoveRow {
@@ -95,7 +97,9 @@ function rowToGame(row: GameRow): Game {
     outcome,
     resigner: row.resigner,
     created_at: nsToIso(row.created_at) ?? '',
-    finished_at: nsToIso(row.finished_at)
+    finished_at: nsToIso(row.finished_at),
+    wager_token: row.wager_token,
+    wager_amount: row.wager_amount
   };
 }
 
@@ -165,7 +169,15 @@ export async function getGlobalStats(db: Db): Promise<GlobalStats> {
 }
 
 export async function getGame(db: Db, gameId: string): Promise<Game | null> {
-  const rows = await db`SELECT * FROM games WHERE game_id = ${gameId}`;
+  const rows = await db`
+    SELECT g.*, c.wager_token, c.wager_amount
+    FROM games g
+    LEFT JOIN LATERAL (
+      SELECT wager_token, wager_amount FROM challenges
+      WHERE game_id = g.game_id LIMIT 1
+    ) c ON true
+    WHERE g.game_id = ${gameId}
+  `;
   if (rows.length === 0) return null;
   return rowToGame(rows[0] as unknown as GameRow);
 }
@@ -184,7 +196,15 @@ export async function getGameMoves(
 
 export async function queryGames(db: Db, gameIds: string[]) {
   if (gameIds.length === 0) return [];
-  const rows = await db`SELECT * FROM games WHERE game_id = ANY(${gameIds})`;
+  const rows = await db`
+    SELECT g.*, c.wager_token, c.wager_amount
+    FROM games g
+    LEFT JOIN LATERAL (
+      SELECT wager_token, wager_amount FROM challenges
+      WHERE game_id = g.game_id LIMIT 1
+    ) c ON true
+    WHERE g.game_id = ANY(${gameIds})
+  `;
   return rows.map((r: unknown) => rowToGameOverview(r as GameRow));
 }
 
@@ -210,15 +230,15 @@ export async function getGames(
   const orderBy = status === 'active' ? 'created_at' : 'finished_at';
 
   const aiCondition = excludeAi
-    ? db`AND white_type != 'Ai' AND black_type != 'Ai'`
+    ? db`AND g.white_type != 'Ai' AND g.black_type != 'Ai'`
     : db``;
 
   if (page != null && page > 0) {
     const offset = (page - 1) * actualLimit;
 
     const countRows = await db`
-      SELECT COUNT(*) AS total FROM games
-      WHERE status = ${statusFilter} ${aiCondition}
+      SELECT COUNT(*) AS total FROM games g
+      WHERE g.status = ${statusFilter} ${aiCondition}
     `;
     const totalCount = Number(
       (countRows[0] as unknown as Record<string, string>).total
@@ -226,8 +246,13 @@ export async function getGames(
     const totalPages = Math.max(1, Math.ceil(totalCount / actualLimit));
 
     const rows = await db`
-      SELECT * FROM games
-      WHERE status = ${statusFilter} ${aiCondition}
+      SELECT g.*, c.wager_token, c.wager_amount
+      FROM games g
+      LEFT JOIN LATERAL (
+        SELECT wager_token, wager_amount FROM challenges
+        WHERE game_id = g.game_id LIMIT 1
+      ) c ON true
+      WHERE g.status = ${statusFilter} ${aiCondition}
       ORDER BY ${db(orderBy)} DESC
       LIMIT ${actualLimit} OFFSET ${offset}
     `;
@@ -253,15 +278,25 @@ export async function getGames(
   let rows;
   if (cursor) {
     rows = await db`
-      SELECT * FROM games
-      WHERE status = ${statusFilter} ${aiCondition} AND ${db(orderBy)} < ${cursor}
+      SELECT g.*, c.wager_token, c.wager_amount
+      FROM games g
+      LEFT JOIN LATERAL (
+        SELECT wager_token, wager_amount FROM challenges
+        WHERE game_id = g.game_id LIMIT 1
+      ) c ON true
+      WHERE g.status = ${statusFilter} ${aiCondition} AND ${db(orderBy)} < ${cursor}
       ORDER BY ${db(orderBy)} DESC
       LIMIT ${actualLimit + 1}
     `;
   } else {
     rows = await db`
-      SELECT * FROM games
-      WHERE status = ${statusFilter} ${aiCondition}
+      SELECT g.*, c.wager_token, c.wager_amount
+      FROM games g
+      LEFT JOIN LATERAL (
+        SELECT wager_token, wager_amount FROM challenges
+        WHERE game_id = g.game_id LIMIT 1
+      ) c ON true
+      WHERE g.status = ${statusFilter} ${aiCondition}
       ORDER BY ${db(orderBy)} DESC
       LIMIT ${actualLimit + 1}
     `;
@@ -284,7 +319,12 @@ export async function getActiveGame(
   accountId: string
 ): Promise<Game | null> {
   const rows = await db`
-    SELECT g.* FROM games g
+    SELECT g.*, c.wager_token, c.wager_amount
+    FROM games g
+    LEFT JOIN LATERAL (
+      SELECT wager_token, wager_amount FROM challenges
+      WHERE game_id = g.game_id LIMIT 1
+    ) c ON true
     WHERE g.status = 'in_progress'
       AND (g.white_value = ${accountId} OR g.black_value = ${accountId})
     ORDER BY g.created_at DESC

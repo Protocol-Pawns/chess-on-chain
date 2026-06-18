@@ -23,6 +23,8 @@ export interface GameOverview {
   resigner?: string | null;
   created_at?: string;
   finished_at?: string | null;
+  wager_token?: string | null;
+  wager_amount?: string | null;
 }
 
 export interface GameMove {

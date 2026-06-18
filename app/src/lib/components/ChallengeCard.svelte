@@ -5,7 +5,7 @@
   import { truncateAddr } from '$lib/format';
   import { MAX_OPEN_GAMES, gameUrl } from '$lib/game';
   import { accountStore } from '$lib/near/account';
-  import { formatWager, formatWagerText, type WagerDisplay } from '$lib/wager';
+  import WagerBadge from './WagerBadge.svelte';
 
   interface Props {
     challenge: Challenge;
@@ -58,31 +58,14 @@
           : null;
     return turn === myColor;
   });
-
-  let wagerDisplay = $state<WagerDisplay | null>(null);
-
-  $effect(() => {
-    const token = challenge.wager_token;
-    const amount = challenge.wager_amount;
-    wagerDisplay = null;
-    if (token && amount && amount !== '0') {
-      let cancelled = false;
-      formatWager(amount, token).then(d => {
-        if (!cancelled) wagerDisplay = d;
-      });
-      return () => {
-        cancelled = true;
-      };
-    }
-  });
 </script>
 
 {#if isAccepted && game}
   <a
     href={gameUrl(JSON.parse(challenge.game_id!))}
-    class={isMyTurn ? 'card-accent block' : 'card-hover block'}
+    class="{isMyTurn ? 'card-accent' : 'card-hover'} flex items-stretch gap-3"
   >
-    <div class="flex justify-between items-start mb-1">
+    <div class="flex-1 min-w-0 py-0.5">
       <div class="text-sm space-y-0.5">
         <div class="font-medium">
           <span
@@ -101,18 +84,7 @@
               : 'Waiting...'}
         </div>
       </div>
-      <span
-        class="text-xs {game.status === 'in_progress'
-          ? 'text-primary-green'
-          : game.status === 'finished'
-            ? 'text-white/50'
-            : 'text-primary-err'}"
-      >
-        {game.status === 'in_progress' ? 'Live' : game.status}
-      </span>
-    </div>
-    <div class="flex justify-between items-center text-xs text-white/40">
-      <span>
+      <div class="mt-1 text-xs text-white/40">
         {#if game.outcome}
           <span class="text-white/60">
             {#if game.outcome.result === 'Stalemate'}
@@ -132,17 +104,31 @@
         {:else if turn}
           {turn}'s turn
         {/if}
+      </div>
+    </div>
+    <div
+      class="shrink-0 flex flex-col items-end justify-between text-right text-xs py-0.5"
+    >
+      <span
+        class={game.status === 'in_progress'
+          ? 'text-primary-green'
+          : game.status === 'finished'
+            ? 'text-white/50'
+            : 'text-primary-err'}
+      >
+        {game.status === 'in_progress' ? 'Live' : game.status}
       </span>
-      <span>
-        {#if challenge.wager_token && challenge.wager_amount}
-          <span class="text-yellow-400 mr-2">
-            Wager: {wagerDisplay ? formatWagerText(wagerDisplay) : '...'}
-          </span>
-        {/if}
-        {#if challenge.created_at}
+      {#if challenge.wager_token && challenge.wager_amount}
+        <WagerBadge
+          tokenId={challenge.wager_token}
+          rawAmount={challenge.wager_amount}
+        />
+      {/if}
+      {#if challenge.created_at}
+        <span class="text-white/40">
           {dayjs(challenge.created_at).format('lll')}
-        {/if}
-      </span>
+        </span>
+      {/if}
     </div>
   </a>
 {:else}
@@ -160,8 +146,11 @@
       <div class="text-xs text-white/50">
         {challenge.status}
         {#if challenge.wager_token && challenge.wager_amount}
-          <span class="text-yellow-400 ml-1">
-            Wager: {wagerDisplay ? formatWagerText(wagerDisplay) : '...'}
+          <span class="ml-1">
+            <WagerBadge
+              tokenId={challenge.wager_token}
+              rawAmount={challenge.wager_amount}
+            />
           </span>
         {/if}
       </div>

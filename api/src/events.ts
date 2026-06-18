@@ -86,7 +86,9 @@ export const GameSchema = CreateGameSchema.extend({
   resigner: ColorSchema.nullable().optional(),
   outcome: GameOutcomeSchema.nullable().optional(),
   created_at: z.string().optional(),
-  finished_at: z.string().nullable().optional()
+  finished_at: z.string().nullable().optional(),
+  wager_token: z.string().nullable().optional(),
+  wager_amount: z.string().nullable().optional()
 });
 export type Game = z.infer<typeof GameSchema>;
 
@@ -96,7 +98,9 @@ export const GameOverviewSchema = CreateGameSchema.extend({
   resigner: ColorSchema.nullable().optional(),
   outcome: GameOutcomeSchema.nullable().optional(),
   created_at: z.string().optional(),
-  finished_at: z.string().nullable().optional()
+  finished_at: z.string().nullable().optional(),
+  wager_token: z.string().nullable().optional(),
+  wager_amount: z.string().nullable().optional()
 });
 export type GameOverview = z.infer<typeof GameOverviewSchema>;
 
