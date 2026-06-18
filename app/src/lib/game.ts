@@ -15,8 +15,24 @@ export function normalizePlayer(p: Player | null): {
 }
 
 export function gameUrl(gameId: GameId): string {
+  if (!Array.isArray(gameId)) return '/';
   const [num, p1, p2] = gameId;
   return p2 ? `/game/${num}/${p1}/${p2}` : `/game/${num}/${p1}`;
+}
+
+export function findAcceptedGameId(
+  before: GameId[],
+  after: GameId[],
+  challenger: string,
+  challenged: string
+): GameId | null {
+  const beforeSet = new Set(before.map(g => JSON.stringify(g)));
+  const isBetween = (g: GameId) =>
+    (g[1] === challenger && g[2] === challenged) ||
+    (g[1] === challenged && g[2] === challenger);
+  return (
+    after.find(g => !beforeSet.has(JSON.stringify(g)) && isBetween(g)) ?? null
+  );
 }
 
 export function parseGamePath(path: string): GameId {

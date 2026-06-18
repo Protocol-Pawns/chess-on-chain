@@ -6,7 +6,7 @@
   import { accountStore, isLoggedIn } from '$lib/near/account';
   import { contract } from '$lib/near/connector';
   import { showTxToast, showToast, decodeSuccessValue } from '$lib/toast';
-  import { gameUrl, MAX_OPEN_GAMES } from '$lib/game';
+  import { gameUrl, findAcceptedGameId, MAX_OPEN_GAMES } from '$lib/game';
   import type { GameId } from '$lib/game';
   import type { SSEEventData } from '$lib/sse';
   import { subscribe, updateWatermark } from '$lib/sse';
@@ -208,42 +208,50 @@
       });
   }
 
-  function doAccept(challenge: Challenge) {
+  async function doAccept(challenge: Challenge) {
     acceptTarget = null;
     showToast('info', 'Accepting challenge...');
-    const promise =
-      challenge.wager_token && challenge.wager_amount
-        ? contract.acceptChallengeWithWager(
-            challenge.wager_token,
-            challenge.id,
-            challenge.wager_amount
-          )
-        : contract.acceptChallenge(challenge.id);
-
-    promise
-      .then(result => {
-        const gameId = decodeSuccessValue<GameId>(result);
-        const idx = challenges.findIndex(c => c.id === challenge.id);
-        if (idx !== -1) {
-          challenges[idx] = {
-            ...challenges[idx],
-            status: 'accepted',
-            game_id: gameId ? JSON.stringify(gameId) : null
-          };
-          challenges = challenges;
-          ownChallengeCount = Math.max(0, ownChallengeCount - 1);
-        }
-        if (gameId) {
-          showToast('success', 'Challenge accepted! Redirecting...');
-          setTimeout(() => navigateToGame(gameId), 1000);
-        } else {
-          showToast('success', 'Challenge accepted!');
-        }
-      })
-      .catch((err: unknown) => {
-        const msg = err instanceof Error ? err.message : String(err);
-        showToast('error', 'Failed to accept challenge', msg);
-      });
+    try {
+      let gameId: GameId | null = null;
+      if (challenge.wager_token && challenge.wager_amount) {
+        const account = $accountStore;
+        const before = account ? await contract.getGameIds(account) : [];
+        await contract.acceptChallengeWithWager(
+          challenge.wager_token,
+          challenge.id,
+          challenge.wager_amount
+        );
+        const after = account ? await contract.getGameIds(account) : [];
+        gameId = findAcceptedGameId(
+          before,
+          after,
+          challenge.challenger,
+          challenge.challenged
+        );
+      } else {
+        const result = await contract.acceptChallenge(challenge.id);
+        gameId = decodeSuccessValue<GameId>(result);
+      }
+      const idx = challenges.findIndex(c => c.id === challenge.id);
+      if (idx !== -1) {
+        challenges[idx] = {
+          ...challenges[idx],
+          status: 'accepted',
+          game_id: gameId ? JSON.stringify(gameId) : null
+        };
+        challenges = challenges;
+        ownChallengeCount = Math.max(0, ownChallengeCount - 1);
+      }
+      if (gameId) {
+        showToast('success', 'Challenge accepted! Redirecting...');
+        setTimeout(() => navigateToGame(gameId), 1000);
+      } else {
+        showToast('success', 'Challenge accepted!');
+      }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      showToast('error', 'Failed to accept challenge', msg);
+    }
   }
 
   function doReject(challenge: Challenge) {
