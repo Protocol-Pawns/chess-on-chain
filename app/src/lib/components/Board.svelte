@@ -365,25 +365,25 @@
   </div>
 </div>
 <Modal open={!!pendingPromotion} onclose={() => (pendingPromotion = null)}>
-  <div
-    class="grid grid-cols-2 gap-3 p-4 rounded bg-surface shadow-xl border border-white/20"
-  >
-    <p class="text-center text-sm font-semibold text-white/80 mb-1">
+  <div class="p-4 rounded bg-surface shadow-xl border border-white/20">
+    <p class="text-center text-sm font-semibold text-white/80 mb-3">
       Promote to
     </p>
-    {#each PROMOTION_PIECES as piece}
-      {@const color = chess?.turn() === 'w' ? 'w' : 'b'}
-      <button
-        class="w-16 h-16 flex items-center justify-center rounded-lg bg-white/10 hover:bg-white/20 transition-colors border border-white/20 hover:border-white/50 cursor-pointer"
-        onclick={() => selectPromotion(piece)}
-      >
-        <img
-          src="/pieces/{color}{PROMOTION_LABELS[piece]}.webp"
-          alt={piece}
-          class="w-12 h-12 object-contain pointer-events-none"
-          draggable="false"
-        />
-      </button>
-    {/each}
+    <div class="grid grid-cols-2 gap-3">
+      {#each PROMOTION_PIECES as piece}
+        {@const color = chess?.turn() === 'w' ? 'w' : 'b'}
+        <button
+          class="w-16 h-16 flex items-center justify-center rounded-lg bg-white/10 hover:bg-white/20 transition-colors border border-white/20 hover:border-white/50 cursor-pointer"
+          onclick={() => selectPromotion(piece)}
+        >
+          <img
+            src="/pieces/{color}{PROMOTION_LABELS[piece]}.webp"
+            alt={piece}
+            class="w-12 h-12 object-contain pointer-events-none"
+            draggable="false"
+          />
+        </button>
+      {/each}
+    </div>
   </div>
 </Modal>
