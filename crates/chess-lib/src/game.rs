@@ -20,8 +20,8 @@ const AI_MAX_DEPTHS_EASY: &[u8] = &[12, 8];
 #[cfg(feature = "integration-test")]
 const AI_MAX_DEPTHS_EASY: &[u8] = &[1];
 const AI_MAX_DEPTHS_MEDIUM: &[u8] = &[14, 10];
-const AI_MAX_DEPTHS_HARD: &[u8] = &[9, 7, 5];
-const AI_MAX_DEPTHS_VERY_HARD: &[u8] = &[8, 7, 5, 4];
+const AI_MAX_DEPTHS_HARD: &[u8] = &[10, 8, 6];
+const AI_MAX_DEPTHS_VERY_HARD: &[u8] = &[9, 7, 6, 5];
 const AI_PIECE_COUNT_CLAMP_MIN: f64 = 4.0;
 const AI_PIECE_COUNT_CLAMP_MAX: f64 = 32.0;
 const AI_PIECE_SCALE_DIVISOR: f64 = 16.0;
@@ -388,7 +388,7 @@ impl Game {
 
             let piece_count = (board.count_pieces() as f64)
                 .clamp(AI_PIECE_COUNT_CLAMP_MIN, AI_PIECE_COUNT_CLAMP_MAX);
-            let scale = (AI_PIECE_SCALE_DIVISOR / piece_count).min(1.0);
+            let scale = (AI_PIECE_SCALE_DIVISOR / piece_count).max(1.0);
             let depths: Vec<u8> = max_depths
                 .iter()
                 .map(|d| (*d as f64 * scale).round().max(1.0) as u8)
@@ -421,7 +421,11 @@ impl Game {
             let (ai_mv, _, _) = if let Some(mv) = endgame_move {
                 (mv, 0, 0.0)
             } else if let Some(mv) = book_move {
-                (mv, 0, 0.0)
+                if board.move_hangs_piece_to_pawn(mv) {
+                    board.get_next_move(&depths, seed, gas_budget, flags)
+                } else {
+                    (mv, 0, 0.0)
+                }
             } else if flags == 0 {
                 let mv = board.get_legal_moves().next().unwrap_or(Move::Resign);
                 (mv, 0, 0.0)

@@ -14,3 +14,9 @@ either.workspace = true
 near-sdk.workspace = true
 rand.workspace = true
 rand_chacha.workspace = true
+
+[dev-dependencies]
+# Enables near-sdk's pure-Rust env fallbacks so the engine's `#[cfg(test)]`
+# unit tests can run natively (env::used_gas, etc.). Dev-only: does not affect
+# the on-chain contract build.
+near-sdk = { workspace = true, features = ["unit-testing"] }

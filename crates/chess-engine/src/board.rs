@@ -6,7 +6,7 @@ use near_sdk::{
     borsh::{BorshDeserialize, BorshSerialize},
     env, Gas,
 };
-use rand::{seq::IteratorRandom, SeedableRng};
+use rand::{seq::IndexedRandom, SeedableRng};
 use rand_chacha::ChaCha20Rng;
 use std::cmp::Ordering;
 
@@ -21,6 +21,16 @@ pub const FLAG_OPENING_BOOK: u16 = 0b0000_0001_0000_0000;
 pub const FLAG_ENDGAME_HEURISTICS: u16 = 0b0000_0010_0000_0000;
 
 const MAX_PLY: usize = 64;
+
+/// Mate score. Chosen well above any reachable material/positional eval (both
+/// kings are always on the board in legal play, so their ~999990 weighted
+/// values cancel out and `value_for` stays in the low thousands). Mate scores
+/// are encoded as `MATE - ply` (sooner mates score higher), and draws as 0.
+const MATE: f64 = 1_000_000.0;
+/// Sentinel "worst/best possible, no move considered yet" values. These sit
+/// beyond any real score (including mate) so they never falsely match.
+const NEG_INFINITY: f64 = -1_000_000_000.0;
+const POS_INFINITY: f64 = 1_000_000_000.0;
 
 pub struct BoardBuilder {
     board: Board,
@@ -228,15 +238,65 @@ pub struct Board {
 
 impl Board {
     pub fn value_for(&self, ally_color: Color) -> f64 {
+        // Build two cheap "attacked by a pawn" maps. A piece sitting on a
+        // square attacked by an enemy pawn is tactically fragile — most
+        // famously, a knight grabbed by a pawn (the exact blunder we want the
+        // eval to dislike even when the search is too shallow to see the
+        // recapture). This is O(64) and keeps `value_for` cheap enough for
+        // every leaf / quiescence stand-pat.
+        let mut wp_atk = [false; 64];
+        let mut bp_atk = [false; 64];
+        for square in &self.squares {
+            if let Some(Piece::Pawn(c, pos)) = square.get_piece() {
+                let row = pos.get_row();
+                let col = pos.get_col();
+                // White pawns advance toward rank 8 (increasing row), so they
+                // attack row + 1. Black pawns advance toward rank 1, attacking
+                // row - 1.
+                let target_row = if c == WHITE { row + 1 } else { row - 1 };
+                if (0..=7).contains(&target_row) {
+                    for target_col in [col - 1, col + 1] {
+                        if (0..=7).contains(&target_col) {
+                            let idx = ((7 - target_row) * 8 + target_col) as usize;
+                            if c == WHITE {
+                                wp_atk[idx] = true;
+                            } else {
+                                bp_atk[idx] = true;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
         self.squares
             .iter()
-            .map(|square| match square.get_piece() {
+            .enumerate()
+            .map(|(i, square)| match square.get_piece() {
                 Some(piece) => {
-                    if piece.get_color() == ally_color {
-                        piece.get_weighted_value()
+                    let sign = if piece.get_color() == ally_color {
+                        1.0
                     } else {
-                        -piece.get_weighted_value()
+                        -1.0
+                    };
+                    let mut v = sign * piece.get_weighted_value();
+                    // Soft penalty for knights/bishops/rooks/queens (not pawns,
+                    // not kings) on a square attacked by an enemy pawn. Defended
+                    // or not, the search + quiescence resolves the real tactics;
+                    // this term just biases equal-looking lines away from
+                    // leaving such pieces en-prise.
+                    let mat = piece.get_material_value();
+                    if (3..=9).contains(&mat) {
+                        let enemy_pawn_atk = if piece.get_color() == WHITE {
+                            bp_atk[i]
+                        } else {
+                            wp_atk[i]
+                        };
+                        if enemy_pawn_atk {
+                            v -= sign * (mat as f64) * 10.0 * 0.25;
+                        }
                     }
+                    v
                 }
                 None => 0.0,
             })
@@ -315,7 +375,7 @@ impl Board {
     /// is relative to the other player's move ratings as well.
     pub fn get_best_next_move(&self, depth: u8) -> (Move, u64, f64) {
         let legal_moves = self.get_legal_moves();
-        let mut best_move_value = -999999.0;
+        let mut best_move_value = NEG_INFINITY;
         let mut best_move = Move::Resign;
 
         let color = self.get_current_player_color();
@@ -327,8 +387,8 @@ impl Board {
             let child_board_value = self.apply_eval_move(m).minimax(
                 &mut tt,
                 Either::Left(depth),
-                -1000000.0,
-                1000000.0,
+                NEG_INFINITY,
+                POS_INFINITY,
                 false,
                 color,
                 &mut board_count,
@@ -336,7 +396,7 @@ impl Board {
                 1,
                 &mut killers,
             );
-            if child_board_value >= best_move_value {
+            if child_board_value > best_move_value {
                 best_move = m;
                 best_move_value = child_board_value;
             }
@@ -362,7 +422,7 @@ impl Board {
             self.order_moves(&mut legal_moves, 0, flags, &[[None; 2]; MAX_PLY]);
         }
         let mut best_move = legal_moves[0];
-        let mut best_move_value = -999999.0;
+        let mut best_move_value = NEG_INFINITY;
 
         let color = self.get_current_player_color();
 
@@ -382,7 +442,7 @@ impl Board {
                     }
                 }
                 let mut iter_best = best_move;
-                let mut iter_best_value = -999999.0;
+                let mut iter_best_value = NEG_INFINITY;
                 let mut killers = [[None; 2]; MAX_PLY];
                 let iter_depths = &depths[..=iter];
                 for m in &legal_moves {
@@ -392,8 +452,8 @@ impl Board {
                     let child_board_value = self.apply_eval_move(*m).minimax(
                         &mut tt,
                         Either::Right((&iter_depths[1..], rng.clone())),
-                        -1000000.0,
-                        1000000.0,
+                        NEG_INFINITY,
+                        POS_INFINITY,
                         false,
                         color,
                         &mut board_count,
@@ -401,7 +461,7 @@ impl Board {
                         1,
                         &mut killers,
                     );
-                    if child_board_value >= iter_best_value {
+                    if child_board_value > iter_best_value {
                         iter_best = *m;
                         iter_best_value = child_board_value;
                     }
@@ -423,8 +483,8 @@ impl Board {
                 let child_board_value = self.apply_eval_move(m).minimax(
                     &mut tt,
                     Either::Right((&depths[1..], rng.clone())),
-                    -1000000.0,
-                    1000000.0,
+                    NEG_INFINITY,
+                    POS_INFINITY,
                     false,
                     color,
                     &mut board_count,
@@ -432,7 +492,7 @@ impl Board {
                     1,
                     &mut killers,
                 );
-                if child_board_value >= best_move_value {
+                if child_board_value > best_move_value {
                     best_move = m;
                     best_move_value = child_board_value;
                 }
@@ -454,7 +514,7 @@ impl Board {
     /// is relative to the other player's move ratings as well.
     pub fn get_worst_next_move(&self, depth: u8) -> (Move, u64, f64) {
         let legal_moves = self.get_legal_moves();
-        let mut best_move_value = -999999.0;
+        let mut best_move_value = NEG_INFINITY;
         let mut best_move = Move::Resign;
 
         let color = self.get_current_player_color();
@@ -466,8 +526,8 @@ impl Board {
             let child_board_value = self.apply_eval_move(m).minimax(
                 &mut tt,
                 Either::Left(depth),
-                -1000000.0,
-                1000000.0,
+                NEG_INFINITY,
+                POS_INFINITY,
                 true,
                 !color,
                 &mut board_count,
@@ -539,6 +599,95 @@ impl Board {
         });
     }
 
+    /// Sample up to `max_moves` moves from an already-ordered move list, always
+    /// keeping captures and promotions. The shallow, randomly-sampled search
+    /// used on-chain otherwise routinely drops the single capturing refutation
+    /// (e.g. a pawn recapturing a hung knight), which is how the AI blunders
+    /// pieces in the opening.
+    fn sample_moves(&self, moves: &[Move], rng: &mut ChaCha20Rng, max_moves: usize) -> Vec<Move> {
+        if moves.len() <= max_moves {
+            return moves.to_vec();
+        }
+        let mut kept: Vec<Move> = Vec::with_capacity(max_moves);
+        let mut quiet: Vec<Move> = Vec::new();
+        for &m in moves {
+            if self.is_capture(m) || matches!(m, Move::Promotion(..)) {
+                if kept.len() < max_moves {
+                    kept.push(m);
+                }
+            } else {
+                quiet.push(m);
+            }
+        }
+        let need = max_moves.saturating_sub(kept.len());
+        if need > 0 {
+            let mut chosen: Vec<Move> = quiet.sample(rng, need).copied().collect();
+            kept.append(&mut chosen);
+        }
+        kept
+    }
+
+    /// Is `pos` attacked by a pawn of `attacker_color`? O(2) — used by the
+    /// hanging-piece book guard below.
+    pub fn square_attacked_by_pawn(&self, pos: Position, attacker_color: Color) -> bool {
+        let row = pos.get_row();
+        let col = pos.get_col();
+        // A white pawn attacks the square one rank above it (toward rank 8),
+        // so it sits one rank below the square it attacks (row - 1). Black is
+        // mirrored (row + 1).
+        let from_row = if attacker_color == WHITE {
+            row - 1
+        } else {
+            row + 1
+        };
+        if !(0..=7).contains(&from_row) {
+            return false;
+        }
+        for from_col in [col - 1, col + 1] {
+            if !(0..=7).contains(&from_col) {
+                continue;
+            }
+            if let Some(Piece::Pawn(c, _)) = self.get_piece(Position::new(from_row, from_col)) {
+                if c == attacker_color {
+                    return true;
+                }
+            }
+        }
+        false
+    }
+
+    /// Would playing `m` leave a knight/bishop/rook/queen hanging to an enemy
+    /// pawn (capturable for free next ply)? Used to reject blundering opening
+    /// book replies in favor of a real search.
+    pub fn move_hangs_piece_to_pawn(&self, m: Move) -> bool {
+        let (from, to) = match m {
+            Move::Piece(f, t) | Move::Promotion(f, t, _) => (f, t),
+            _ => return false,
+        };
+        let piece = match self.get_piece(from) {
+            Some(p) => p,
+            None => return false,
+        };
+        let color = piece.get_color();
+        let enemy = !color;
+        let nb = self.apply_eval_move(m);
+        let landed = match nb.get_piece(to) {
+            Some(p) => p,
+            None => return false,
+        };
+        let mat = landed.get_material_value();
+        // Only "heavy enough to be a blunder" pieces (knight and up, not king).
+        if !(3..=9).contains(&mat) {
+            return false;
+        }
+        if !nb.square_attacked_by_pawn(to, enemy) {
+            return false;
+        }
+        // Hanging only if no friendly piece defends the landing square.
+        // `is_threatened(to, enemy)` is true when a *friend* attacks `to`.
+        !nb.is_threatened(to, enemy)
+    }
+
     /// Is this move a capture (including en-passant)?
     fn is_capture(&self, m: Move) -> bool {
         match m {
@@ -590,7 +739,7 @@ impl Board {
             }
         }
 
-        if depth >= 2 {
+        if depth >= 4 {
             return stand_pat;
         }
 
@@ -600,9 +749,37 @@ impl Board {
             .collect();
         self.order_moves(&mut captures, ply, flags, killers);
 
-        let mut best = if is_maximizing { -999999.0 } else { 999999.0 };
+        let mut best = if is_maximizing {
+            NEG_INFINITY
+        } else {
+            POS_INFINITY
+        };
+
+        // Delta-pruning margin (weighted units). If even winning the captured
+        // piece for free can't reach alpha / beat beta, skip the capture.
+        const DELTA_MARGIN: f64 = 200.0;
 
         for m in &captures {
+            let to = match m {
+                Move::Piece(_, t) | Move::Promotion(_, t, _) => *t,
+                _ => continue,
+            };
+            let victim_weighted = match self.get_piece(to) {
+                Some(v) => v.get_material_value() as f64 * 10.0,
+                // en-passant: the captured pawn isn't on `to`.
+                None if self.is_capture(*m) => 10.0,
+                None => 0.0,
+            };
+
+            // Delta pruning: bail out of captures that obviously can't matter.
+            if is_maximizing {
+                if stand_pat + victim_weighted + DELTA_MARGIN <= alpha {
+                    continue;
+                }
+            } else if stand_pat - victim_weighted - DELTA_MARGIN >= beta {
+                continue;
+            }
+
             let child = self.apply_eval_move(*m);
             let val = child.quiesce(
                 alpha,
@@ -638,13 +815,13 @@ impl Board {
         }
 
         if is_maximizing {
-            if best == -999999.0 {
+            if best == NEG_INFINITY {
                 stand_pat
             } else {
                 best
             }
         } else {
-            if best == 999999.0 {
+            if best == POS_INFINITY {
                 stand_pat
             } else {
                 best
@@ -745,6 +922,30 @@ impl Board {
             }
         };
 
+        // Terminal detection: distinguish checkmate from stalemate. Previously
+        // an empty move list just caused the loop below to return its init
+        // sentinel (+/-999999), so the search scored a drawing stalemate
+        // identically to a winning checkmate — and the AI happily stalemated
+        // won games. Also precompute & order the move list once so we don't
+        // regenerate legal moves four times below.
+        let side_to_move = self.get_current_player_color();
+        let mut legal_moves: Vec<Move> = self.get_legal_moves().collect();
+        if legal_moves.is_empty() {
+            if self.is_in_check(side_to_move) {
+                // `side_to_move` is checkmated. Prefer faster mates via ply.
+                if side_to_move == getting_move_for {
+                    return -MATE + ply as f64;
+                } else {
+                    return MATE - ply as f64;
+                }
+            }
+            // Stalemate: a draw for both sides.
+            return 0.0;
+        }
+        if (flags & FLAG_MOVE_ORDERING) != 0 {
+            self.order_moves(&mut legal_moves, ply, flags, killers);
+        }
+
         // Null-move pruning (skip turn, see if position is still crushing)
         if (flags & FLAG_NULL_MOVE_PRUNING) != 0
             && self.count_pieces() >= 6
@@ -805,22 +1006,14 @@ impl Board {
         let mut best_move_value;
 
         if is_maximizing {
-            best_move_value = -999999.0;
+            best_move_value = NEG_INFINITY;
 
             if let Some(max_moves) = max_moves {
                 let Either::Right((_, rng)) = &mut next_depth else {
                     panic!();
                 };
-                let mut moves: Vec<Move> = self.get_legal_moves().collect();
-                if (flags & FLAG_MOVE_ORDERING) != 0 {
-                    self.order_moves(&mut moves, ply, flags, killers);
-                }
-                for (move_idx, m) in moves
-                    .iter()
-                    .sample(rng, max_moves as usize)
-                    .into_iter()
-                    .enumerate()
-                {
+                let sampled = self.sample_moves(&legal_moves, rng, max_moves as usize);
+                for (move_idx, m) in sampled.iter().enumerate() {
                     let m = *m;
                     let child = self.apply_eval_move(m);
                     let child_board_value = if (flags & FLAG_LATE_MOVE_REDUCTION) != 0
@@ -898,14 +1091,7 @@ impl Board {
                     }
                 }
             } else {
-                let moves: Vec<Move> = if (flags & FLAG_MOVE_ORDERING) != 0 {
-                    let mut m = self.get_legal_moves().collect::<Vec<_>>();
-                    self.order_moves(&mut m, ply, flags, killers);
-                    m
-                } else {
-                    self.get_legal_moves().collect()
-                };
-                for (move_idx, m) in moves.iter().enumerate() {
+                for (move_idx, m) in legal_moves.iter().enumerate() {
                     let m = *m;
                     let child = self.apply_eval_move(m);
                     let child_board_value = if (flags & FLAG_LATE_MOVE_REDUCTION) != 0
@@ -984,22 +1170,14 @@ impl Board {
                 }
             };
         } else {
-            best_move_value = 999999.0;
+            best_move_value = POS_INFINITY;
 
             if let Some(max_moves) = max_moves {
                 let Either::Right((_, rng)) = &mut next_depth else {
                     panic!();
                 };
-                let mut moves: Vec<Move> = self.get_legal_moves().collect();
-                if (flags & FLAG_MOVE_ORDERING) != 0 {
-                    self.order_moves(&mut moves, ply, flags, killers);
-                }
-                for (move_idx, m) in moves
-                    .iter()
-                    .sample(rng, max_moves as usize)
-                    .into_iter()
-                    .enumerate()
-                {
+                let sampled = self.sample_moves(&legal_moves, rng, max_moves as usize);
+                for (move_idx, m) in sampled.iter().enumerate() {
                     let m = *m;
                     let child = self.apply_eval_move(m);
                     let child_board_value = if (flags & FLAG_LATE_MOVE_REDUCTION) != 0
@@ -1077,14 +1255,7 @@ impl Board {
                     }
                 }
             } else {
-                let moves: Vec<Move> = if (flags & FLAG_MOVE_ORDERING) != 0 {
-                    let mut m = self.get_legal_moves().collect::<Vec<_>>();
-                    self.order_moves(&mut m, ply, flags, killers);
-                    m
-                } else {
-                    self.get_legal_moves().collect()
-                };
-                for (move_idx, m) in moves.iter().enumerate() {
+                for (move_idx, m) in legal_moves.iter().enumerate() {
                     let m = *m;
                     let child = self.apply_eval_move(m);
                     let child_board_value = if (flags & FLAG_LATE_MOVE_REDUCTION) != 0
@@ -1799,5 +1970,117 @@ impl Board {
         } else {
             GameResult::IllegalMove(m)
         }
+    }
+}
+
+#[cfg(test)]
+mod ai_tests {
+    use super::*;
+    use crate::{get_endgame_move, parse_fen, GameResult, Move, Position, BLACK, WHITE};
+
+    /// A "winning but stalemate-prone" position: White Kb6, Qc1 vs lone Black
+    /// Ka8. White to move can mate with Qc8# or can *stalemate* with Qc7.
+    /// This is the exact class of blunder the AI used to make.
+    fn winning_but_stalemate_prone() -> Board {
+        parse_fen("k7/8/1K6/8/8/8/8/2Q5 w - - 0 1").unwrap()
+    }
+
+    /// The search must prefer the mate (Qc8#) over the stalemate (Qc7).
+    /// Previously both scored the same sentinel, so the AI would stalemate.
+    #[test]
+    fn search_prefers_mate_over_stalemate() {
+        let board = winning_but_stalemate_prone();
+        let (mv, _, _) = board.get_best_next_move(3);
+        let result = board.play_move(mv);
+        // Must be a win, never a stalemate.
+        assert!(
+            matches!(result, GameResult::Victory(WHITE)),
+            "expected checkmate, got {:?} (move {:?})",
+            result,
+            mv
+        );
+    }
+
+    /// Regression for "stalemate when winning": the generic LoneKing endgame
+    /// picker must never return a move that stalemates the lone defender king,
+    /// even for material signatures the specialised pickers don't recognise
+    /// (here K + Queen + Rok vs K).
+    #[test]
+    fn lone_king_picker_does_not_stalemate() {
+        let board = parse_fen("k7/8/1K6/8/8/8/8/Q1R5 w - - 0 1").unwrap();
+        let mv = get_endgame_move(&board).expect("LoneKing endgame should be detected");
+        let nb = board.apply_eval_move(mv);
+        assert!(
+            !nb.is_stalemate(),
+            "LoneKing picker stalemated the defender with move {:?}",
+            mv
+        );
+        assert!(
+            nb.has_sufficient_material(WHITE),
+            "LoneKing picker threw away material with move {:?}",
+            mv
+        );
+    }
+
+    /// Driving a won KQ+R-vs-K endgame to checkmate (not stalemate) by playing
+    /// the LoneKing picker for the attacker and a greedy king move for the
+    /// defender.
+    #[test]
+    fn lone_king_endgame_mates_not_stalemates() {
+        let mut board = parse_fen("k7/8/1K6/8/8/8/8/Q1R5 w - - 0 1").unwrap();
+        for _ in 0..60 {
+            let mv = if board.get_turn_color() == WHITE {
+                get_endgame_move(&board).unwrap_or_else(|| board.get_legal_moves().next().unwrap())
+            } else {
+                board.get_legal_moves().next().unwrap()
+            };
+            match board.play_move(mv) {
+                GameResult::Victory(_) => return, // success: checkmated the lone king
+                GameResult::Stalemate => panic!("endgame picker stalemated a won game"),
+                GameResult::Continuing(b) => board = b,
+                GameResult::IllegalMove(_) => panic!("illegal move in playout"),
+            }
+        }
+        panic!("endgame did not conclude in 60 plies");
+    }
+
+    /// Regression for the opening blunder: after 1.e4 Nf6 2.d3 the AI (Black)
+    /// used to grab the e4 pawn with the knight (Nfxe4), losing the knight to
+    /// dxe4. With captures never dropped from the sample + the en-prise-to-pawn
+    /// eval term, the search must avoid Nxe4.
+    #[test]
+    fn does_not_blunder_knight_for_pawn_in_alekhine() {
+        let board =
+            parse_fen("rnbqkb1r/pppppppp/8/8/4P3/3P4/PPP2PPP/RNBQKBNR b KQkq - 0 2").unwrap();
+        let bad = Move::Piece(Position::pgn("f6").unwrap(), Position::pgn("e4").unwrap());
+        let (mv, _, _) = board.get_best_next_move(2);
+        assert_ne!(mv, bad, "AI blundered the knight with Nfxe4");
+    }
+
+    /// The en-prise-to-pawn eval helper: a knight on c4 is attacked by a black
+    /// d5 pawn; a knight on a4 is not.
+    #[test]
+    fn square_attacked_by_pawn_detects_pawn_captures() {
+        let board = parse_fen("4k3/8/8/3p4/8/8/8/4K3 b - - 0 1").unwrap();
+        let c4 = Position::pgn("c4").unwrap();
+        let a4 = Position::pgn("a4").unwrap();
+        let e4 = Position::pgn("e4").unwrap();
+        assert!(board.square_attacked_by_pawn(c4, BLACK));
+        assert!(board.square_attacked_by_pawn(e4, BLACK));
+        assert!(!board.square_attacked_by_pawn(a4, BLACK));
+    }
+
+    /// Faster mates must score higher than slower ones (mate-distance scoring),
+    /// so the engine prefers the quickest kill.
+    #[test]
+    fn value_for_penalises_knight_en_prise_to_pawn() {
+        let attacked = parse_fen("4k3/8/8/3p4/2N5/8/8/4K3 w - - 0 1").unwrap();
+        let safe = parse_fen("4k3/8/8/3p4/N7/8/8/4K3 w - - 0 1").unwrap();
+        // Same material; only difference is the knight sits on a pawn-attacked
+        // square in `attacked`. Its eval for White must be lower.
+        assert!(
+            attacked.value_for(WHITE) < safe.value_for(WHITE),
+            "en-prise knight should score lower"
+        );
     }
 }

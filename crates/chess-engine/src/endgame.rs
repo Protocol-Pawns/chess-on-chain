@@ -6,6 +6,12 @@ enum EndgameType {
     Kpvk,
     Kbbvk,
     Kbnvk,
+    /// Generic "attacker has extra material vs a lone defender king" case that
+    /// isn't one of the exact signatures above (e.g. KRB, KRR, KQP, ...). Used
+    /// so the stalemate-avoiding endgame picker covers winning positions the
+    /// specialised pickers don't recognise — without it the search would
+    /// happily stalemate a won game.
+    LoneKing,
 }
 
 /// Detect which endgame type is on the board for the side that has
@@ -110,6 +116,18 @@ fn detect_endgame(board: &Board) -> Option<(EndgameType, Color)> {
     }
     if bb == 1 && bn == 1 && black_only && wk && !wq && !wr && wb == 0 && wn == 0 && wp == 0 {
         return Some((EndgameType::Kbnvk, BLACK));
+    }
+
+    // Generic lone-king fallback: one side has only a king, the other has
+    // enough material to force mate but in a signature the specialised pickers
+    // above don't handle (e.g. two majors, major+minor+pawns, queen+pawns).
+    let white_can_mate = wq || wr || wb >= 2 || (wb >= 1 && wn >= 1) || wp >= 1;
+    let black_can_mate = bq || br || bb >= 2 || (bb >= 1 && bn >= 1) || bp >= 1;
+    if black_only && wk && white_can_mate {
+        return Some((EndgameType::LoneKing, WHITE));
+    }
+    if white_only && bk && black_can_mate {
+        return Some((EndgameType::LoneKing, BLACK));
     }
     None
 }
@@ -579,6 +597,92 @@ fn kbnvk_move(board: &Board, attacker: Color, defender: Color) -> Option<Move> {
     best
 }
 
+/// Generic lone-king picker for winning endgames the specialised pickers
+/// don't recognise (KRB, KRR, KQP, etc.). Mirrors the KQvK ideas — drive the
+/// lone king to the edge, use opposition, deliver mate — but with two extra
+/// safety nets so it never turns a win into a stalemate:
+///   * never play a move that stalemates the defender,
+///   * avoid leaving the defender ≤1 legal move while not in check,
+///   * don't hang any of the attacker's non-king pieces.
+fn lone_king_move(board: &Board, attacker: Color, defender: Color) -> Option<Move> {
+    let dk = board.get_king_pos(defender)?;
+    let ak = board.get_king_pos(attacker)?;
+
+    let mut best: Option<Move> = None;
+    let mut best_score = f64::NEG_INFINITY;
+
+    for mv in board.get_legal_moves() {
+        let nb = board.apply_eval_move(mv);
+        let ndk = nb.get_king_pos(defender).unwrap_or(dk);
+        let nak = nb.get_king_pos(attacker).unwrap_or(ak);
+
+        // Always grab an immediate mate.
+        if nb.is_checkmate() {
+            return Some(mv);
+        }
+
+        let mut score = 0.0;
+
+        // Never stalemate the defender, and never throw away the material lead.
+        if nb.is_stalemate() || !nb.has_sufficient_material(attacker) {
+            score -= 1000.0;
+        }
+
+        // Reward driving the lone king toward an edge/corner (mate is only
+        // deliverable at the board's edge).
+        score += (3 - edge_dist(ndk)) as f64 * 12.0;
+        score -= corner_dist(ndk) as f64 * 3.0;
+
+        // Reward bringing the kings together for opposition / restriction.
+        score -= king_move_dist(nak, ndk) as f64 * 3.0;
+
+        if has_opposition(nak, ndk) {
+            score += 20.0;
+        }
+
+        // Reward checks, especially when the kings are close (forces the
+        // defender back toward the edge).
+        if nb.is_in_check(defender) {
+            score += 15.0;
+            if king_move_dist(nak, ndk) <= 2 {
+                score += 25.0;
+            }
+        }
+
+        // Extra stalemate guard: a queen/rook easily covers every escape
+        // square, so penalise squeezing the defender to ≤1 legal move while
+        // not in check (that's one move away from a stalemate).
+        if !nb.is_in_check(defender) {
+            let defender_moves = nb.get_legal_moves().count();
+            if defender_moves <= 1 {
+                score -= 50.0;
+            }
+        }
+
+        // Don't hang attacker pieces to the lone king. The defender has only a
+        // king here, so "attacked" == adjacent to the defender king.
+        for row in 0..8 {
+            for col in 0..8 {
+                let pos = Position::new(row, col);
+                if let Some(p) = nb.get_piece(pos) {
+                    if p.get_color() == attacker
+                        && !p.is_king()
+                        && !piece_is_safe(&nb, pos, attacker)
+                    {
+                        score -= 150.0;
+                    }
+                }
+            }
+        }
+
+        if score > best_score {
+            best_score = score;
+            best = Some(mv);
+        }
+    }
+    best
+}
+
 pub fn get_endgame_move(board: &Board) -> Option<Move> {
     let (egtype, attacker) = detect_endgame(board)?;
     let defender = if attacker == WHITE { BLACK } else { WHITE };
@@ -593,5 +697,6 @@ pub fn get_endgame_move(board: &Board) -> Option<Move> {
         EndgameType::Kpvk => kpvk_move(board, attacker, defender),
         EndgameType::Kbbvk => kbbvk_move(board, attacker, defender),
         EndgameType::Kbnvk => kbnvk_move(board, attacker, defender),
+        EndgameType::LoneKing => lone_king_move(board, attacker, defender),
     }
 }
