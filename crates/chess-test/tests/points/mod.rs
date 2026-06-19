@@ -1041,7 +1041,7 @@ async fn test_daily_play_move_expired_behind_weekly_gets_full_points() -> anyhow
 
     let points_before = view::ft_balance_of(&contract, player_a.id()).await?.0;
 
-    // Fast forward past DailyPlayMove cooldown (18s) but not WeeklyChallenger (126s)
+    // Fast forward past DailyPlayMove cooldown (18s) but not WeeklyChallenger (540s)
     worker.fast_forward(100).await?;
 
     // Second play move by A → DailyPlayMove cooldown has expired, should get FULL points
@@ -1133,7 +1133,7 @@ async fn test_weekly_win_cooldown_not_wiped_by_daily_cleanup() -> anyhow::Result
     //     "DailyPlayMove on cooldown after play_move"
     // );
 
-    // Fast forward past DailyPlayMove cooldown (18s) but not WeeklyChallenger (126s) or WeeklyWin (126s)
+    // Fast forward past DailyPlayMove cooldown (18s) but not WeeklyChallenger (540s) or WeeklyWin (540s)
     worker.fast_forward(100).await?;
 
     // A's play_move triggers cleanup on A's cooldowns

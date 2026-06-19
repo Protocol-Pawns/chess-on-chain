@@ -70,9 +70,9 @@ impl Quest {
         match self {
             Quest::DailyPlayMove => 1_000 * 18,
             Quest::DailyGame => 1_000 * 18,
-            Quest::WeeklyWin => 1_000 * 18 * 7,
-            Quest::WeeklyBettor => 1_000 * 18 * 7,
-            Quest::WeeklyChallenger => 1_000 * 18 * 7,
+            Quest::WeeklyWin => 1_000 * 18 * 30,
+            Quest::WeeklyBettor => 1_000 * 18 * 30,
+            Quest::WeeklyChallenger => 1_000 * 18 * 30,
         }
     }
 }
