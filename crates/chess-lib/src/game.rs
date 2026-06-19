@@ -336,13 +336,6 @@ impl Game {
         }
     }
 
-    pub fn increment_move_count(&mut self) {
-        let Game::V5(game) = self else {
-            panic!("migration required")
-        };
-        game.move_count += 1;
-    }
-
     #[allow(clippy::type_complexity)]
     pub fn play_move(
         &mut self,

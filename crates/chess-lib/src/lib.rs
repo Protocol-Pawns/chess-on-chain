@@ -54,6 +54,15 @@ pub const MIN_BLOCK_DIFF_PUBLIC_CANCEL: u64 = 60 * 60 * 24 * 14; // ~14 days
 #[cfg(feature = "integration-test")]
 pub const MIN_BLOCK_DIFF_PUBLIC_CANCEL: u64 = 200;
 
+pub const MIN_GAME_MOVES: u32 = 10;
+
+#[cfg(not(feature = "integration-test"))]
+pub const MIN_GAME_DURATION_BLOCKS: u64 = 20;
+#[cfg(feature = "integration-test")]
+pub const MIN_GAME_DURATION_BLOCKS: u64 = 1;
+
+pub const MIN_GAME_DEVELOPMENT: u32 = 4;
+
 pub const NO_DEPOSIT: NearToken = NearToken::from_yoctonear(0);
 pub const ONE_YOCTO: NearToken = NearToken::from_yoctonear(1);
 pub const FT_TRANSFER_GAS: Gas = Gas::from_tgas(15);

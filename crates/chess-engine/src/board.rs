@@ -1562,6 +1562,21 @@ impl Board {
         self.squares.iter().filter(|s| !s.is_empty()).count() as u32
     }
 
+    /// Count pieces remaining on starting rows (0, 1, 6, 7).
+    /// Start position has 32; pieces leaving these rows indicate real play.
+    #[inline]
+    pub fn count_pieces_on_starting_rows(&self) -> u32 {
+        let mut count = 0;
+        for &row in &[0i32, 1, 6, 7] {
+            for col in 0..8i32 {
+                if self.has_piece(Position::new(row, col)) {
+                    count += 1;
+                }
+            }
+        }
+        count
+    }
+
     /// Get the value of the material advantage of a certain player
     #[inline]
     pub fn get_material_advantage(&self, color: Color) -> i32 {

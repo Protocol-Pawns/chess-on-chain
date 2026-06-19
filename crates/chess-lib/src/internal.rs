@@ -1,7 +1,8 @@
 use crate::{
     calculate_elo, create_challenge_id, Account, Achievement, BetId, Challenge, ChallengeId, Chess,
     ChessEvent, ContractError, Difficulty, EloConfig, EloOutcome, Game, GameId, GameOutcome,
-    Player, Quest, Wager, FT_TRANSFER_GAS, ONE_YOCTO, WAGER_PAYOUT_CALLBACK_GAS,
+    Player, Quest, Wager, FT_TRANSFER_GAS, MIN_GAME_DEVELOPMENT, MIN_GAME_DURATION_BLOCKS,
+    MIN_GAME_MOVES, ONE_YOCTO, WAGER_PAYOUT_CALLBACK_GAS,
 };
 use chess_engine::Color;
 use near_contract_standards::fungible_token::core::ext_ft_core;
@@ -145,7 +146,6 @@ impl Chess {
         resigned: bool,
     ) {
         let game = self.games.remove(&game_id).unwrap();
-        let move_count = game.get_move_count();
         if let Some(account) = game.get_white().as_account_mut(self) {
             account.remove_game_id(&game_id);
         }
@@ -155,7 +155,14 @@ impl Chess {
 
         let is_human_game = game.get_black().is_human();
 
-        let game_eligible = !resigned || move_count >= 5;
+        let move_count = game.get_move_count();
+        let creation_block = game.get_game_id().0;
+        let duration = env::block_height().saturating_sub(creation_block);
+        let developed = 32u32.saturating_sub(game.get_board().count_pieces_on_starting_rows());
+        let game_eligible = !resigned
+            || (move_count >= MIN_GAME_MOVES
+                && duration >= MIN_GAME_DURATION_BLOCKS
+                && developed >= MIN_GAME_DEVELOPMENT);
         if is_human_game && game_eligible {
             self.internal_calculate_elo(&game, outcome);
         }
