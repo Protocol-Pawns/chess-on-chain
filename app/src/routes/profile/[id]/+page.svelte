@@ -20,6 +20,7 @@
   import ChallengeCard from '$lib/components/ChallengeCard.svelte';
   import ConfirmModal from '$lib/components/ConfirmModal.svelte';
   import PppIcon from '$lib/components/PppIcon.svelte';
+  import TokenBalanceList from '$lib/components/TokenBalanceList.svelte';
   import type { PageData } from './$types';
 
   let { data } = $props<{ data: PageData }>();
@@ -589,25 +590,12 @@
     {#if tokenBalances.length > 0}
       <section class="card space-y-2">
         <h3 class="text-base font-semibold mb-1">Token Balances</h3>
-        {#each tokenBalances as [tokenId, balance]}
-          <div class="flex items-center justify-between text-sm">
-            <span class="text-white/70 truncate mr-2"
-              >{shortToken(tokenId)}</span
-            >
-            <div class="flex items-center gap-2 shrink-0">
-              <span class="text-white/90">{balance}</span>
-              {#if $accountStore === accountId}
-                <button
-                  class="btn-secondary text-xs py-0.5 px-2"
-                  disabled={withdrawing === tokenId}
-                  onclick={() => handleWithdraw(tokenId)}
-                >
-                  {withdrawing === tokenId ? '...' : 'Withdraw'}
-                </button>
-              {/if}
-            </div>
-          </div>
-        {/each}
+        <TokenBalanceList
+          tokens={tokenBalances}
+          showWithdraw={$accountStore === accountId}
+          onWithdraw={handleWithdraw}
+          {withdrawing}
+        />
       </section>
     {/if}
 

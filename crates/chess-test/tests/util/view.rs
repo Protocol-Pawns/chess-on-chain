@@ -1,6 +1,7 @@
 use super::log_view_result;
 use chess_lib::{
-    AccountInfo, Achievement, BetInfo, Challenge, ChallengeId, GameId, GameInfo, Quest,
+    AccountInfo, Achievement, BetInfo, Challenge, ChallengeId, GameId, GameInfo, MatchmakingEntry,
+    Quest,
 };
 use near_sdk::json_types::U128;
 use near_workspaces::{AccountId, Contract};
@@ -208,6 +209,37 @@ pub async fn get_token_amount(
         contract
             .call("get_token_amount")
             .args_json((account_id, token_id))
+            .max_gas()
+            .view()
+            .await?,
+    )?;
+    Ok(res.json()?)
+}
+
+pub async fn is_queued(
+    contract: &Contract,
+    account_id: &AccountId,
+) -> anyhow::Result<Option<MatchmakingEntry>> {
+    let res = log_view_result(
+        contract
+            .call("is_queued")
+            .args_json((account_id,))
+            .max_gas()
+            .view()
+            .await?,
+    )?;
+    Ok(res.json()?)
+}
+
+pub async fn get_matchmaking_queue(
+    contract: &Contract,
+    skip: Option<usize>,
+    limit: Option<usize>,
+) -> anyhow::Result<Vec<(AccountId, MatchmakingEntry)>> {
+    let res = log_view_result(
+        contract
+            .call("get_matchmaking_queue")
+            .args_json((skip, limit))
             .max_gas()
             .view()
             .await?,

@@ -280,6 +280,21 @@ export interface GameInfo {
 }
 /**
  * This interface was referenced by `ContractTypes`'s JSON-Schema
+ * via the `definition` "MatchmakingEntry".
+ */
+export interface MatchmakingEntry {
+  joined_timestamp: number;
+  max_elo: number;
+  min_elo: number;
+  /**
+   * @minItems 2
+   * @maxItems 2
+   */
+  wager?: [string, string] | null;
+  [k: string]: unknown;
+}
+/**
+ * This interface was referenced by `ContractTypes`'s JSON-Schema
  * via the `definition` "QuestInfo".
  */
 export interface QuestInfo {

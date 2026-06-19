@@ -12,6 +12,7 @@
   import AccountSearch from '$lib/components/AccountSearch.svelte';
   import Pagination from '$lib/components/Pagination.svelte';
   import ConfirmModal from '$lib/components/ConfirmModal.svelte';
+  import TokenBalanceList from '$lib/components/TokenBalanceList.svelte';
 
   const PER_PAGE = 10;
 
@@ -506,23 +507,12 @@
       {#if tokenBalances.length > 0}
         <div class="card space-y-2">
           <h3 class="text-sm font-semibold">Token Balances</h3>
-          {#each tokenBalances as [tokenId, balance]}
-            <div class="flex items-center justify-between text-sm">
-              <span class="text-white/70 truncate mr-2"
-                >{tokenLabel(tokenId)}</span
-              >
-              <div class="flex items-center gap-2 shrink-0">
-                <span class="text-white/90">{balance}</span>
-                <button
-                  class="btn-secondary text-xs py-0.5 px-2"
-                  disabled={withdrawing === tokenId}
-                  onclick={() => handleWithdraw(tokenId)}
-                >
-                  {withdrawing === tokenId ? '...' : 'Withdraw'}
-                </button>
-              </div>
-            </div>
-          {/each}
+          <TokenBalanceList
+            tokens={tokenBalances}
+            showWithdraw
+            onWithdraw={handleWithdraw}
+            {withdrawing}
+          />
         </div>
       {/if}
 

@@ -14,6 +14,7 @@ pub enum FtReceiverMsg {
     Challenge(ChallengeMsg),
     AcceptChallenge(AcceptChallengeMsg),
     Bet(BetMsg),
+    Matchmaking(MatchmakingMsg),
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -33,6 +34,13 @@ pub struct AcceptChallengeMsg {
 pub struct BetMsg {
     pub players: (AccountId, AccountId),
     pub winner: AccountId,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+#[serde(crate = "near_sdk::serde")]
+pub struct MatchmakingMsg {
+    pub min_elo: f64,
+    pub max_elo: f64,
 }
 
 #[near_bindgen]
@@ -82,6 +90,15 @@ impl Chess {
             }
             FtReceiverMsg::Bet(BetMsg { players, winner }) => {
                 self.internal_bet(sender_id, token_id, amount.0, players, winner)?;
+                None
+            }
+            FtReceiverMsg::Matchmaking(MatchmakingMsg { min_elo, max_elo }) => {
+                self.internal_join_matchmaking(
+                    sender_id,
+                    min_elo,
+                    max_elo,
+                    Some((token_id, amount)),
+                )?;
                 None
             }
         };

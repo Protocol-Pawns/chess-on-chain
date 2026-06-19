@@ -1,6 +1,6 @@
 use crate::{
     AccountInfo, Achievement, AchievementInfo, BetId, BetInfo, Challenge, ChallengeId, Chess,
-    ChessExt, ContractError, EloRating, GameId, GameInfo, Quest, QuestInfo,
+    ChessExt, ContractError, EloRating, GameId, GameInfo, MatchmakingEntry, Quest, QuestInfo,
 };
 use near_sdk::{json_types::U128, near_bindgen, AccountId};
 use std::collections::VecDeque;
@@ -221,5 +221,29 @@ impl Chess {
 
     pub fn get_owner(&self) -> AccountId {
         self.owner_id.clone()
+    }
+
+    /// Returns the matchmaking queue entry for the given account, or `None` if
+    /// they are not currently queued.
+    #[handle_result]
+    pub fn is_queued(
+        &self,
+        account_id: AccountId,
+    ) -> Result<Option<MatchmakingEntry>, ContractError> {
+        Ok(self.matchmaking_queue.get(&account_id).cloned())
+    }
+
+    /// Returns a page of the current matchmaking queue (for stats/debugging).
+    pub fn get_matchmaking_queue(
+        &self,
+        skip: Option<usize>,
+        limit: Option<usize>,
+    ) -> Vec<(AccountId, MatchmakingEntry)> {
+        self.matchmaking_queue
+            .iter()
+            .skip(skip.unwrap_or_default())
+            .take(limit.unwrap_or(100))
+            .map(|(id, entry)| (id.clone(), entry.clone()))
+            .collect()
     }
 }

@@ -71,4 +71,12 @@ pub enum ContractError {
     PlayerCannotBetOnSelf,
     #[error("No bet found for this bettor on the given player pair and token")]
     BetNotFound,
+    #[error("Account is already in the matchmaking queue")]
+    AlreadyInMatchmaking,
+    #[error("Account is not in the matchmaking queue")]
+    NotInMatchmaking,
+    #[error("Matchmaking queue is full")]
+    MatchmakingQueueFull,
+    #[error("Minimum elo cannot be greater than maximum elo")]
+    InvalidEloRange,
 }

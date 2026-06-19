@@ -49,7 +49,17 @@ const AI_PIECE_SCALE_DIVISOR: f64 = 16.0;
 #[borsh(crate = "near_sdk::borsh")]
 pub struct GameId(pub u64, pub AccountId, pub Option<AccountId>);
 
-#[derive(BorshDeserialize, BorshSerialize, Clone, Debug, Serialize, Deserialize, NearSchema)]
+#[derive(
+    BorshDeserialize,
+    BorshSerialize,
+    Clone,
+    Debug,
+    PartialEq,
+    Eq,
+    Serialize,
+    Deserialize,
+    NearSchema,
+)]
 #[serde(crate = "near_sdk::serde", tag = "type", content = "value")]
 #[borsh(crate = "near_sdk::borsh")]
 pub enum Player {
@@ -101,7 +111,17 @@ impl Player {
 /// - Medium: 40 TGas
 /// - Hard: 75 TGas
 /// - VeryHard: 150 TGas
-#[derive(BorshDeserialize, BorshSerialize, Clone, Debug, Deserialize, Serialize, NearSchema)]
+#[derive(
+    BorshDeserialize,
+    BorshSerialize,
+    Clone,
+    Debug,
+    Deserialize,
+    Serialize,
+    NearSchema,
+    PartialEq,
+    Eq,
+)]
 #[serde(crate = "near_sdk::serde")]
 #[borsh(crate = "near_sdk::borsh")]
 pub enum Difficulty {

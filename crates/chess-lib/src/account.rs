@@ -328,6 +328,10 @@ impl Account {
         access_v9_v10!(self, account, !account.game_ids.is_empty())
     }
 
+    pub fn can_add_game(&self) -> bool {
+        access_v9_v10!(self, account, account.game_ids.len() < MAX_OPEN_GAMES)
+    }
+
     pub fn get_game_ids(&self) -> Vec<GameId> {
         access_v9_v10!(self, account, {
             account.game_ids.into_iter().cloned().collect()

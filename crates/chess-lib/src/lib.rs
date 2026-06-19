@@ -7,6 +7,7 @@ mod event;
 mod ft_receiver;
 mod game;
 mod internal;
+mod matchmaking;
 mod points;
 mod storage;
 mod view;
@@ -19,6 +20,7 @@ pub use error::*;
 pub use event::*;
 pub use ft_receiver::*;
 pub use game::*;
+pub use matchmaking::*;
 pub use points::*;
 pub use storage::*;
 
@@ -63,6 +65,13 @@ pub const MIN_GAME_DURATION_BLOCKS: u64 = 1;
 
 pub const MIN_GAME_DEVELOPMENT: u32 = 4;
 
+#[cfg(not(feature = "integration-test"))]
+pub const MATCHMAKING_EXPIRY_NS: u64 = 60 * 60 * 1_000_000_000; // 1 hour in nanoseconds
+#[cfg(feature = "integration-test")]
+pub const MATCHMAKING_EXPIRY_NS: u64 = 1_000_000_000; // 1 second
+
+pub const MAX_MATCHMAKING_QUEUE: u32 = 500;
+
 pub const NO_DEPOSIT: NearToken = NearToken::from_yoctonear(0);
 pub const ONE_YOCTO: NearToken = NearToken::from_yoctonear(1);
 pub const FT_TRANSFER_GAS: Gas = Gas::from_tgas(15);
@@ -103,6 +112,7 @@ pub enum StorageKey {
     V9AccountTokens,
     V9BetsInner,
     ChallengesV2,
+    MatchmakingQueue,
 }
 
 #[near_bindgen]
@@ -120,9 +130,29 @@ pub struct Chess {
     pub bettor_active_bets: IterableMap<AccountId, u32>,
     pub is_running: bool,
     pub points_total_supply: u128,
+    pub matchmaking_queue: IterableMap<AccountId, MatchmakingEntry>,
 }
 
 impl near_sdk::state::ContractState for Chess {}
+
+/// Previous top-level contract state (before `matchmaking_queue` was added).
+/// Used only by [`Chess::migrate`].
+#[derive(BorshDeserialize)]
+#[borsh(crate = "near_sdk::borsh")]
+#[allow(dead_code)]
+struct OldChess {
+    owner_id: AccountId,
+    accounts: IterableMap<AccountId, Account>,
+    games: IterableMap<GameId, Game>,
+    challenges: IterableMap<ChallengeId, Challenge>,
+    treasury: IterableMap<AccountId, u128>,
+    fees: Lazy<u16>,
+    token_whitelist: Lazy<Vec<AccountId>>,
+    bets: IterableMap<BetId, Bets>,
+    bettor_active_bets: IterableMap<AccountId, u32>,
+    is_running: bool,
+    points_total_supply: u128,
+}
 
 /// A valid move will be parsed from a string.
 ///
@@ -154,56 +184,27 @@ impl Chess {
             bettor_active_bets: IterableMap::new(StorageKey::BettorActiveBets),
             is_running: true,
             points_total_supply: 0,
+            matchmaking_queue: IterableMap::new(StorageKey::MatchmakingQueue),
         })
     }
 
     #[private]
-    pub fn migrate(&mut self) {
-        // Rebuild the challenges map because the migration from UnorderedMap to
-        // IterableMap left some entries in the values map without a matching key
-        // in the keys vector, causing `IterableMap::remove` to panic with an
-        // underflow. Use a fresh storage prefix to avoid the corrupted data.
-        let account_ids: Vec<AccountId> = self.accounts.keys().cloned().collect();
-        let mut challenges = IterableMap::new(StorageKey::ChallengesV2);
-        for account_id in &account_ids {
-            let account = self.accounts.get(account_id).unwrap();
-            let challenger_ids = account.get_challenges(true);
-            let challenged_ids = account.get_challenges(false);
-            for challenge_id in challenger_ids.into_iter().chain(challenged_ids.into_iter()) {
-                if challenges.contains_key(&challenge_id) {
-                    continue;
-                }
-                if let Some(challenge) = self.challenges.get(&challenge_id) {
-                    challenges.insert(challenge_id, challenge.clone());
-                }
-            }
-        }
-        self.challenges = challenges;
-
-        // Remove any challenge references that no longer point to an existing
-        // challenge after the rebuild, emitting a reject_challenge event for the
-        // indexer just like a normal rejection would.
-        let mut removed_orphans = HashSet::new();
-        for account_id in account_ids {
-            let account = self.accounts.get_mut(&account_id).unwrap();
-            let challenger_ids: Vec<_> = account.get_challenges(true);
-            for challenge_id in challenger_ids {
-                if !self.challenges.contains_key(&challenge_id) {
-                    account.reject_challenge(&challenge_id, true).unwrap();
-                    if removed_orphans.insert(challenge_id.clone()) {
-                        ChessEvent::RejectChallenge { challenge_id }.emit();
-                    }
-                }
-            }
-            let challenged_ids: Vec<_> = account.get_challenges(false);
-            for challenge_id in challenged_ids {
-                if !self.challenges.contains_key(&challenge_id) {
-                    account.reject_challenge(&challenge_id, false).unwrap();
-                    if removed_orphans.insert(challenge_id.clone()) {
-                        ChessEvent::RejectChallenge { challenge_id }.emit();
-                    }
-                }
-            }
+    #[init(ignore_state)]
+    pub fn migrate() -> Self {
+        let old: OldChess = env::state_read().unwrap();
+        Self {
+            owner_id: old.owner_id,
+            accounts: old.accounts,
+            games: old.games,
+            challenges: old.challenges,
+            treasury: old.treasury,
+            fees: old.fees,
+            token_whitelist: old.token_whitelist,
+            bets: old.bets,
+            bettor_active_bets: old.bettor_active_bets,
+            is_running: old.is_running,
+            points_total_supply: old.points_total_supply,
+            matchmaking_queue: IterableMap::new(StorageKey::MatchmakingQueue),
         }
     }
 
@@ -435,6 +436,56 @@ impl Chess {
             .get_mut(&account_id)
             .ok_or(ContractError::AccountNotRegistered(account_id))?;
         Ok(account.claim_points().into())
+    }
+
+    /// Join the elo-gated matchmaking queue for an auto-match against another
+    /// human player, or match immediately if a compatible opponent is already
+    /// queued.
+    ///
+    /// `min_elo` / `max_elo` define the acceptable opponent rating window.
+    /// Returns `Some(game_id)` when matched right away, `None` when queued.
+    /// This is the non-money entry point; for a wager use `ft_transfer_call`
+    /// with a [`FtReceiverMsg::Matchmaking`] message.
+    #[handle_result]
+    pub fn join_matchmaking(
+        &mut self,
+        min_elo: f64,
+        max_elo: f64,
+    ) -> Result<Option<GameId>, ContractError> {
+        require!(self.is_running, "Contract is paused");
+        let account_id = env::predecessor_account_id();
+        self.internal_join_matchmaking(account_id, min_elo, max_elo, None)
+    }
+
+    /// Leave the matchmaking queue. If a wager was deposited when joining, it is
+    /// refunded back to the caller via an `ft_transfer` promise.
+    #[handle_result]
+    pub fn cancel_matchmaking(&mut self) -> Result<PromiseOrValue<()>, ContractError> {
+        require!(self.is_running, "Contract is paused");
+        let account_id = env::predecessor_account_id();
+        let entry = self
+            .matchmaking_queue
+            .remove(&account_id)
+            .ok_or(ContractError::NotInMatchmaking)?;
+        Ok(if let Some((token_id, amount)) = entry.wager {
+            PromiseOrValue::Promise(
+                ext_ft_core::ext(token_id.clone())
+                    .with_attached_deposit(ONE_YOCTO)
+                    .with_static_gas(FT_TRANSFER_GAS)
+                    .ft_transfer(
+                        account_id.clone(),
+                        amount,
+                        Some("matchmaking refund".to_string()),
+                    )
+                    .then(
+                        Self::ext(env::current_account_id())
+                            .with_static_gas(REJECT_WAGER_CALLBACK_GAS)
+                            .reject_challenge_wager_callback(token_id, account_id, amount.0),
+                    ),
+            )
+        } else {
+            PromiseOrValue::Value(())
+        })
     }
 
     /// Plays a move.

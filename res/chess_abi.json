@@ -10,7 +10,7 @@
       "compiler": "rustc 1.86.0",
       "builder": "cargo-near cargo-near-build 0.11.3"
     },
-    "wasm_hash": "6QyWM5m4rCXepyN4FfwqHG3ZMaSnhY1Ype2CC9E5vYxm"
+    "wasm_hash": "Eejf59Nt871aNLXQ815iTVvvxqv4YR6Nz7iwUZVnhFJn"
   },
   "body": {
     "functions": [
@@ -128,6 +128,17 @@
           "serialization_type": "json",
           "type_schema": {
             "type": "null"
+          }
+        }
+      },
+      {
+        "name": "cancel_matchmaking",
+        "doc": " Leave the matchmaking queue. If a wager was deposited when joining, it is\n refunded back to the caller via an `ft_transfer` promise.",
+        "kind": "call",
+        "result": {
+          "serialization_type": "json",
+          "type_schema": {
+            "$ref": "#/definitions/PromiseOrValueNull"
           }
         }
       },
@@ -728,6 +739,58 @@
         }
       },
       {
+        "name": "get_matchmaking_queue",
+        "doc": " Returns a page of the current matchmaking queue (for stats/debugging).",
+        "kind": "view",
+        "params": {
+          "serialization_type": "json",
+          "args": [
+            {
+              "name": "skip",
+              "type_schema": {
+                "type": [
+                  "integer",
+                  "null"
+                ],
+                "format": "uint",
+                "minimum": 0.0
+              }
+            },
+            {
+              "name": "limit",
+              "type_schema": {
+                "type": [
+                  "integer",
+                  "null"
+                ],
+                "format": "uint",
+                "minimum": 0.0
+              }
+            }
+          ]
+        },
+        "result": {
+          "serialization_type": "json",
+          "type_schema": {
+            "type": "array",
+            "items": {
+              "type": "array",
+              "items": [
+                {
+                  "description": "NEAR Account Identifier.\n\nThis is a unique, syntactically valid, human-readable account identifier on the NEAR network.\n\n[See the crate-level docs for information about validation.](index.html#account-id-rules)\n\nAlso see [Error kind precedence](AccountId#error-kind-precedence).\n\n## Examples\n\n``` use near_account_id::AccountId;\n\nlet alice: AccountId = \"alice.near\".parse().unwrap();\n\nassert!(\"ƒelicia.near\".parse::<AccountId>().is_err()); // (ƒ is not f) ```",
+                  "type": "string"
+                },
+                {
+                  "$ref": "#/definitions/MatchmakingEntry"
+                }
+              ],
+              "maxItems": 2,
+              "minItems": 2
+            }
+          }
+        }
+      },
+      {
         "name": "get_owner",
         "kind": "view",
         "result": {
@@ -931,9 +994,77 @@
         }
       },
       {
+        "name": "is_queued",
+        "doc": " Returns the matchmaking queue entry for the given account, or `None` if\n they are not currently queued.",
+        "kind": "view",
+        "params": {
+          "serialization_type": "json",
+          "args": [
+            {
+              "name": "account_id",
+              "type_schema": {
+                "description": "NEAR Account Identifier.\n\nThis is a unique, syntactically valid, human-readable account identifier on the NEAR network.\n\n[See the crate-level docs for information about validation.](index.html#account-id-rules)\n\nAlso see [Error kind precedence](AccountId#error-kind-precedence).\n\n## Examples\n\n``` use near_account_id::AccountId;\n\nlet alice: AccountId = \"alice.near\".parse().unwrap();\n\nassert!(\"ƒelicia.near\".parse::<AccountId>().is_err()); // (ƒ is not f) ```",
+                "type": "string"
+              }
+            }
+          ]
+        },
+        "result": {
+          "serialization_type": "json",
+          "type_schema": {
+            "anyOf": [
+              {
+                "$ref": "#/definitions/MatchmakingEntry"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "name": "join_matchmaking",
+        "doc": " Join the elo-gated matchmaking queue for an auto-match against another\n human player, or match immediately if a compatible opponent is already\n queued.\n\n `min_elo` / `max_elo` define the acceptable opponent rating window.\n Returns `Some(game_id)` when matched right away, `None` when queued.\n This is the non-money entry point; for a wager use `ft_transfer_call`\n with a [`FtReceiverMsg::Matchmaking`] message.",
+        "kind": "call",
+        "params": {
+          "serialization_type": "json",
+          "args": [
+            {
+              "name": "min_elo",
+              "type_schema": {
+                "type": "number",
+                "format": "double"
+              }
+            },
+            {
+              "name": "max_elo",
+              "type_schema": {
+                "type": "number",
+                "format": "double"
+              }
+            }
+          ]
+        },
+        "result": {
+          "serialization_type": "json",
+          "type_schema": {
+            "anyOf": [
+              {
+                "$ref": "#/definitions/GameId"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      {
         "name": "migrate",
         "kind": "call",
         "modifiers": [
+          "init",
           "private"
         ]
       },
@@ -1887,6 +2018,46 @@
               }
             }
           ]
+        },
+        "MatchmakingEntry": {
+          "type": "object",
+          "required": [
+            "joined_timestamp",
+            "max_elo",
+            "min_elo"
+          ],
+          "properties": {
+            "joined_timestamp": {
+              "type": "integer",
+              "format": "uint64",
+              "minimum": 0.0
+            },
+            "max_elo": {
+              "type": "number",
+              "format": "double"
+            },
+            "min_elo": {
+              "type": "number",
+              "format": "double"
+            },
+            "wager": {
+              "type": [
+                "array",
+                "null"
+              ],
+              "items": [
+                {
+                  "description": "NEAR Account Identifier.\n\nThis is a unique, syntactically valid, human-readable account identifier on the NEAR network.\n\n[See the crate-level docs for information about validation.](index.html#account-id-rules)\n\nAlso see [Error kind precedence](AccountId#error-kind-precedence).\n\n## Examples\n\n``` use near_account_id::AccountId;\n\nlet alice: AccountId = \"alice.near\".parse().unwrap();\n\nassert!(\"ƒelicia.near\".parse::<AccountId>().is_err()); // (ƒ is not f) ```",
+                  "type": "string"
+                },
+                {
+                  "type": "string"
+                }
+              ],
+              "maxItems": 2,
+              "minItems": 2
+            }
+          }
         },
         "Player": {
           "oneOf": [

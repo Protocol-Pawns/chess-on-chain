@@ -2,7 +2,7 @@ use super::log_tx_result;
 use chess_common::ContractEvent;
 use chess_lib::{
     AcceptChallengeMsg, BetMsg, ChallengeId, ChallengeMsg, Difficulty, FtReceiverMsg, GameId,
-    GameOutcome, MoveStr,
+    GameOutcome, MatchmakingMsg, MoveStr,
 };
 use near_sdk::{json_types::U128, Gas};
 use near_workspaces::{
@@ -281,6 +281,60 @@ pub async fn reject_challenge(
         sender
             .call(contract.id(), "reject_challenge")
             .args_json((challenge_id, is_challenger))
+            .max_gas()
+            .transact()
+            .await?,
+    )?;
+    Ok((res, events))
+}
+
+pub async fn join_matchmaking(
+    contract: &Contract,
+    sender: &Account,
+    min_elo: f64,
+    max_elo: f64,
+) -> anyhow::Result<(Option<GameId>, Vec<ContractEvent>)> {
+    let (res, events): (ExecutionResult<Value>, Vec<ContractEvent>) = log_tx_result(
+        Some("join_matchmaking"),
+        sender
+            .call(contract.id(), "join_matchmaking")
+            .args_json((min_elo, max_elo))
+            .max_gas()
+            .transact()
+            .await?,
+    )?;
+    Ok((res.json()?, events))
+}
+
+pub async fn join_matchmaking_with_wager(
+    sender: &Account,
+    token_id: &AccountId,
+    receiver_id: &AccountId,
+    amount: U128,
+    msg: MatchmakingMsg,
+) -> anyhow::Result<(ExecutionResult<Value>, Vec<ContractEvent>)> {
+    let (res, events): (ExecutionResult<Value>, Vec<ContractEvent>) = log_tx_result(
+        Some("join_matchmaking_with_wager"),
+        ft_transfer_call(
+            sender,
+            token_id,
+            receiver_id,
+            amount,
+            FtReceiverMsg::Matchmaking(msg),
+        )
+        .await?,
+    )?;
+    Ok((res, events))
+}
+
+pub async fn cancel_matchmaking(
+    contract: &Contract,
+    sender: &Account,
+) -> anyhow::Result<(ExecutionResult<Value>, Vec<ContractEvent>)> {
+    let (res, events): (ExecutionResult<Value>, Vec<ContractEvent>) = log_tx_result(
+        Some("cancel_matchmaking"),
+        sender
+            .call(contract.id(), "cancel_matchmaking")
             .max_gas()
             .transact()
             .await?,

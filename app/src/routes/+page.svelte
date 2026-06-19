@@ -32,6 +32,7 @@
   import PushSettings from '$lib/components/PushSettings.svelte';
   import PwaInstallCard from '$lib/components/PwaInstallCard.svelte';
   import ConfirmModal from '$lib/components/ConfirmModal.svelte';
+  import MatchmakingPanel from '$lib/components/MatchmakingPanel.svelte';
   import { formatWager, formatWagerText } from '$lib/wager';
   import { fmtTGas, AI_MOVE_GAS_BUDGET } from '$lib/format';
 
@@ -48,6 +49,7 @@
   let showAiMenu = $state(false);
   let selectedDifficulty = $state<Difficulty>('Easy');
   let showAiConfirm = $state(false);
+  let showMatchmaking = $state(false);
   let pendingChallenges = $state<Challenge[]>([]);
   let acceptTarget = $state<Challenge | null>(null);
   let rejectTarget = $state<Challenge | null>(null);
@@ -512,7 +514,22 @@
           </div>
         {/if}
       </div>
+      <div class="relative">
+        <button
+          class="btn-primary text-sm"
+          onclick={() => (showMatchmaking = true)}
+          disabled={myGames.length >= MAX_OPEN_GAMES}
+          title={myGames.length >= MAX_OPEN_GAMES ? 'Max games reached' : ''}
+        >
+          Find Match
+        </button>
+      </div>
     </div>
+    <MatchmakingPanel
+      open={showMatchmaking}
+      onclose={() => (showMatchmaking = false)}
+      gameCount={myGames.length}
+    />
     <PwaInstallCard />
     <PushSettings />
   {/if}

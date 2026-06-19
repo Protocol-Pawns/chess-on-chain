@@ -12,7 +12,8 @@ import type {
   AchievementInfo,
   BetInfo,
   GameId,
-  Difficulty
+  Difficulty,
+  MatchmakingEntry
 } from '$lib/near/contract-types';
 
 const NETWORK = import.meta.env.VITE_NETWORK_ID || 'mainnet';
@@ -613,5 +614,42 @@ export const contract = {
 
   withdrawToken(tokenId: string) {
     return sendTransaction('withdraw_token', { token_id: tokenId }, '1');
+  },
+
+  joinMatchmaking(minElo: number, maxElo: number): Promise<unknown> {
+    return sendTransaction('join_matchmaking', {
+      min_elo: minElo,
+      max_elo: maxElo
+    });
+  },
+
+  joinMatchmakingWithWager(
+    tokenId: string,
+    minElo: number,
+    maxElo: number,
+    amount: string
+  ) {
+    return sendTokenTransactionWithAutoWrap(tokenId, 'ft_transfer_call', {
+      receiver_id: CONTRACT_ID,
+      amount,
+      msg: JSON.stringify({
+        Matchmaking: { min_elo: minElo, max_elo: maxElo }
+      })
+    });
+  },
+
+  cancelMatchmaking() {
+    return sendTransaction('cancel_matchmaking', {});
+  },
+
+  isQueued(accountId: string): Promise<MatchmakingEntry | null> {
+    return viewFunction('is_queued', { account_id: accountId });
+  },
+
+  getMatchmakingQueue(
+    skip = 0,
+    limit = 100
+  ): Promise<Array<[string, MatchmakingEntry]>> {
+    return viewFunction('get_matchmaking_queue', { skip, limit });
   }
 };

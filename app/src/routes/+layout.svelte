@@ -7,6 +7,7 @@
   import ReloginPrompt from '$lib/components/ReloginPrompt.svelte';
   import BravePushModal from '$lib/components/BravePushModal.svelte';
   import UpdateBanner from '$lib/components/UpdateBanner.svelte';
+  import TokenClaimBanner from '$lib/components/TokenClaimBanner.svelte';
   import dayjs from 'dayjs';
   import localizedFormat from 'dayjs/plugin/localizedFormat';
   import { registerServiceWorker, initPwaInstallPrompt } from '$lib/pwa';
@@ -141,6 +142,11 @@
   </header>
 
   <div class="flex-1 overflow-y-auto flex flex-col">
+    <div class="flex justify-center px-3 pt-3">
+      <div class="w-full" style="max-width: min(100%, 30rem);">
+        <TokenClaimBanner />
+      </div>
+    </div>
     <main class="flex-1 flex justify-center px-3 py-5">
       <div
         class="w-full"
