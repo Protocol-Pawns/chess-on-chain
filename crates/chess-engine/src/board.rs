@@ -476,7 +476,7 @@ impl Board {
             }
         } else {
             let mut killers = [[None; 2]; MAX_PLY];
-            for m in legal_moves {
+            for &m in &legal_moves {
                 if env::used_gas() >= gas_budget {
                     break;
                 }
@@ -495,6 +495,23 @@ impl Board {
                 if child_board_value > best_move_value {
                     best_move = m;
                     best_move_value = child_board_value;
+                }
+            }
+        }
+
+        // Safety net: when the gas budget aborts the search early the chosen
+        // move is often just the first ordered move (a capture), which is how
+        // the AI blunders material in the opening — e.g. Nxe4 grabbing a pawn
+        // and getting recaptured. If the chosen move is a 1-ply material
+        // blunder, replace it with the best-ordered move that is NOT. Skipped
+        // when in check (escaping check may legitimately require giving
+        // material). Never deadlocks: if every move blunders, `best_move`
+        // is left unchanged.
+        if !self.is_in_check(color) && self.move_blunders_material(best_move) {
+            for &m in &legal_moves {
+                if !self.move_blunders_material(m) {
+                    best_move = m;
+                    break;
                 }
             }
         }
@@ -546,7 +563,8 @@ impl Board {
     }
 
     /// Score a move for ordering (higher = search first).
-    /// Captures/promotions first by MVV-LVA, then killer moves, then others.
+    /// Captures/promotions first by MVV-LVA, then killer moves, then a cheap
+    /// productive-move tiebreaker for quiet moves.
     fn score_move_for_ordering(
         &self,
         m: Move,
@@ -559,16 +577,23 @@ impl Board {
                 if let Some(victim) = self.get_piece(to) {
                     let attacker = self.get_piece(from).unwrap();
                     victim.get_material_value() * 1000 - attacker.get_material_value()
-                } else if (flags & FLAG_KILLER_HEURISTIC) != 0 && (ply as usize) < MAX_PLY {
-                    if killers[ply as usize][0] == Some(m) {
-                        500
-                    } else if killers[ply as usize][1] == Some(m) {
-                        400
-                    } else {
-                        -1
-                    }
+                } else if (flags & FLAG_KILLER_HEURISTIC) != 0
+                    && (ply as usize) < MAX_PLY
+                    && killers[ply as usize][0] == Some(m)
+                {
+                    500
+                } else if (flags & FLAG_KILLER_HEURISTIC) != 0
+                    && (ply as usize) < MAX_PLY
+                    && killers[ply as usize][1] == Some(m)
+                {
+                    400
                 } else {
-                    -1
+                    // Quiet, non-killer move: a small positional tiebreaker so
+                    // move ordering — and the gas-abort fallback that relies on
+                    // it — prefers purposeful moves (central squares,
+                    // developing back-rank minors, advancing pawns) over aimless
+                    // shuffling such as rook a8-b8-a8.
+                    self.quiet_move_score(from, to)
                 }
             }
             Move::Promotion(_, to, piece) => {
@@ -582,6 +607,33 @@ impl Board {
             Move::KingSideCastle | Move::QueenSideCastle => 50,
             _ => 0,
         }
+    }
+
+    /// Cheap positional score for a quiet (non-capture) move, used only as a
+    /// tiebreaker below captures and killers. Stays in the low tens so it can
+    /// never outrank a capture (>= ~999) or killer (400-500).
+    fn quiet_move_score(&self, from: Position, to: Position) -> i32 {
+        let mut s = 0;
+        // Central squares (d4, e4, d5, e5) are good for almost every piece.
+        if matches!(
+            (to.get_row(), to.get_col()),
+            (3, 3) | (3, 4) | (4, 3) | (4, 4)
+        ) {
+            s += 8;
+        }
+        if let Some(p) = self.get_piece(from) {
+            // Developing a knight or bishop off its back rank.
+            let on_back_rank = (p.get_color() == WHITE && from.get_row() == 0)
+                || (p.get_color() == BLACK && from.get_row() == 7);
+            if (p.is_knight() || p.is_bishop()) && on_back_rank && to.get_row() != from.get_row() {
+                s += 10;
+            }
+            // Advancing a pawn contests the centre and makes progress.
+            if p.is_pawn() && to.get_row() != from.get_row() {
+                s += 3;
+            }
+        }
+        s
     }
 
     /// Sort moves in-place so alpha-beta cuts early.
@@ -656,10 +708,49 @@ impl Board {
         false
     }
 
-    /// Would playing `m` leave a knight/bishop/rook/queen hanging to an enemy
-    /// pawn (capturable for free next ply)? Used to reject blundering opening
-    /// book replies in favor of a real search.
-    pub fn move_hangs_piece_to_pawn(&self, m: Move) -> bool {
+    /// Smallest material value among enemy pieces (of `attacker_color`) that
+    /// legally attack `pos`, or `None` if `pos` is not attacked. Mirrors
+    /// `is_threatened` but returns the cheapest attacker's value — used by the
+    /// static-exchange blunder check below.
+    fn least_attacker_value(&self, pos: Position, attacker_color: Color) -> Option<i32> {
+        let mut best: Option<i32> = None;
+        for (i, square) in self.squares.iter().enumerate() {
+            let row = 7 - i / 8;
+            let col = i % 8;
+            let square_pos = Position::new(row as i32, col as i32);
+            if !square_pos.is_orthogonal_to(pos)
+                && !square_pos.is_diagonal_to(pos)
+                && !square_pos.is_knight_move(pos)
+            {
+                continue;
+            }
+            if let Some(piece) = square.get_piece() {
+                if piece.get_color() != attacker_color {
+                    continue;
+                }
+                // `is_legal_attack` encodes piece-specific geometry (e.g. a
+                // pawn only attacks diagonally), refining the prefilter.
+                if piece.is_legal_attack(pos, self) {
+                    let v = piece.get_material_value();
+                    match best {
+                        Some(b) if b <= v => {}
+                        _ => best = Some(v),
+                    }
+                }
+            }
+        }
+        best
+    }
+
+    /// Would playing `m` immediately lose material — a 1-ply blunder such as
+    /// grabbing a pawn with a knight that the opponent then recaptures for
+    /// free? This generalises the old pawn-only guard: it considers attackers
+    /// of every type, so a knight grabbed by a knight/bishop/rook/queen is
+    /// also rejected (the classic "loses knight for a pawn" opening blunder).
+    /// It only fires on a *net* loss — an even trade (knight-for-knight) is
+    /// NOT a blunder. Used to guard both opening-book replies and the
+    /// gas-budget-abort fallback move in `get_next_move`.
+    pub fn move_blunders_material(&self, m: Move) -> bool {
         let (from, to) = match m {
             Move::Piece(f, t) | Move::Promotion(f, t, _) => (f, t),
             _ => return false,
@@ -670,22 +761,43 @@ impl Board {
         };
         let color = piece.get_color();
         let enemy = !color;
+
+        // The mover is the potential victim; never classify a king move.
+        let victim = piece.get_material_value();
+        if victim >= 99_990 {
+            return false;
+        }
+
+        // Material the move captured (0 if it captured nothing / en-passant
+        // pawn counts as a pawn via the destination occupancy below).
+        let captured = self
+            .get_piece(to)
+            .map(|p| p.get_material_value())
+            .unwrap_or(0);
+
         let nb = self.apply_eval_move(m);
-        let landed = match nb.get_piece(to) {
-            Some(p) => p,
+        // Confirm our mover actually landed on `to`.
+        if !matches!(nb.get_piece(to), Some(p) if p.get_color() == color) {
+            return false;
+        }
+
+        // Cheapest enemy attacker on the landing square, in the new position.
+        let attacker = match nb.least_attacker_value(to, enemy) {
+            Some(v) => v,
             None => return false,
         };
-        let mat = landed.get_material_value();
-        // Only "heavy enough to be a blunder" pieces (knight and up, not king).
-        if !(3..=9).contains(&mat) {
+        // If the cheapest attacker costs more than the victim, recapturing
+        // loses material for the opponent — not a blunder for us.
+        if attacker > victim {
             return false;
         }
-        if !nb.square_attacked_by_pawn(to, enemy) {
+        // If `to` is defended by a friend, it's at worst an even trade.
+        // `is_threatened(to, enemy)` is true when a friend (!enemy) attacks `to`.
+        if nb.is_threatened(to, enemy) {
             return false;
         }
-        // Hanging only if no friendly piece defends the landing square.
-        // `is_threatened(to, enemy)` is true when a *friend* attacks `to`.
-        !nb.is_threatened(to, enemy)
+        // Only a real net loss counts: we grabbed less than we stand to lose.
+        captured < victim
     }
 
     /// Is this move a capture (including en-passant)?
@@ -2096,6 +2208,87 @@ mod ai_tests {
         assert!(
             attacked.value_for(WHITE) < safe.value_for(WHITE),
             "en-prise knight should score lower"
+        );
+    }
+
+    /// Regression for the user's actual game: after 1.e4 Nf6 2.Nc3 the AI
+    /// (Black) played Nfxe4?? losing a knight for a pawn to Nxe4 — a *knight*
+    /// recapture, which the old pawn-only guard did not catch. The generalised
+    /// `move_blunders_material` must flag it.
+    #[test]
+    fn move_blunders_material_flags_knight_grabbed_by_knight() {
+        // Position after 1.e4 Nf6 2.Nc3, Black to move.
+        let board =
+            parse_fen("rnbqkb1r/pppppppp/5n2/8/4P3/2N5/PPPP1PPP/R1BQKBNR b KQkq - 2 2").unwrap();
+        let grab = Move::Piece(Position::pgn("f6").unwrap(), Position::pgn("e4").unwrap());
+        assert!(
+            board.move_blunders_material(grab),
+            "Nf6xe4 must be detected as a material blunder (knight recapture)"
+        );
+    }
+
+    /// An even trade (knight takes an undefended knight, recapturable) is NOT a
+    /// blunder — the filter must not block legitimate exchanges.
+    #[test]
+    fn move_blunders_material_allows_even_knight_trade() {
+        // White Nf4 vs Black Ne6, both kings far away. Nfxe6 trades evenly.
+        let board = parse_fen("4k3/8/4n3/8/5N2/8/8/4K3 w - - 0 1").unwrap();
+        let trade = Move::Piece(Position::pgn("f4").unwrap(), Position::pgn("e6").unwrap());
+        assert!(
+            !board.move_blunders_material(trade),
+            "an even knight trade must not be classified as a blunder"
+        );
+    }
+
+    /// A winning capture (rook takes an undefended queen, even if the rook is
+    /// then recapturable) must not be rejected — it nets material.
+    #[test]
+    fn move_blunders_material_allows_winning_capture() {
+        // White Ra1 takes Black Qa8 (undefended). Rook(5) for Queen(9) is a win.
+        let board = parse_fen("q3k3/8/8/8/8/8/8/R3K3 w - - 0 1").unwrap();
+        let win = Move::Piece(Position::pgn("a1").unwrap(), Position::pgn("a8").unwrap());
+        assert!(
+            !board.move_blunders_material(win),
+            "Rxa8 winning the queen must not be classified as a blunder"
+        );
+    }
+
+    /// End-to-end: on the exact game position, the AI must never return
+    /// Nf6xe4 — neither from a completed search nor from the gas-abort safe
+    /// fallback. Run twice: once with a normal gas budget (search path) and
+    /// once with a zero budget (forces the abort → fallback path).
+    #[test]
+    fn get_next_move_never_returns_knight_for_pawn_grab() {
+        use near_sdk::Gas;
+        let board =
+            parse_fen("rnbqkb1r/pppppppp/5n2/8/4P3/2N5/PPPP1PPP/R1BQKBNR b KQkq - 2 2").unwrap();
+        let bad = Move::Piece(Position::pgn("f6").unwrap(), Position::pgn("e4").unwrap());
+        // Hard flags (without the opening book, which is handled outside
+        // get_next_move) + a small depth vector that still exercises ply-1
+        // full-width search.
+        let flags = FLAG_CHECK_EXTENSIONS
+            | FLAG_NULL_MOVE_PRUNING
+            | FLAG_MOVE_ORDERING
+            | FLAG_QUIESCENCE
+            | FLAG_ITERATIVE_DEEPENING;
+        let seed = [0u8; 32];
+        let depths: &[u8] = &[8, 6, 4];
+
+        // (1) Normal budget: the search completes and must reject Nxe4.
+        let (mv, _, _) = board.get_next_move(depths, seed, Gas::from_tgas(300), flags);
+        assert_ne!(mv, bad, "AI returned the Nxe4 blunder on a full search");
+
+        // (2) Zero budget: search aborts immediately, so best_move would be the
+        // first ordered move (Nxe4, the only capture) — the safe fallback must
+        // replace it with a non-blundering move.
+        let (mv2, _, _) = board.get_next_move(depths, seed, Gas::from_tgas(0), flags);
+        assert_ne!(
+            mv2, bad,
+            "AI returned the Nxe4 blunder on gas-abort (fallback failed)"
+        );
+        assert!(
+            !board.move_blunders_material(mv2),
+            "gas-abort fallback returned a move that still blunders material"
         );
     }
 }

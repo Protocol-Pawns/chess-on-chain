@@ -434,7 +434,7 @@ impl Game {
             let (ai_mv, _, _) = if let Some(mv) = endgame_move {
                 (mv, 0, 0.0)
             } else if let Some(mv) = book_move {
-                if board.move_hangs_piece_to_pawn(mv) {
+                if board.move_blunders_material(mv) {
                     board.get_next_move(&depths, seed, gas_budget, flags)
                 } else {
                     (mv, 0, 0.0)
