@@ -253,5 +253,15 @@ export const api = {
   ) =>
     request<PaginatedResult<Bet>>(
       `/bets${status ? `?status=${status}` : ''}${cursor ? `${status ? '&' : '?'}cursor=${cursor}` : ''}${limit ? `${status || cursor ? '&' : '?'}limit=${limit}` : ''}`
-    )
+    ),
+  notifyMove: (txHash: string, gameId: GameId, accountId: string) =>
+    fetch(`${API_URL}/notify/move`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        tx_hash: txHash,
+        game_id: gameId,
+        account_id: accountId
+      })
+    }).catch(() => {})
 };

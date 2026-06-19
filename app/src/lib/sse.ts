@@ -24,6 +24,8 @@ let lastHeartbeat = 0;
 let heartbeatTimer: ReturnType<typeof setInterval> | null = null;
 const HEARTBEAT_TIMEOUT_MS = 10000;
 
+const SKIP_WATERMARK_TYPES = new Set(['play_move_tx']);
+
 function startHeartbeatMonitor() {
   stopHeartbeatMonitor();
   lastHeartbeat = Date.now();
@@ -88,7 +90,11 @@ function listenForType(eventType: string) {
   es.addEventListener(eventType, (e: MessageEvent) => {
     try {
       const data: SSEEventData = JSON.parse(e.data);
-      if (data.trigger_block_height <= blockHeightWatermark) return;
+      if (
+        !SKIP_WATERMARK_TYPES.has(eventType) &&
+        data.trigger_block_height <= blockHeightWatermark
+      )
+        return;
       const typeHandlers = handlers.get(eventType);
       if (typeHandlers) {
         for (const h of typeHandlers) h(data);

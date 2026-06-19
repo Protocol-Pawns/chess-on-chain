@@ -7,6 +7,7 @@ interface SSEConnection {
 export class SSEHub implements DurableObject {
   private connections: SSEConnection[] = [];
   private heartbeatTimer: ReturnType<typeof setInterval> | null = null;
+  private notifyRateLimits: Map<string, number> = new Map();
 
   private ensureHeartbeat() {
     if (this.heartbeatTimer) return;
@@ -37,6 +38,49 @@ export class SSEHub implements DurableObject {
       }
     }
     this.connections = alive;
+    if (this.connections.length === 0) this.stopHeartbeat();
+  }
+
+  private fanOut(
+    eventType: string,
+    triggerBlockHeight: number,
+    triggerBlockTimestamp: number,
+    eventData: Record<string, unknown>,
+    targets: string[]
+  ): number {
+    if (!targets || targets.length === 0) return 0;
+    const payload = `event: ${eventType}\ndata: ${JSON.stringify({
+      trigger_block_height: triggerBlockHeight,
+      trigger_block_timestamp: triggerBlockTimestamp,
+      event_data: eventData
+    })}\n\n`;
+    let delivered = 0;
+    for (const conn of this.connections) {
+      const matches = targets.some(t => conn.accountIds.has(t));
+      if (!matches) continue;
+      try {
+        conn.enqueue(payload);
+        delivered++;
+      } catch {
+        try {
+          conn.close();
+        } catch {
+          /* */
+        }
+      }
+    }
+    return delivered;
+  }
+
+  private sweepDead() {
+    this.connections = this.connections.filter(c => {
+      try {
+        c.enqueue('');
+        return true;
+      } catch {
+        return false;
+      }
+    });
     if (this.connections.length === 0) this.stopHeartbeat();
   }
 
@@ -97,41 +141,50 @@ export class SSEHub implements DurableObject {
 
       let delivered = 0;
       for (const event of body.events) {
-        const targets = event.target_accounts;
-        if (!targets || targets.length === 0) continue;
+        delivered += this.fanOut(
+          event.event_type,
+          event.trigger_block_height,
+          event.trigger_block_timestamp,
+          event.event_data,
+          event.target_accounts
+        );
+      }
 
-        const payload = `event: ${event.event_type}\ndata: ${JSON.stringify({
-          trigger_block_height: event.trigger_block_height,
-          trigger_block_timestamp: event.trigger_block_timestamp,
-          event_data: event.event_data
-        })}\n\n`;
+      this.sweepDead();
+      return Response.json({ ok: true, delivered });
+    }
 
-        for (const conn of this.connections) {
-          const matches = targets.some(t => conn.accountIds.has(t));
-          if (!matches) continue;
-          try {
-            conn.enqueue(payload);
-            delivered++;
-          } catch {
-            try {
-              conn.close();
-            } catch {
-              /* */
-            }
-          }
+    if (url.pathname === '/notify-move' && request.method === 'POST') {
+      const body = (await request.json()) as {
+        notifier: string;
+        target: string;
+        event_data: Record<string, unknown>;
+      };
+
+      if (!body.notifier || !body.target) {
+        return Response.json(
+          { ok: false, error: 'Missing notifier or target' },
+          { status: 400 }
+        );
+      }
+
+      const now = Date.now();
+      const last = this.notifyRateLimits.get(body.notifier) ?? 0;
+      if (now - last < 1000) {
+        return Response.json({ ok: false, rate_limited: true });
+      }
+      this.notifyRateLimits.set(body.notifier, now);
+      if (this.notifyRateLimits.size > 1000) {
+        for (const [key, ts] of this.notifyRateLimits) {
+          if (now - ts > 10000) this.notifyRateLimits.delete(key);
         }
       }
 
-      this.connections = this.connections.filter(c => {
-        try {
-          c.enqueue('');
-          return true;
-        } catch {
-          return false;
-        }
-      });
-      if (this.connections.length === 0) this.stopHeartbeat();
+      const delivered = this.fanOut('play_move_tx', 0, now, body.event_data, [
+        body.target
+      ]);
 
+      this.sweepDead();
       return Response.json({ ok: true, delivered });
     }
 

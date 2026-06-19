@@ -23,6 +23,7 @@ import {
 } from './events';
 
 const NotFoundSchema = z.object({ error: z.literal('Not found') });
+const ForbiddenSchema = z.object({ error: z.literal('Not a participant') });
 
 export const getInfoRoute = createRoute({
   method: 'get',
@@ -472,6 +473,58 @@ export const getGlobalBetsRoute = createRoute({
     200: {
       content: { 'application/json': { schema: PaginatedBetsSchema } },
       description: 'Returns paginated bets across all accounts'
+    }
+  }
+});
+
+export const notifyMoveRoute = createRoute({
+  method: 'post',
+  path: '/notify/move',
+  request: {
+    body: {
+      content: {
+        'application/json': {
+          schema: z.object({
+            tx_hash: z.string().min(1),
+            game_id: GameIdSchema,
+            account_id: z.string().min(1)
+          })
+        }
+      }
+    }
+  },
+  responses: {
+    200: {
+      content: {
+        'application/json': {
+          schema: z.object({
+            ok: z.boolean(),
+            delivered: z.number(),
+            reason: z.string().optional()
+          })
+        }
+      },
+      description:
+        'Notifies the opponent of a new move via SSE so they can fetch tx logs directly'
+    },
+    403: {
+      content: { 'application/json': { schema: ForbiddenSchema } },
+      description: 'Caller is not a participant in the game'
+    },
+    404: {
+      content: { 'application/json': { schema: NotFoundSchema } },
+      description: 'Game not found'
+    },
+    429: {
+      content: {
+        'application/json': {
+          schema: z.object({
+            ok: z.literal(false),
+            rate_limited: z.literal(true)
+          })
+        }
+      },
+      description: 'Rate limited (max 1 request per second per account)'
     }
   }
 });

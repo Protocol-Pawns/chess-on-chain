@@ -423,6 +423,16 @@
           transaction?: { hash?: string };
           transaction_outcome?: { id?: string };
         };
+
+        const txHash =
+          tx.transaction?.hash ?? tx.transaction_outcome?.id ?? null;
+        if (txHash && !isAiGame) {
+          const account = get(accountStore);
+          if (account) {
+            api.notifyMove(txHash, gameId, account);
+          }
+        }
+
         const txLogs: string[] = [];
         if (tx.receipts_outcome) {
           for (const r of tx.receipts_outcome) {
@@ -906,6 +916,43 @@
     applySSEMove(data);
   }
 
+  async function handleSSEPlayMoveTx(event: SSEEventData) {
+    const data = event.event_data;
+    const notifier = data.notifier as string;
+    if (notifier === $accountStore) return;
+
+    const eventGameId =
+      typeof data.game_id === 'string'
+        ? data.game_id
+        : JSON.stringify(data.game_id);
+    if (eventGameId !== gameIdStr) return;
+    if (game && game.status !== 'in_progress') return;
+
+    const txHash = data.tx_hash as string;
+    if (!txHash) return;
+
+    try {
+      const logs = await getTxLogs(txHash);
+      const parsed = parseTxLogs(logs);
+      if (!game || game.status !== 'in_progress') return;
+      if (parsed.parsedMoves.length === 0 || !parsed.board) return;
+
+      const lastMove = parsed.parsedMoves[parsed.parsedMoves.length - 1];
+      const sig = moveSig(lastMove.color, lastMove.mv);
+      if (appliedMoveSigs.has(sig)) return;
+
+      appliedMoveSigs.add(sig);
+      applySSEMove({
+        color: lastMove.color,
+        mv: lastMove.mv,
+        board: parsed.board,
+        outcome: parsed.outcome
+      });
+    } catch (e) {
+      console.warn('[game] tx-log fetch for notify failed:', e);
+    }
+  }
+
   function handleSSEResignGame(event: SSEEventData) {
     const data = event.event_data;
     const eventGameId = gameIdFromData(data);
@@ -1003,6 +1050,7 @@
 
     const unsubs = [
       subscribe('play_move', handleSSEPlayMove),
+      subscribe('play_move_tx', handleSSEPlayMoveTx),
       subscribe('resign_game', handleSSEResignGame),
       subscribe('cancel_game', handleSSECancelGame),
       subscribe('create_game', handleSSECreateGame),

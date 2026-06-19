@@ -57,6 +57,7 @@ import {
   getGamePreviewRoute,
   getGameRoute,
   getGamesRoute,
+  notifyMoveRoute,
   queryGamesRoute,
   getGlobalBetsRoute,
   getGlobalStatsRoute,
@@ -491,6 +492,68 @@ app.openapi(getGlobalBetsRoute, async c => {
     Number(limit) || 25
   );
   return c.json(result, 200);
+});
+
+app.openapi(notifyMoveRoute, async c => {
+  const { tx_hash, game_id, account_id } = c.req.valid('json');
+  const gameIdStr = JSON.stringify(game_id);
+
+  const db = c.get('DB');
+  const rows = (await db`
+    SELECT white_type, white_value, black_type, black_value
+    FROM games WHERE game_id = ${gameIdStr}
+  `) as Array<{
+    white_type: string;
+    white_value: string;
+    black_type: string;
+    black_value: string | null;
+  }>;
+
+  if (rows.length === 0) {
+    return c.json({ error: 'Not found' } as const, 404);
+  }
+
+  const g = rows[0];
+  const isWhite = g.white_type === 'Human' && g.white_value === account_id;
+  const isBlack = g.black_type === 'Human' && g.black_value === account_id;
+
+  if (!isWhite && !isBlack) {
+    return c.json({ error: 'Not a participant' } as const, 403);
+  }
+
+  let opponent: string | null = null;
+  if (isWhite && g.black_type === 'Human' && g.black_value) {
+    opponent = g.black_value;
+  } else if (isBlack && g.white_type === 'Human') {
+    opponent = g.white_value;
+  }
+
+  if (!opponent) {
+    return c.json({ ok: true, delivered: 0, reason: 'no_opponent' }, 200);
+  }
+
+  const id = c.env.SSE_HUB.idFromName('global');
+  const stub = c.env.SSE_HUB.get(id);
+  const doRes = await stub.fetch('https://do/notify-move', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      notifier: account_id,
+      target: opponent,
+      event_data: { tx_hash, game_id, notifier: account_id }
+    })
+  });
+  const doResult = (await doRes.json()) as {
+    ok: boolean;
+    delivered?: number;
+    rate_limited?: boolean;
+  };
+
+  if (doResult.rate_limited) {
+    return c.json({ ok: false as const, rate_limited: true as const }, 429);
+  }
+
+  return c.json({ ok: true, delivered: doResult.delivered ?? 0 }, 200);
 });
 
 app.notFound(() => {
