@@ -498,69 +498,61 @@ impl Piece {
             }
 
             Self::Queen(ally_color, pos) => {
-                for row in 0..8 {
-                    let new_pos = Position::new(row, pos.get_col());
-                    if new_pos != pos
-                        && !board.has_ally_piece(new_pos, ally_color)
-                        && new_pos.is_orthogonal_to(pos)
-                    {
-                        out.push(Move::Piece(pos, new_pos));
-                    }
-                }
-                for col in 0..8 {
-                    let new_pos = Position::new(pos.get_row(), col);
-                    if new_pos != pos
-                        && !board.has_ally_piece(new_pos, ally_color)
-                        && new_pos.is_orthogonal_to(pos)
-                    {
-                        out.push(Move::Piece(pos, new_pos));
-                    }
-                }
-
-                for row in 0..8 {
-                    for col in 0..8 {
-                        let new_pos = Position::new(row, col);
-                        if new_pos != pos
-                            && !board.has_ally_piece(new_pos, ally_color)
-                            && new_pos.is_diagonal_to(pos)
-                        {
-                            out.push(Move::Piece(pos, new_pos));
+                for (dr, dc) in [
+                    (0i32, 1i32), (0, -1), (1, 0), (-1, 0),
+                    (1, 1), (1, -1), (-1, 1), (-1, -1),
+                ] {
+                    let mut r = pos.get_row() + dr;
+                    let mut c = pos.get_col() + dc;
+                    while (0..=7).contains(&r) && (0..=7).contains(&c) {
+                        let new_pos = Position::new(r, c);
+                        if board.has_ally_piece(new_pos, ally_color) {
+                            break;
                         }
+                        out.push(Move::Piece(pos, new_pos));
+                        if board.has_enemy_piece(new_pos, ally_color) {
+                            break;
+                        }
+                        r += dr;
+                        c += dc;
                     }
                 }
             }
 
             Self::Rook(ally_color, pos) => {
-                for row in 0..8 {
-                    let new_pos = Position::new(row, pos.get_col());
-                    if new_pos != pos
-                        && !board.has_ally_piece(new_pos, ally_color)
-                        && new_pos.is_orthogonal_to(pos)
-                    {
+                for (dr, dc) in [(0i32, 1i32), (0, -1), (1, 0), (-1, 0)] {
+                    let mut r = pos.get_row() + dr;
+                    let mut c = pos.get_col() + dc;
+                    while (0..=7).contains(&r) && (0..=7).contains(&c) {
+                        let new_pos = Position::new(r, c);
+                        if board.has_ally_piece(new_pos, ally_color) {
+                            break;
+                        }
                         out.push(Move::Piece(pos, new_pos));
-                    }
-                }
-                for col in 0..8 {
-                    let new_pos = Position::new(pos.get_row(), col);
-                    if new_pos != pos
-                        && !board.has_ally_piece(new_pos, ally_color)
-                        && new_pos.is_orthogonal_to(pos)
-                    {
-                        out.push(Move::Piece(pos, new_pos));
+                        if board.has_enemy_piece(new_pos, ally_color) {
+                            break;
+                        }
+                        r += dr;
+                        c += dc;
                     }
                 }
             }
 
             Self::Bishop(ally_color, pos) => {
-                for row in 0..8 {
-                    for col in 0..8 {
-                        let new_pos = Position::new(row, col);
-                        if new_pos != pos
-                            && !board.has_ally_piece(new_pos, ally_color)
-                            && new_pos.is_diagonal_to(pos)
-                        {
-                            out.push(Move::Piece(pos, new_pos));
+                for (dr, dc) in [(1i32, 1i32), (1, -1), (-1, 1), (-1, -1)] {
+                    let mut r = pos.get_row() + dr;
+                    let mut c = pos.get_col() + dc;
+                    while (0..=7).contains(&r) && (0..=7).contains(&c) {
+                        let new_pos = Position::new(r, c);
+                        if board.has_ally_piece(new_pos, ally_color) {
+                            break;
                         }
+                        out.push(Move::Piece(pos, new_pos));
+                        if board.has_enemy_piece(new_pos, ally_color) {
+                            break;
+                        }
+                        r += dr;
+                        c += dc;
                     }
                 }
             }

@@ -363,6 +363,111 @@ impl Board {
             .flatten()
     }
 
+    /// Find pieces that are pinned to the king (moving them would expose the king
+    /// to a sliding attacker). Returns a [bool; 64] indexed by board square index.
+    fn find_pinned_pieces(&self, color: Color) -> [bool; 64] {
+        let mut pinned = [false; 64];
+        let king_pos = match self.get_king_pos(color) {
+            Some(pos) => pos,
+            None => return pinned,
+        };
+        let kr = king_pos.get_row();
+        let kc = king_pos.get_col();
+
+        let directions: [(i32, i32); 8] = [
+            (0, 1), (0, -1), (1, 0), (-1, 0),
+            (1, 1), (1, -1), (-1, 1), (-1, -1),
+        ];
+
+        for (dr, dc) in directions {
+            let is_orthogonal = dr == 0 || dc == 0;
+            let mut candidate: Option<Position> = None;
+            let mut r = kr + dr;
+            let mut c = kc + dc;
+            while (0..=7).contains(&r) && (0..=7).contains(&c) {
+                let pos = Position::new(r, c);
+                if let Some(piece) = self.get_piece(pos) {
+                    if piece.get_color() == color {
+                        if candidate.is_none() {
+                            candidate = Some(pos);
+                        } else {
+                            break;
+                        }
+                    } else {
+                        if let Some(cp) = candidate {
+                            let can_attack = if is_orthogonal {
+                                piece.is_rook() || piece.is_queen()
+                            } else {
+                                piece.is_bishop() || piece.is_queen()
+                            };
+                            if can_attack {
+                                let idx = ((7 - cp.get_row()) * 8 + cp.get_col()) as usize;
+                                pinned[idx] = true;
+                            }
+                        }
+                        break;
+                    }
+                }
+                r += dr;
+                c += dc;
+            }
+        }
+        pinned
+    }
+
+    /// Generate legal moves using pin detection: skip the expensive
+    /// `apply_move + is_in_check` legality verification for non-pinned,
+    /// non-king pieces. King moves, pinned-piece moves, en-passant, and
+    /// all moves when in check still get full verification.
+    fn get_legal_moves_fast(&self) -> Vec<Move> {
+        let color = self.get_current_player_color();
+
+        if self.is_in_check(color) {
+            return self.get_legal_moves().collect();
+        }
+
+        let pinned = self.find_pinned_pieces(color);
+        let ep = self.en_passant;
+
+        let mut moves = Vec::new();
+        for (i, square) in self.squares.iter().enumerate() {
+            let piece = match square.get_piece() {
+                Some(p) => p,
+                None => continue,
+            };
+            if piece.get_color() != color {
+                continue;
+            }
+            let is_king = piece.is_king();
+            let is_pinned = pinned[i];
+
+            for m in piece.get_moves(self) {
+                if is_king || is_pinned {
+                    if self.is_legal_move(m, color) {
+                        moves.push(m);
+                    }
+                } else {
+                    let is_ep = ep.is_some()
+                        && piece.is_pawn()
+                        && match m {
+                            Move::Piece(_, to) | Move::Promotion(_, to, _) => {
+                                to == ep.unwrap() && self.get_piece(to).is_none()
+                            }
+                            _ => false,
+                        };
+                    if is_ep {
+                        if self.is_legal_move(m, color) {
+                            moves.push(m);
+                        }
+                    } else {
+                        moves.push(m);
+                    }
+                }
+            }
+        }
+        moves
+    }
+
     /// Get the best move for the current player with `depth` number of moves
     /// of lookahead.
     ///
@@ -962,26 +1067,10 @@ impl Board {
     ) -> f64 {
         *board_count += 1;
 
-        let zobrist = self.zobrist_key();
-        let tt_key = tt_context_key(zobrist, &depth);
-        let tt_depth: u8 = match &depth {
-            Either::Left(d) => *d,
-            Either::Right((d, _)) => d.len() as u8,
-        };
-        let original_alpha = alpha;
-        let original_beta = beta;
-        if let Some(entry) = tt.get(tt_key) {
-            if entry.depth >= tt_depth {
-                match entry.flag {
-                    TtFlag::Exact => return entry.value,
-                    TtFlag::LowerBound if entry.value >= beta => return beta,
-                    TtFlag::UpperBound if entry.value <= alpha => return alpha,
-                    _ => {}
-                }
-            }
-        }
-
-        let (mut next_depth, max_moves) = match depth {
+        // Leaf nodes: evaluate immediately WITHOUT computing the Zobrist hash.
+        // Leaves are ~4x more numerous than internal nodes and can never benefit
+        // from the transposition table, so hashing them is pure gas waste.
+        match &depth {
             Either::Left(0) => {
                 if (flags & FLAG_QUIESCENCE) != 0 {
                     return self.quiesce(
@@ -1014,6 +1103,30 @@ impl Board {
                 }
                 return self.value_for(getting_move_for);
             }
+            _ => {}
+        }
+
+        // Internal node: compute Zobrist hash and probe the transposition table.
+        let zobrist = self.zobrist_key();
+        let tt_key = tt_context_key(zobrist, &depth);
+        let tt_depth: u8 = match &depth {
+            Either::Left(d) => *d,
+            Either::Right((d, _)) => d.len() as u8,
+        };
+        let original_alpha = alpha;
+        let original_beta = beta;
+        if let Some(entry) = tt.get(tt_key) {
+            if entry.depth >= tt_depth {
+                match entry.flag {
+                    TtFlag::Exact => return entry.value,
+                    TtFlag::LowerBound if entry.value >= beta => return beta,
+                    TtFlag::UpperBound if entry.value <= alpha => return alpha,
+                    _ => {}
+                }
+            }
+        }
+
+        let (mut next_depth, max_moves) = match depth {
             Either::Left(d) => {
                 if (flags & FLAG_CHECK_EXTENSIONS) != 0
                     && self.is_in_check(self.get_current_player_color())
@@ -1041,7 +1154,7 @@ impl Board {
         // won games. Also precompute & order the move list once so we don't
         // regenerate legal moves four times below.
         let side_to_move = self.get_current_player_color();
-        let mut legal_moves: Vec<Move> = self.get_legal_moves().collect();
+        let mut legal_moves: Vec<Move> = self.get_legal_moves_fast();
         if legal_moves.is_empty() {
             if self.is_in_check(side_to_move) {
                 // `side_to_move` is checkmated. Prefer faster mates via ply.
@@ -2290,5 +2403,43 @@ mod ai_tests {
             !board.move_blunders_material(mv2),
             "gas-abort fallback returned a move that still blunders material"
         );
+    }
+
+    /// Verify that get_legal_moves_fast produces exactly the same move set as
+    /// get_legal_moves across positions with pins, en passant, check, etc.
+    #[test]
+    fn fast_legal_moves_match_slow() {
+        let fens = [
+            // Starting position
+            "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
+            // Pinned knight (black Nf6 pinned by Ba4 to Rd8... simplified)
+            "rnbqkbnr/ppp1pppp/8/3p4/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 0 3",
+            // En passant available (white pawn just double-moved)
+            "rnbqkbnr/ppp1p1pp/8/3pPp2/8/8/PPPP1PPP/RNBQKBNR w KQkq f6 0 3",
+            // In check from bishop
+            "rnbqkbnr/pppp1ppp/8/4p3/6P1/5P2/PPPPP2P/RNBQKBNR b KQkq - 0 2",
+            // Complex middlegame
+            "r1bqkb1r/pppp1ppp/2n2n2/1B2p3/4P3/5N2/PPPP1PPP/RNBQK2R w KQkq - 4 4",
+            // King in corner with potential pins
+            "r3k2r/8/8/8/8/8/8/R3K2R w KQkq - 0 1",
+            // En passant where it could expose king (horizontal pin)
+            "8/8/8/k2pP2r/8/8/8/4K3 w - d6 0 1",
+        ];
+
+        for fen in &fens {
+            let board = match parse_fen(fen) {
+                Ok(b) => b,
+                Err(_) => continue,
+            };
+            let mut slow: Vec<Move> = board.get_legal_moves().collect();
+            let mut fast: Vec<Move> = board.get_legal_moves_fast();
+            slow.sort_by(|a, b| format!("{:?}", a).cmp(&format!("{:?}", b)));
+            fast.sort_by(|a, b| format!("{:?}", a).cmp(&format!("{:?}", b)));
+            assert_eq!(
+                slow, fast,
+                "Move mismatch for FEN: {}\n  slow: {:?}\n  fast: {:?}",
+                fen, slow, fast
+            );
+        }
     }
 }

@@ -32,12 +32,13 @@ build_and_optimize() {
 
     cargo near build non-reproducible-wasm $NEAR_TC --manifest-path "$manifest" $extra --out-dir "$outdir"
 
-    # Run wasm-opt for smaller binaries (5-10% reduction)
+    # Re-optimize with wasm-opt -O4 (speed) on top of cargo-near's built-in -O (size).
+    # --strip-producers --vacuum are required for nearcore wasm validation correctness.
     local wasm_file
     wasm_file=$(find "$outdir" -name '*.wasm' | head -1)
     if [ -n "$wasm_file" ] && command -v wasm-opt &>/dev/null; then
-        echo "  -> Optimizing $(basename "$wasm_file") with wasm-opt..."
-        wasm-opt -Oz "$wasm_file" -o "$wasm_file"
+        echo "  -> Optimizing $(basename "$wasm_file") with wasm-opt -O4..."
+        wasm-opt -O4 --strip-debug --strip-producers --vacuum "$wasm_file" -o "$wasm_file"
     fi
 }
 
