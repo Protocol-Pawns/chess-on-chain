@@ -311,7 +311,11 @@ impl Board {
         for (sq, square) in self.squares.iter().enumerate() {
             if let Some(piece) = square.get_piece() {
                 let (pt, color) = piece.zobrist_indices();
-                key ^= PIECE_ZOBRIST_KEYS[pt][color][sq];
+                // self.squares uses FEN order (a8=0, h1=63). Convert to
+                // standard chess order (a1=0, h8=63) to match the
+                // Python-generated Zobrist keys in the opening book.
+                let std_sq = (7 - sq / 8) * 8 + sq % 8;
+                key ^= PIECE_ZOBRIST_KEYS[pt][color][std_sq];
             }
         }
         if self.turn == Color::Black {
@@ -375,8 +379,14 @@ impl Board {
         let kc = king_pos.get_col();
 
         let directions: [(i32, i32); 8] = [
-            (0, 1), (0, -1), (1, 0), (-1, 0),
-            (1, 1), (1, -1), (-1, 1), (-1, -1),
+            (0, 1),
+            (0, -1),
+            (1, 0),
+            (-1, 0),
+            (1, 1),
+            (1, -1),
+            (-1, 1),
+            (-1, -1),
         ];
 
         for (dr, dc) in directions {

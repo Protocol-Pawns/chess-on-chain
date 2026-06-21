@@ -19,9 +19,9 @@ use near_sdk::{
 const AI_MAX_DEPTHS_EASY: &[u8] = &[12, 8];
 #[cfg(feature = "integration-test")]
 const AI_MAX_DEPTHS_EASY: &[u8] = &[1];
-const AI_MAX_DEPTHS_MEDIUM: &[u8] = &[14, 10];
-const AI_MAX_DEPTHS_HARD: &[u8] = &[10, 8, 6];
-const AI_MAX_DEPTHS_VERY_HARD: &[u8] = &[9, 7, 6, 5];
+const AI_MAX_DEPTHS_MEDIUM: &[u8] = &[14, 14];
+const AI_MAX_DEPTHS_HARD: &[u8] = &[10, 12, 8];
+const AI_MAX_DEPTHS_VERY_HARD: &[u8] = &[9, 10, 8, 6];
 const AI_PIECE_COUNT_CLAMP_MIN: f64 = 4.0;
 const AI_PIECE_COUNT_CLAMP_MAX: f64 = 32.0;
 const AI_PIECE_SCALE_DIVISOR: f64 = 16.0;

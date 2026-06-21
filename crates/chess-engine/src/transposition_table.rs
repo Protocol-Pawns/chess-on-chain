@@ -20,13 +20,15 @@ pub struct TtEntry {
 /// Entries are keyed by a position hash combined with the search-depth context.
 pub struct TranspositionTable {
     map: HashMap<u64, TtEntry>,
+    keys: Vec<u64>,
     max_size: usize,
 }
 
 impl TranspositionTable {
     pub fn new(max_size: usize) -> Self {
         Self {
-            map: HashMap::with_capacity(max_size.min(4096)),
+            map: HashMap::with_capacity(max_size),
+            keys: Vec::with_capacity(max_size),
             max_size,
         }
     }
@@ -43,16 +45,31 @@ impl TranspositionTable {
         value: f64,
         best_move: Option<Move>,
     ) {
-        if self.map.len() >= self.max_size {
-            // Evict only if the same position is already stored with lower depth.
-            if let Some(existing) = self.map.get(&key) {
-                if existing.depth > depth {
-                    return;
-                }
-            } else {
+        // Update existing entry if the new depth is at least as deep.
+        if let Some(existing) = self.map.get(&key) {
+            if existing.depth > depth {
                 return;
             }
+            self.map.insert(
+                key,
+                TtEntry {
+                    depth,
+                    flag,
+                    value,
+                    best_move,
+                },
+            );
+            return;
         }
+
+        // New key. If the table is full, evict a pseudo-random entry to keep
+        // the table live (prevents the table from freezing when full).
+        if self.map.len() >= self.max_size && !self.keys.is_empty() {
+            let idx = (key as usize) % self.keys.len();
+            let victim = self.keys.swap_remove(idx);
+            self.map.remove(&victim);
+        }
+
         self.map.insert(
             key,
             TtEntry {
@@ -62,6 +79,7 @@ impl TranspositionTable {
                 best_move,
             },
         );
+        self.keys.push(key);
     }
 }
 

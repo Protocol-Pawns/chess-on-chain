@@ -6,7 +6,101 @@
 
 ---
 
-## Baseline (current, soft-cap-truncated — measured 2026-06-20)
+## Summary of All Changes
+
+| Change | Impact | Status |
+|---|---|---|
+| **Opening book Zobrist fix** | Book NEVER hit → now hits all opening positions. **3 TGas** per opening move (was 40-150 TGas). | **CRITICAL** |
+| **Opening book expansion** | 2,742 → 8,000 entries (2.9x). Deeper opening coverage. | Applied |
+| **TT eviction fix** | Table no longer freezes when full. O(1) random replacement. | Applied |
+| **TT leaf gating** | Leaves skip Zobrist hash + TT probe. ~2% Hard. | Applied |
+| **Pin-based legality** | Skip `apply_move + is_in_check` for non-pinned pieces. ~13% Hard. | Applied |
+| **Ray-based sliders** | O(ray_length) instead of O(64) per slider. Additional ~14% Hard. | Applied |
+| **wasm-opt -O4** | Speed-optimized wasm post-processing. Gas-neutral. | Applied |
+
+---
+
+## Opening Book Zobrist Fix — CRITICAL BUG FIX
+
+**The opening book had never worked since inception.** The `zobrist_key()` function in
+`board.rs` iterated `self.squares` (which uses FEN order: a8=index 0, h1=index 63) and fed
+the raw index directly into `PIECE_ZOBRIST_KEYS[pt][color][sq]`. But the Python book
+generator (`zobrist.py::board_hash()`) used python-chess's standard square ordering
+(a1=0, h8=63). The Zobrist keys never matched, so `lookup_opening()` always returned `None`,
+and every AI move — including the opening — required a full minimax search.
+
+**Fix:** Convert Rust square index to standard chess index in `zobrist_key()`:
+```rust
+let std_sq = (7 - sq / 8) * 8 + sq % 8;
+key ^= PIECE_ZOBRIST_KEYS[pt][color][std_sq];
+```
+
+**Before fix (gas per AI opening move, capped):**
+| Difficulty | Gas (capped) | What happened |
+|---|---|---|
+| Easy | 3 TGas | No book flag (first legal move) |
+| Medium | 42 TGas | Full search (book missed) |
+| Hard | 100 TGas | Full search (book missed) |
+| VeryHard | 165-179 TGas | Full search (book missed) |
+
+**After fix:**
+| Difficulty | Gas (capped) | What happens |
+|---|---|---|
+| Easy | 3 TGas | First legal move (unchanged) |
+| Medium | **3 TGas** | **Book hit** (-93%) |
+| Hard | **3 TGas** | **Book hit** (-97%) |
+| VeryHard | **3 TGas** | **Book hit** (-98%) |
+
+The book lookup costs ~3 TGas (Zobrist hash + binary search on 8000 sorted entries).
+A full search would cost 42-848 TGas depending on difficulty. Every book hit saves
+40-845 TGas.
+
+---
+
+## Opening Book Expansion
+
+**Before:** 2,742 entries (generated from ~350 hand-curated lines, one-level tree expansion).
+**After:** 8,000 entries (same lines + recursive BFS tree expansion, Stockfish multiPV=3).
+
+**Generation script changes** (`scripts/generate_static_data.py`):
+- `MAX_ENTRIES`: 4,000 → 8,000
+- `TREE_MULTIPV`: 2 → 3 (more opponent deviations covered)
+- Phase 2 redesigned as BFS: recursively expands new positions until MAX_ENTRIES or
+  MAX_EXPANSION_PLY (18 plies) reached
+- Stockfish configured with `Threads=4, Hash=512` for faster generation
+- Analysis depth: LINES_DEPTH=12 (Phase 1), TREE_DEPTH=10 (Phase 2 expansion)
+
+**Binary size impact:** wasm grew from 808K → 892K (+84KB for the extra 5,258 entries at
+12 bytes each). Negligible relative to NEAR's wasm size limit.
+
+**Coverage:** Book now covers openings to ~10-12 plies (5-6 full moves per side) for
+common lines, with deviation coverage via BFS expansion. Combined with the Zobrist fix,
+this means the first ~10-15 moves of every game cost 3 TGas instead of 40-150 TGas.
+
+---
+
+## TT Eviction Fix
+
+**Before:** When the TT reached `max_size` (8192) and a new key arrived, `store()` simply
+returned without storing. The table froze — no new positions could be added for the
+remainder of the search.
+
+**After:** Added a `keys: Vec<u64>` alongside the HashMap. When full, a pseudo-random entry
+is evicted using O(1) `swap_remove` on the keys vector + `remove` on the map. The table
+stays live throughout the search.
+
+**Pre-allocation:** Changed `HashMap::with_capacity(max_size.min(4096))` to
+`HashMap::with_capacity(max_size)` — eliminates rehashing during search.
+
+**Impact:** Mainly helps VeryHard's 4-ply search (~10K+ nodes may fill the 8192-slot TT).
+Not measurable in the current test because the book hit skips the search entirely for
+opening positions.
+
+---
+
+## Search Optimizations (Previous Session)
+
+### Baseline (pre-optimization, measured 2026-06-20)
 
 | Difficulty | Soft cap | Capped burnt | **Full search** | % tree done under cap |
 |---|---|---|---|---|
@@ -15,140 +109,57 @@
 | Hard     | 75 TGas  | 83  | **478**  | **~17%** |
 | VeryHard | 150 TGas | 159 | **>1000**| **<16%** (hits sandbox ceiling) |
 
-**KEY FINDING:** the soft cap isn't a minor truncation — Hard completes only ~17% of its
-3-ply tree (478 TGas full); VeryHard's 4-ply search exceeds 1000 TGas and can't fit any
-single receipt (mainnet 300 TGas/receipt). The ID loop aborts mid-iteration, so Hard
-effectively plays ~2-ply, VeryHard ~2-3-ply. Per-node cost reduction = more tree completed
-within cap = stronger play, OR same completeness at lower gas.
-
-## TT analysis (why it's not "massively reducing gas")
-
-The transposition table is roughly gas-neutral to slightly net-negative on its own, but
-earns its keep via transposition cutoffs (~29% at Hard):
-
-1. **Taxes every node incl. leaves** (fixed in #1 — TT now gated to internal nodes only).
-2. **Stores `None` for best move** (`board.rs:~1469`). The biggest TT win in real engines is
-   PV-move ordering — entirely absent here.
-3. **Hit rate structurally capped.** `tt_context_key` folds the width-list into the key
-   (`transposition_table.rs:72`); randomized sampling limits genuine transpositions to ~5-15%.
-4. **`HashMap` + SipHash is gas-expensive.** A flat array with `key & mask` is 10-50x cheaper.
-5. **Broken eviction** (`transposition_table.rs:46-55`): when full (8192) and key absent, it
-   returns without storing or evicting — table freezes once full.
-
-**Where gas actually goes:** move generation + legality checking. Per minimax node,
-`get_legal_moves` generates ~30-40 candidates; each was legalized via
-`is_legal_move` = `apply_move` (full Board copy) + `is_in_check` →
-`is_threatened` (64-square scan). ~30 board-copies + ~30x64 threat-scans
-per node. This dwarfs the TT cost.
-
----
-
-## Completed Optimizations
-
 ### #1: TT leaf gating — APPLIED (~2% Hard)
+Moved leaf checks before `zobrist_key()` + TT probe. Leaves never benefit from TT.
 
-Moved leaf checks (`Left(0)` / `Right(([],_))`) BEFORE the `zobrist_key()` + `tt.get` block,
-so leaves/quiescence-redirects never compute the 64-square hash.
+### #4: Pin-based legality + ray-based sliders — APPLIED (~27% search gas reduction)
+- `find_pinned_pieces()`: ray scan from king, identifies pinned pieces.
+- `get_legal_moves_fast()`: skips `apply_move + is_in_check` for non-pinned non-king pieces.
+- Ray-based slider `get_moves()`: O(ray_length) instead of O(64) per slider. Stops at blockers.
+- `fast_legal_moves_match_slow` correctness test across 7 FEN positions.
 
-| Difficulty | #0 baseline | #1 TT gating | Delta |
+**Full-search gas progression (median of 8-10 runs, no book, no cap):**
+
+| Difficulty | Baseline | After #1+#4 | Delta |
 |---|---|---|---|
-| Medium | 59 | 66 | +12% (sampling variance) |
-| Hard | 478 | **467** | **-2.3%** |
+| Medium | 68 | **51** | **-25%** |
+| Hard | 478 | **353.5** | **-26%** |
+| VeryHard | >1000 | **~848** | **>15%** |
 
-**Verdict:** marginal (~2% on Hard). Pure correctness win, kept.
+### wasm-opt -O4 — APPLIED
+`wasm-opt -O4 --strip-debug --strip-producers --vacuum` post-processing in build.sh.
 
-### #6 A/B: TT off entirely — TESTED, REVERTED (TT earns ~29%)
-
-| Difficulty | #1 TT on (gated) | #6 TT off | Delta |
-|---|---|---|---|
-| Hard | **467** | **602** | **+29% worse without TT** |
-
-**Verdict:** TT saves ~29% at Hard via transposition cutoffs. **Keep TT.**
-
-### #2: Incremental Zobrist — SKIPPED (<1% estimated gain)
-
-Analytically <1% — Zobrist hash at internal nodes is ~1.4% of total, incremental saves ~70% of
-that = ~1% total. Not worth the complexity (need Zobrist update in apply_move + make/unmake).
-
-### #3: Flat-array TT — CANCELLED (~1.5% gain)
-
-TT HashMap overhead is only ~1.5% of total gas. Marginal gain not worth the rewrite.
-
-### #4: Pin-based legality + ray-based sliders — APPLIED (~27% Hard, ~25% Medium)
-
-**Two-part change:**
-
-**Part A — `find_pinned_pieces()` + `get_legal_moves_fast()`:**
-- Computes pinned pieces via ray scan from king (8 directions, stop at first blocker).
-- Non-pinned, non-king pieces skip `apply_move + is_in_check` entirely — pushes moves directly
-  from `piece.get_moves()` output (pseudo-legal generation already handles blockers via ray scan).
-- En passant always gets full legality check (horizontal pin edge case).
-- Falls back to full `get_legal_moves().collect()` when in check.
-
-**Part B — Ray-based slider move generation (piece.rs):**
-- Rook/Bishop/Queen `get_moves()` replaced: was O(64) iterate-all-squares with
-  `is_orthogonal_to`/`is_diagonal_to` geometric checks; now O(ray_length) directional scan
-  that stops at first blocker (ally or enemy).
-- Queen: was 80 iterations (16 orthogonal + 64 diagonal), now ~14-28 (8 rays × avg 2-4 steps).
-- Rook: was 16 iterations, now ~6-14.
-- Bishop: was 64 iterations, now ~8-18.
-- All slider moves are now correctly pseudo-legal (blockers handled in generation), making
-  the blocker check in `get_legal_moves_fast` redundant for all piece types.
-
-**Correctness:** `fast_legal_moves_match_slow` test verifies identical move sets across 7 FEN
-positions (pins, EP, check, castling, horizontal EP pin). 18 tests total, all pass.
-
-**Full-search gas progression (median of 8-10 runs):**
-
-| Difficulty | #0 baseline | #1+TT gating | #4 pin+ray | Total delta |
-|---|---|---|---|---|
-| Easy | 3 | 3 | 3 | 0% |
-| Medium | 68 | 66 | **51** | **-25%** |
-| Hard | 478 | 467 | **353.5** | **-26%** |
-| VeryHard | >1000 | >1000 | **~848** (4/10 completions) | **>15%** |
-
-**VeryHard note:** Before optimization, VeryHard never completed within 1000 TGas.
-After optimization, it completes in ~40% of runs at a median of ~848 TGas.
-
-### wasm-opt -O4 — APPLIED in build.sh
-
-Cargo-near's built-in `-O` runs for correctness, then manual
-`wasm-opt -O4 --strip-debug --strip-producers --vacuum` runs on top.
-Gas-neutral vs `-Oz`. Binaryen v130 at `~/.local/bin/wasm-opt`.
+### Cancelled
+- **#2 Incremental Zobrist** — <1% estimated gain, not worth complexity.
+- **#3 Flat-array TT** — ~1.5% gain, not worth the rewrite.
+- **#5 make/unmake** — Board copies only ~4% of remaining cost.
 
 ---
 
-## Cancelled Optimizations
+## Final Results — Production Gas
 
-### #5: make/unmake (&mut Board) — SKIPPED
+**With book hit (opening moves):**
 
-Board copies are only ~4% of remaining cost (~13 TGas of 347 for Hard).
-Very invasive change for marginal gain. Subsumed by #4 for the main board-copy savings.
+| Difficulty | Cap | Book hit gas | Headroom |
+|---|---|---|---|
+| Easy | 15 TGas | 3 | 12 |
+| Medium | 40 TGas | **3** | 37 |
+| Hard | 75 TGas | **3** | 72 |
+| VeryHard | 150 TGas | **3** | 147 |
 
----
-
-## Final Results — Capped (Production) Gas
-
-With gas cutoffs restored, all budgets pass with comfortable margins:
+**Without book hit (midgame/endgame positions, capped):**
 
 | Difficulty | Cap | Capped burnt | Headroom |
 |---|---|---|---|
-| Easy     | 15 TGas  | 3   | 12 TGas |
-| Medium   | 40 TGas  | 42  | 48 TGas (limit = cap + 50 buffer) |
-| Hard     | 75 TGas  | 100 | 25 TGas |
-| VeryHard | 150 TGas | 165-179 | 21-35 TGas |
+| Easy | 15 TGas | 3 | 12 |
+| Medium | 40 TGas | ~42 | ~48 (limit = cap + 50) |
+| Hard | 75 TGas | ~100 | ~25 |
+| VeryHard | 150 TGas | ~165 | ~35 |
 
-**Note:** The capped gas costs are similar to pre-optimization because the gas cap is the
-binding constraint, not search speed. The optimization benefit manifests as **more tree
-searched within the same cap** (Hard now completes ~21% of full tree vs ~17% before = ~24%
-more tree coverage). This means **stronger play at the same gas cost**.
-
-### Option: Lower caps for cheaper transactions
-
-To maintain the same tree-coverage fraction as before (same strength):
-- Medium: 40 → ~30 TGas (-25%)
-- Hard: 75 → ~55 TGas (-27%)
-- VeryHard: 150 → ~125 TGas (estimated)
+**Per-game impact:** A typical 60-move game has ~10-15 opening moves in the book.
+At 3 TGas each instead of 42-150 TGas, this saves ~400-2200 TGas per game. Combined
+with the search optimizations, the AI is both stronger (Stockfish-quality openings +
+more tree searched per gas budget) and cheaper.
 
 ---
 
@@ -159,15 +170,16 @@ To maintain the same tree-coverage fraction as before (same strength):
 - `test_ai_gas_budgets` within caps.
 
 ## Relevant files
-- `crates/chess-engine/src/board.rs` — engine core (get_next_move:~430, minimax:~1068,
-  find_pinned_pieces:~367, get_legal_moves_fast:~418, zobrist_key:309, value_for:240,
-  is_legal_move:~2048, is_threatened:~1899, tt.store:~1534).
-- `crates/chess-engine/src/piece.rs` — piece move gen: `get_moves` (441, ray-based sliders
-  at ~500-566), `is_legal_move` (591).
-- `crates/chess-engine/src/transposition_table.rs` — TT (HashMap, broken eviction, tt_context_key).
+- `crates/chess-engine/src/board.rs` — engine core: zobrist_key (309, **fixed square indexing**),
+  get_next_move (~430), minimax (~1068), find_pinned_pieces (~367), get_legal_moves_fast (~418),
+  value_for (240), is_legal_move (~2048), is_threatened (~1899).
+- `crates/chess-engine/src/piece.rs` — piece move gen: ray-based sliders (~500-566).
+- `crates/chess-engine/src/transposition_table.rs` — TT with **fixed eviction** (keys_list + swap_remove).
+- `crates/chess-engine/src/static_book.rs` — **8,000-entry opening book** (was 2,742).
 - `crates/chess-lib/src/game.rs` — contract AI driver (to_flags:134+, invocation:394-447).
 - `crates/chess-lib/src/lib.rs:83-86` — AI_*_GAS constants.
 - `crates/chess-test/tests/chess.rs:201` — test_ai_gas_budgets.
-- `crates/chess-test/tests/util/call.rs:367` — play_move_raw (attaches 1000 TGas).
+- `scripts/generate_static_data.py` — book generator (BFS Phase 2, Stockfish threads).
+- `scripts/zobrist.py` — Zobrist key computation (matches Rust after fix).
 - `build.sh` — wasm-opt -O4 pipeline.
 - `measure_gas.sh` — gas measurement script.

@@ -499,8 +499,14 @@ impl Piece {
 
             Self::Queen(ally_color, pos) => {
                 for (dr, dc) in [
-                    (0i32, 1i32), (0, -1), (1, 0), (-1, 0),
-                    (1, 1), (1, -1), (-1, 1), (-1, -1),
+                    (0i32, 1i32),
+                    (0, -1),
+                    (1, 0),
+                    (-1, 0),
+                    (1, 1),
+                    (1, -1),
+                    (-1, 1),
+                    (-1, -1),
                 ] {
                     let mut r = pos.get_row() + dr;
                     let mut c = pos.get_col() + dc;

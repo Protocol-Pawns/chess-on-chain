@@ -24,11 +24,12 @@ ROOT = Path(__file__).parent.parent
 ENGINE = ROOT / "scripts" / ".pydeps" / "stockfish" / "stockfish-ubuntu-x86-64"
 OUT = ROOT / "crates" / "chess-engine" / "src" / "static_book.rs"
 
-LINES_DEPTH = 18
-TREE_DEPTH = 14
-TREE_MULTIPV = 2
+LINES_DEPTH = 12
+TREE_DEPTH = 10
+TREE_MULTIPV = 3
 BOOK_MULTIPV = 3
-MAX_ENTRIES = 4000
+MAX_ENTRIES = 8000
+MAX_EXPANSION_PLY = 18
 
 
 def ensure_stockfish():
@@ -450,6 +451,7 @@ pub fn decode_move(code: u16) -> Move {{
 def main():
     ensure_stockfish()
     eng = chess.engine.SimpleEngine.popen_uci(str(ENGINE))
+    eng.configure({"Threads": 4, "Hash": 512})
     entries = []       # list of (zobrist_key, move1, move2, move3)
     seen = set()       # set of zobrist keys already added
     boards = {}        # zobrist_key -> board position (for Phase 2 expansion)
@@ -509,22 +511,32 @@ def main():
     phase1_count = len(entries)
     print(f"  Done: {phase1_count} entries in {time.time()-t0:.0f}s")
 
-    # ── Phase 2: Tree expansion — cover opponent deviations ──
-    # For every position from Phase 1, ask Stockfish for alternative replies
-    # (multiPV) and add the resulting positions. This means if the opponent
-    # plays a reasonable but non-book move, the AI still has a prepared response.
-    print(f"Phase 2: Tree expansion (multiPV={TREE_MULTIPV}, depth {TREE_DEPTH})...")
+    # ── Phase 2: BFS tree expansion — recursively cover opponent deviations ──
+    # Starting from all Phase 1 positions, run Stockfish multiPV to find the top
+    # N moves. For each move, follow it to the child position; if the child is
+    # new, add it to the book AND queue it for further expansion. This builds
+    # a tree that covers opponent deviations several plies deep.
+    from collections import deque
+    print(f"Phase 2: BFS tree expansion (multiPV={TREE_MULTIPV}, depth {TREE_DEPTH}, "
+          f"max ply {MAX_EXPANSION_PLY})...")
     t0 = time.time()
-    phase1_keys = list(boards.keys())
-    for idx, key in enumerate(phase1_keys):
-        if len(entries) >= MAX_ENTRIES:
-            break
+    expanded = set()
+    queue = deque(boards.keys())
+    while queue and len(entries) < MAX_ENTRIES:
+        key = queue.popleft()
+        if key in expanded:
+            continue
+        expanded.add(key)
         b = boards[key]
+        if b.ply() >= MAX_EXPANSION_PLY:
+            continue
         try:
             results = eng.analyse(b, chess.engine.Limit(depth=TREE_DEPTH),
                                   multipv=TREE_MULTIPV)
         except Exception:
             continue
+        if not isinstance(results, list):
+            results = [results]
         for r in results:
             pv = r.get("pv")
             if not pv:
@@ -533,13 +545,17 @@ def main():
             if move not in b.legal_moves:
                 continue
             b.push(move)
-            ok = add(b, depth=TREE_DEPTH)
+            child_key = board_hash(b)
+            if child_key not in seen:
+                add(b, depth=TREE_DEPTH, multipv=BOOK_MULTIPV)
+            if child_key not in expanded:
+                queue.append(child_key)
             b.pop()
-            if not ok:
-                break
-        if (idx + 1) % 200 == 0:
-            print(f"  [{idx+1}/{len(phase1_keys)}] {len(entries)} entries, {time.time()-t0:.0f}s")
-    print(f"  Done: {len(entries)} entries (+{len(entries)-phase1_count} from expansion) in {time.time()-t0:.0f}s")
+        if len(expanded) % 500 == 0:
+            print(f"  Expanded {len(expanded)} positions, {len(entries)} entries, "
+                  f"{time.time()-t0:.0f}s")
+    print(f"  Done: {len(entries)} entries (+{len(entries)-phase1_count} from expansion) "
+          f"in {time.time()-t0:.0f}s")
 
     eng.close()
 
