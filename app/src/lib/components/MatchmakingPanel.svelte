@@ -32,6 +32,7 @@
   let selectedWager = $state<number>(0);
   let queueEntries = $state<Array<[string, MatchmakingEntry]>>([]);
   let queueElos = $state<Map<string, number>>(new Map());
+  let activeOpponents = $state<Set<string>>(new Set());
   let pollTimer: ReturnType<typeof setInterval> | null = null;
   let submitting = $state(false);
 
@@ -89,6 +90,17 @@
         })
       );
       queueElos = eloMap;
+
+      if ($accountStore) {
+        const gameIds = await contract.getGameIds($accountStore);
+        const opponents = new Set<string>();
+        for (const gid of gameIds) {
+          const [white, black] = [gid[1], gid[2]];
+          if (white && white !== $accountStore) opponents.add(white);
+          if (black && black !== $accountStore) opponents.add(black);
+        }
+        activeOpponents = opponents;
+      }
     } catch {
       /* ignore */
     }
@@ -97,6 +109,7 @@
   function calcCompatible(): number {
     let count = 0;
     for (const [id, entry] of queueEntries) {
+      if (activeOpponents.has(id)) continue;
       const theirElo = queueElos.get(id);
       if (theirElo === undefined) continue;
       const eloOk =

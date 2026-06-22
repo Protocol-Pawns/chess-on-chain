@@ -473,3 +473,42 @@ async fn test_matchmaking_expired_entry_purged_and_refunded() -> anyhow::Result<
 
     Ok(())
 }
+
+#[tokio::test]
+async fn test_matchmaking_skips_existing_game() -> anyhow::Result<()> {
+    let (worker, _, contract) = initialize_contracts(None).await?;
+    let [player_a, player_b] = setup_players(&worker, &contract, 2)
+        .await?
+        .try_into()
+        .ok()
+        .unwrap();
+
+    // First match: A queues, B joins -> matched.
+    call::join_matchmaking(&contract, &player_a, 0.0, 2_000.0).await?;
+    let (res, _events) = call::join_matchmaking(&contract, &player_b, 0.0, 2_000.0).await?;
+    assert!(res.is_some(), "first match should succeed");
+
+    // Both now have an active game but still have room (MAX_OPEN_GAMES = 5).
+    // A joins matchmaking again -> queued.
+    let (res, _events) = call::join_matchmaking(&contract, &player_a, 0.0, 2_000.0).await?;
+    assert!(res.is_none(), "A should be queued, not matched");
+
+    // B joins matchmaking -> should NOT match with A (they already have a game).
+    let (res, _events) = call::join_matchmaking(&contract, &player_b, 0.0, 2_000.0).await?;
+    assert!(
+        res.is_none(),
+        "B should not match with A — they already have an active game"
+    );
+
+    // Both should be queued separately.
+    let entry = view::is_queued(&contract, player_a.id()).await?;
+    assert!(entry.is_some(), "A should still be queued");
+    let entry = view::is_queued(&contract, player_b.id()).await?;
+    assert!(entry.is_some(), "B should be queued");
+
+    // Clean up: cancel both so they leave the queue.
+    call::cancel_matchmaking(&contract, &player_a).await?;
+    call::cancel_matchmaking(&contract, &player_b).await?;
+
+    Ok(())
+}

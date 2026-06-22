@@ -79,6 +79,15 @@ impl Chess {
             if queued_id == &joiner_id {
                 continue;
             }
+            // Skip if there's already an active game between these two players
+            let already_playing = self
+                .accounts
+                .get(&joiner_id)
+                .map(|a| a.has_game_with(queued_id))
+                .unwrap_or(false);
+            if already_playing {
+                continue;
+            }
             // elo ranges must be mutually acceptable
             let queued_elo = self
                 .accounts

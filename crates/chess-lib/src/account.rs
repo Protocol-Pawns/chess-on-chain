@@ -332,6 +332,15 @@ impl Account {
         access_v9_v10!(self, account, account.game_ids.len() < MAX_OPEN_GAMES)
     }
 
+    pub fn has_game_with(&self, other: &AccountId) -> bool {
+        access_v9_v10!(self, account, {
+            account
+                .game_ids
+                .iter()
+                .any(|gid| &gid.1 == other || gid.2.as_ref() == Some(other))
+        })
+    }
+
     pub fn get_game_ids(&self) -> Vec<GameId> {
         access_v9_v10!(self, account, {
             account.game_ids.into_iter().cloned().collect()
