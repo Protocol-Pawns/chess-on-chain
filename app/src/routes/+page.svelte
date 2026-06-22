@@ -33,6 +33,7 @@
   import PwaInstallCard from '$lib/components/PwaInstallCard.svelte';
   import ConfirmModal from '$lib/components/ConfirmModal.svelte';
   import MatchmakingPanel from '$lib/components/MatchmakingPanel.svelte';
+  import { searching as mmSearching } from '$lib/near/matchmaking';
   import { formatWager, formatWagerText } from '$lib/wager';
   import { fmtTGas, AI_MOVE_GAS_BUDGET } from '$lib/format';
 
@@ -518,10 +519,14 @@
         <button
           class="btn-primary text-sm"
           onclick={() => (showMatchmaking = true)}
-          disabled={myGames.length >= MAX_OPEN_GAMES}
-          title={myGames.length >= MAX_OPEN_GAMES ? 'Max games reached' : ''}
+          disabled={myGames.length >= MAX_OPEN_GAMES || $mmSearching}
+          title={myGames.length >= MAX_OPEN_GAMES
+            ? 'Max games reached'
+            : $mmSearching
+              ? 'Already searching'
+              : ''}
         >
-          Find Match
+          {$mmSearching ? 'Searching...' : 'Find Match'}
         </button>
       </div>
     </div>

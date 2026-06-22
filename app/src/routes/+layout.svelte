@@ -8,6 +8,8 @@
   import BravePushModal from '$lib/components/BravePushModal.svelte';
   import UpdateBanner from '$lib/components/UpdateBanner.svelte';
   import TokenClaimBanner from '$lib/components/TokenClaimBanner.svelte';
+  import MatchmakingBanner from '$lib/components/MatchmakingBanner.svelte';
+  import '$lib/near/matchmaking';
   import dayjs from 'dayjs';
   import localizedFormat from 'dayjs/plugin/localizedFormat';
   import { registerServiceWorker, initPwaInstallPrompt } from '$lib/pwa';
@@ -143,8 +145,9 @@
 
   <div class="flex-1 overflow-y-auto flex flex-col">
     <div class="flex justify-center px-3 pt-3">
-      <div class="w-full" style="max-width: min(100%, 30rem);">
+      <div class="w-full space-y-2" style="max-width: min(100%, 30rem);">
         <TokenClaimBanner />
+        <MatchmakingBanner />
       </div>
     </div>
     <main class="flex-1 flex justify-center px-3 py-5">

@@ -6,6 +6,7 @@ export interface Toast {
   message: string;
   detail?: string;
   link?: string;
+  linkText?: string;
 }
 
 let nextId = 0;
@@ -16,10 +17,14 @@ export function showToast(
   type: Toast['type'],
   message: string,
   detail?: string,
-  link?: string
+  link?: string,
+  linkText?: string
 ) {
   const id = nextId++;
-  toasts.update(list => [...list, { id, type, message, detail, link }]);
+  toasts.update(list => [
+    ...list,
+    { id, type, message, detail, link, linkText }
+  ]);
   setTimeout(() => {
     toasts.update(list => list.filter(t => t.id !== id));
   }, 8000);

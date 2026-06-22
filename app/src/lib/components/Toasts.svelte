@@ -21,11 +21,11 @@
         {#if toast.link}
           <a
             href={toast.link}
-            target="_blank"
-            rel="noopener"
+            target={toast.link.startsWith('/') ? undefined : '_blank'}
+            rel={toast.link.startsWith('/') ? undefined : 'noopener'}
             class="text-xs underline opacity-75 hover:opacity-100"
           >
-            View on Explorer
+            {toast.linkText ?? 'View on Explorer'}
           </a>
         {/if}
       </div>
