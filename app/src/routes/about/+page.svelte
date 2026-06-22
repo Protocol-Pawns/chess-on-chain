@@ -153,8 +153,9 @@
           </li>
         </ul>
         <p class="text-xs text-white/40 mt-2">
-          Human-vs-human moves are free for the responding player — only the AI
-          is billed for its replies.
+          Human-vs-human moves cost only the standard transaction gas (you pay
+          just for your own move). In AI games, your single transaction also
+          computes the AI's reply, so higher difficulty = more gas.
         </p>
       </div>
       <div class="card">

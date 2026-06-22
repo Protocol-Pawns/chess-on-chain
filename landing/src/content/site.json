@@ -137,7 +137,7 @@
       },
       {
         "question": "Does it cost gas to play?",
-        "answer": "Human-vs-human moves are free for the responding player. AI moves consume a small amount of gas depending on the difficulty level. Registration requires a one-time 0.05 N storage deposit."
+        "answer": "Every move is a signed on-chain transaction and costs gas. Human-vs-human moves are cheap since you only pay for your own move; in AI games your transaction also runs the AI's reply, so gas scales with difficulty. Registration requires a one-time 0.05 N storage deposit."
       },
       {
         "question": "Where is the smart contract?",
